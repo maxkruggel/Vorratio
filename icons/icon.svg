@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#2f6b4f"/>
+  <!-- Vorratsglas, neutral gehalten -->
+  <rect x="166" y="150" width="180" height="230" rx="36" fill="#f7f6f2"/>
+  <rect x="186" y="118" width="140" height="44" rx="16" fill="#e3efe8"/>
+  <rect x="166" y="268" width="180" height="112" rx="36" fill="#8fbCa6"/>
+  <rect x="166" y="268" width="180" height="20" fill="#8fbca6"/>
+</svg>

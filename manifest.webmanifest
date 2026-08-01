@@ -1,0 +1,16 @@
+{
+  "name": "Vorratio",
+  "short_name": "Vorratio",
+  "description": "Vorrats- und Rezept-App: kennt deinen Bestand, schlägt Rezepte vor, führt durchs Kochen und bucht den Verbrauch automatisch ab.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f6f2",
+  "theme_color": "#f7f6f2",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
