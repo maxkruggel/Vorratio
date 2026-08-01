@@ -11,6 +11,7 @@ const DEFAULT_STATE = {
     ernaehrungsform: null,   // Achse 1 (genau eine)
     ausschluesse: [],        // Achse 2 (Allergien/Intoleranzen + halal/koscher)
     stile: [],               // Achse 3 (optional)
+    ziele: [],               // Achse 4 (optional, wissenschaftlich rückgekoppelt)
     onboarded: false,
   },
   bestand: [],               // [{ id, zutat_id, name, kategorie, art, einheit, menge, fuellstand, updated }]
@@ -21,6 +22,14 @@ const DEFAULT_STATE = {
     rezept: [],              // rezeptbezogene Liste [{ zutat_id, name, menge, einheit, erledigt }]
     woche: [],               // Wocheneinkauf [{ zutat_id, name, erledigt, auto }]
     rezeptId: null,
+  },
+  angebote: {                // Angebots-Crawl (Kap. 4.7/7.4)
+    plz: "",                 // Standort für den Crawl
+    apikey: "",              // Marktguru-Keys (aus der Web-App, s. docs/angebots-crawl.md)
+    clientkey: "",
+    proxy: "",               // optionaler CORS-Proxy-Präfix
+    demo: false,             // true = Demo-Daten erzwingen (ohne Keys ohnehin Demo)
+    letzter: null,           // letztes Crawl-Ergebnis (gilt eine Kalenderwoche)
   },
   aiRezepte: [],             // AI-generierte Rezepte (kruggel-recipe-db/v1-kompatibel)
   settings: { erstellt: null, apiKey: null },
@@ -34,6 +43,7 @@ function load() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       state = { ...structuredClone(DEFAULT_STATE), ...JSON.parse(raw) };
+      state.profil.ziele ||= [];   // Migration: Sicherungen vor Achse 4
     }
   } catch (e) {
     console.warn("Vorratio: Ladefehler, starte frisch.", e);
@@ -82,6 +92,7 @@ function importJson(file) {
           throw new Error("Keine gültige Vorratio-Sicherung.");
         }
         state = { ...structuredClone(DEFAULT_STATE), ...data };
+        state.profil.ziele ||= [];   // Migration: Sicherungen vor Achse 4
         save();
         resolve(state);
       } catch (e) { reject(e); }

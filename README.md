@@ -55,10 +55,17 @@ Neu gegenüber v1:
 
 Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
 
-- **Onboarding** mit Ernährungsprofil auf drei unabhängigen Achsen (Kap. 6.1):
+- **Onboarding** mit Ernährungsprofil auf vier unabhängigen Achsen (Kap. 6.1):
   Ernährungsform (8 Presets, DGE-basiert) · Ausschlüsse (EU-14-Allergene, halal/koscher) ·
-  Stil-Präferenzen (mediterran, High-Protein, Low-Carb; Keto/Paleo mit Evidenz-Hinweis) –
-  plus Toleranz-Hinweis.
+  Stil-Präferenzen (mediterran, High-Protein, Low-Carb; Keto/Paleo mit Evidenz-Hinweis) ·
+  **Ziele** (mehr Energie, Abnehmen, fitter werden/Muskelaufbau, flacherer Bauch, mehr
+  Konzentration, gesunde Verdauung) – nur Ziele, die wissenschaftlich belegt über
+  Ernährung beeinflussbar sind (DGE, EFSA, ISSN 2017, DIETFITS 2018, PREDIMED/MIND);
+  jede Auswahl zeigt ehrlich die Evidenzlage inkl. dem, was NICHT belegt ist
+  („Spot Reduction“). Rückkopplung: Ziele fließen als weiche Präferenz in den
+  Vorschlags-Score, in den Systemprompt der AI-Rezeptgenerierung und als
+  „🎯 Zahlt auf deine Ziele ein“-Hinweis im Rezept-Detail – nichts wird verboten.
+  Plus Toleranz-Hinweis.
 - **Bestand** (Kap. 5): Kategorien Trockenware/Frischware/Konserven/Gewürze/Kühl/TK,
   Stepper für Zählbares, Silhouetten-Slider („Wie voll ist die Packung?“) für Schüttgut,
   vorrätig/leer für Pauschales. Anzeige immer als Näherung („~500 g“), nie Scheinpräzision.
@@ -77,6 +84,10 @@ Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
   Toleranzband; Kleinmengen (EL/TL/Prise) laufen unter Toleranz.
 - **Wocheneinkauf** (Kap. 4.7): leere/fast leere Vorräte (≤ 1/5 Packung) landen automatisch
   auf der Liste.
+- **Angebots-Crawl** (Kap. 4.7/7.4): einmal wöchentlich Liste × Standort-Angebote →
+  Markt-Empfehlung mit Abdeckung und Konditionen, bewusst kein Markt-Hopping (max.
+  1 Empfehlung + 2 Alternativen). Quelle Marktguru (PLZ + Keys in den Einstellungen),
+  ohne Keys Demo-Modus; Details in [docs/angebots-crawl.md](docs/angebots-crawl.md).
 - **Wissen**: 18 Grundtechniken, 15 Produktzubereitungen, 9 Grundrezepte, Tipps & Ideen aus
   der Kern-Rezept-DB (Schema `kruggel-recipe-db/v1`, 25 Vollrezepte strukturiert).
 - **Persistenz** (Kap. 6.4): Auto-Save je Aktion (localStorage), JSON-Export/-Import als
@@ -91,21 +102,23 @@ sw.js                 Service Worker (Offline-Shell)
 css/style.css         Neutrales Design (Branding wird später übergelegt)
 js/app.js             Views & Steuerung
 js/engine.js          Rezept-Engine: Profilfilter, Bestandsabgleich, Abbuchung
+js/angebote.js        Angebots-Crawl: Marktguru-Client, Suchprofile, Matching, Markt-Ranking
 js/ai.js              Claude API: Rezeptgenerierung + Bon-Scan (strukturierte Ausgaben)
 js/scan.js            Barcode: Open-Food-Facts-Lookup, Zutat-Matching, Kamera-Scan
 js/storage.js         Auto-Save, JSON-Export/-Import
 js/data/kerndb.js     Kern-DB nach kruggel-recipe-db/v1 (Rezepte, Preps, Techniken …)
 js/data/profil.js     Ernährungsprofil-Achsen + DGE/BfR-Hinweise
-docs/                 Projektdoku + die fünf Recherchen (Daten, Snacks, Picnic-Recht)
+js/data/angebote-demo.js  Demo-Angebote für den Crawl (offline testbar)
+docs/                 Projektdoku, fünf Recherchen (Daten, Snacks, Picnic-Recht) + Angebots-Crawl-Doku
 ```
 
 ## Nächste Ausbaustufen (siehe Doku Kap. 9)
 
 Lokale OFF/BLS-Produkt-DB (statt Live-Lookup) · Picnic-Anbindung (Rechtsrecherche liegt
 vor: [docs/recherche-5-picnic-recht.md](docs/recherche-5-picnic-recht.md)) ·
-Angebots-Crawl · Web-Push für feste Vorschlagszeiten (braucht Push-Server; bis dahin gilt
-der Fallback: Vorschläge liegen beim Öffnen bereit) · Diktat/Chatbot- und
-Schrankfoto-Erfassung · Icon-Palette & finales Branding.
+Web-Push für feste Vorschlagszeiten (braucht Push-Server; bis dahin gilt der Fallback:
+Vorschläge liegen beim Öffnen bereit – schaltet auch den automatischen Freitags-Crawl
+frei) · Diktat/Chatbot- und Schrankfoto-Erfassung · Icon-Palette & finales Branding.
 
 ---
 

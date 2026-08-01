@@ -144,7 +144,22 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 - **Strukturierte lokale Speicherung**, sodass alle eingegebenen und sich aktualisierenden Informationen dauerhaft aktuell und erhalten bleiben (Bestand, Profil, Rezepthistorie, Listen).
 - **JSON-Export und JSON-Import**: vollständiger Datenbestand als Datei sicherbar und wieder einspielbar – zugleich Backup gegen iOS-Storage-Eviction und späterer Migrationspfad Richtung Server-Variante.
 
-*Die Datenarchitektur ist mit 6.1–6.3 vollständig; sollten weitere Datenquellen dazukommen, werden sie hier ergänzt.*
+### 6.5 DB Substitutionen (Recherche Substitutionen, 08/2026 – umgesetzt)
+
+**Pflanzliche Alternativen zu tierischen Zutaten** als eigene In-App-Datenbank (`js/data/substitutionen.js`, Schema `vorratio-substitutions-db/v1`, 47 Datensätze in 6 Kategorien: Milchprodukte · Käse · Ei · Fleisch & Wurst · Fisch & Meer · Sonstiges).
+
+**Kernentscheidungen (quellenbelegt):**
+- **Ei ist funktionsbasiert modelliert** (5 Datensätze: Binden · Lockern/Backen · Hauptzutat Rührei/Omelett · Aufschlagen/Eischnee · Ei-Geschmack) – es gibt keinen 1:1-Allrounder. Alle anderen Zutaten zutatenbasiert.
+- **`prioritaet: 1` = neutralste/verlässlichste Alternative**, bei Milchprodukten meist Sojabasis (einzige proteinstarke Wahl, ~3,5 g Protein/100 ml – Kuhmilch ebenbürtig; Hafer/Kokos liefern kaum Protein).
+- **Anwendungsfall-Filter** über `geeignet_fuer` (backen/kochen/kalt/aufschlagen/binden/überbacken/…): Aufschlagbarkeit ist der kritische Sonderfall (nur Spezial-Schlagcremes werden fest, Koch-/Hafersahne nicht); Schmelzen zum Überbacken gelingt nur mit Kaufprodukten, DIY-Cashew-Parmesan streut nur.
+- **Kopplung an die Kern-DB** über `zutat_ids` (FK auf normalisierte Zutatenliste) → im Rezept-Detail werden für fehlende Zutaten Ersatz-Ideen angezeigt.
+- **Allergie-Filterung hart** über die Basis (Soja → soja/tofu/tempeh, Nüsse → cashew/mandel, Gluten → weizen_seitan, Lupinen → lupine), konsistent mit den Profil-Ausschlüssen (6.1).
+- **Handelsprodukte**: Eigenmarken (Vemondo, K-take it veggie, Vehappy, MyVay/GutBio …) werden zuerst gelistet (Preis/Verfügbarkeit), Markenprodukte als Fallback; Ladenzuordnung über `laeden`.
+- **B12-Dauerhinweis** beim veganen Profil im Ersatz-Tab (DGE-Position 2024: nur per Präparat lösbar) – Anzeige, keine Rezeptregel.
+
+**Bekannte Vorbehalte:** Sortimente/Produktnamen ändern sich schnell (Stand 08/2026, quartalsweise gegen Open Food Facts abgleichen); Worcestersauce-Veganität variiert je Marke/Charge („Zutatenliste/V-Label prüfen" ist fester Hinweis); Namensfallen beachten („Alnatura Hühner Brühe" enthält echtes Hühnerpulver; EU-Milchbezeichnungsschutz → „Drink"/„Reibegenuss" statt Milch/Käse); manche Kokosmilchpulver enthalten Natriumkaseinat (nicht vegan).
+
+*Die Datenarchitektur ist mit 6.1–6.3 und 6.5 vollständig; sollten weitere Datenquellen dazukommen, werden sie hier ergänzt.*
 
 ## 7. Technik-Notizen
 
@@ -166,8 +181,9 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 - Picnic-Quittungen kommen strukturiert über die API und brauchen keinen Scan.
 
 ### 7.4 Angebots-Crawl (Kapitel 4.7)
-- Kandidaten-Quellen: **Marktguru** (inoffizielle, zugängliche API; PLZ-basiert, viele Ketten) als pragmatischer Einstieg; REWE-Daten reichhaltiger, aber seit 2024 durch mTLS erschwert (nicht umgehen); Bonial/kaufDA ohne offene API.
-- Logik: Wocheneinkaufsliste × Standort-Angebote → Markt-Empfehlung mit Abdeckung und Konditionen. **To-do: Quelle final festlegen und Matching (Textabgleich) prototypen.**
+- **Quelle festgelegt: Marktguru** (inoffizielle, zugängliche API; PLZ-basiert, viele Ketten). REWE verworfen (seit 2024 mTLS – wird nicht umgangen); Bonial/kaufDA ohne offene API. Die öffentlichen Web-App-Keys werden nicht eingebrannt, sondern einmalig aus marktguru.de kopiert und in der App hinterlegt; ohne Keys läuft ein Demo-Modus mit Beispieldatensatz (gleicher Codepfad).
+- Logik: Wocheneinkaufsliste × Standort-Angebote → Markt-Empfehlung mit Abdeckung und Konditionen. **Prototypisch umgesetzt** (`js/angebote.js`, UI im Einkauf-Tab): Suchprofile + Textabgleich je Zutat, Ranking Abdeckung → Ø-Rabatt → Angebotszahl, 1 Empfehlung + max. 2 Alternativen (kein Markt-Hopping), Ergebnis gilt eine Kalenderwoche. Details, Grenzen und Key-Beschaffung: `docs/angebots-crawl.md`.
+- Automatischer Freitags-Lauf hängt an Web Push/Background Sync (offener Punkt 6); bis dahin manueller Ein-Tap-Start.
 
 ## 8. Design & UI
 
@@ -186,7 +202,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 | 2 | Auto-Save + JSON-Export/-Import implementieren (Kap. 6.4) | mit dem Aufbau |
 | 3 | Bon-Scan-Prototyp – Testdaten: allgemeine Grundzutaten (kein echtes Bon-Material nötig) | mit dem Aufbau |
 | 4 | Picnic: Rechtsrecherche liegt vor (Freigabe privat, Kap. 7.2) → Funktionsvalidierung mit vorhandenem Zugang | To-do |
-| 5 | Angebots-Crawl: Quelle + Matching prototypen | To-do |
+| 5 | Angebots-Crawl: Quelle + Matching prototypen (7.4, `docs/angebots-crawl.md`) | erledigt |
 | 6 | Web-Push für feste Vorschlagszeiten einrichten (Muster aus Flora AI übernehmen; braucht Push-Server) | To-do – Fallback aktiv: Vorschläge liegen beim Öffnen bereit |
 | 7 | Icon-Palette erstellen | To-do |
 | 8 | Kern-Rezept-DB von 60 auf 300–500 Datensätze ausbauen | geplant |
@@ -201,3 +217,4 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 4. **Recherche 3: Produktdatenbank** (Open Food Facts, BLS 4.0, Barcode/Foto-Identifikation, Recht) – Basis für Kapitel 6.3.
 5. **Recherche 4: Snacks, Süßes & Frozen** (Rezept-/Sicherheitsbasis der Snack-Ecke) – Basis für Kapitel 4.9, beigelegt als [recherche-4-snacks.md](recherche-4-snacks.md).
 6. **Recherche 5: Rechtslage inoffizielle Picnic-API** (AGB, DE/EU-Recht, Ökosystem, Durchsetzungsfälle; Stand 01.08.2026) – Basis für Kapitel 7.2, beigelegt als [recherche-5-picnic-recht.md](recherche-5-picnic-recht.md).
+7. **Recherche Substitutionen: Pflanzliche Alternativen zu tierischen Zutaten** (DGE 2024, Stiftung Warentest 3/2025, ProVeg, Hersteller-/Händlerangaben, Stand 08/2026) – Basis für Kapitel 6.5, umgesetzt in `js/data/substitutionen.js`.

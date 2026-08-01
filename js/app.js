@@ -5,13 +5,16 @@
 
 import { load, save, getState, exportJson, importJson, resetAll } from "./storage.js";
 import { ZUTATEN, REZEPTE, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN } from "./data/kerndb.js";
-import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, hinweiseFuerForm, FORM_HINWEISE } from "./data/profil.js";
+import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, ZIELE, hinweiseFuerForm, FORM_HINWEISE } from "./data/profil.js";
 import {
   ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, vorschlaege, snackVorschlaege,
-  tagesSeed, bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
+  zielTreffer, tagesSeed, bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
 } from "./engine.js";
+import { angebotsCrawl, isoWoche, liveKonfiguriert } from "./angebote.js";
 import { generiereRezepte, scanBon } from "./ai.js";
 import { lookupBarcode, vorschlagZutat, kameraVerfuegbar, starteKameraScan } from "./scan.js";
+import { SUB_KATEGORIEN, SUB_ANWENDUNGEN } from "./data/substitutionen.js";
+import { subsFiltern, ersatzVorschlaege, produkteSortiert } from "./substitution.js";
 
 /* Kern-DB + AI-generierte Rezepte als gemeinsamer Pool. */
 const alleRezepte = () => [...REZEPTE, ...(getState().aiRezepte || [])];
@@ -62,10 +65,10 @@ tabbar.addEventListener("click", (e) => {
 });
 
 /* ------------------------------------------------------------ Onboarding */
-let ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [] };
+let ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [], ziele: [] };
 
 function renderOnboarding() {
-  const steps = [obWelcome, obName, obForm, obAusschluesse, obStile, obToleranz];
+  const steps = [obWelcome, obName, obForm, obAusschluesse, obStile, obZiele, obToleranz];
   app.replaceChildren(h(`<div class="fade-in">${steps[ob.step]()}</div>`));
   bindOnboarding();
 }
@@ -124,6 +127,24 @@ function obStile() {
     <button class="btn" data-ob="next">Weiter</button>`;
 }
 
+/* Achse 4: Ziele – nur wissenschaftlich belegte, über Ernährung beeinflussbare
+   Ziele; jede Auswahl zeigt sofort ehrlich die Evidenzlage (inkl. dem, was
+   NICHT belegt ist). Rückkopplung: Vorschlags-Score + AI-Rezeptgenerierung. */
+function obZiele() {
+  return `
+    <div class="screen-header"><h1>Deine Ziele</h1><p class="subtle">Optional, Mehrfachauswahl – passende Rezepte werden bevorzugt, nichts wird verboten. Nur Ziele, die nachweislich über Ernährung beeinflussbar sind.</p></div>
+    <div class="choice-list">
+      ${ZIELE.map((z) => `
+        <button class="choice ${ob.ziele.includes(z.id) ? "selected" : ""}" data-ziel="${z.id}">
+          <b>${esc(z.name)} ${z.evidenz === "hoch" ? '<span class="badge">Evidenz: hoch</span>' : '<span class="badge neutral">Evidenz: begrenzt</span>'}</b>
+          <span class="subtle">${esc(z.kurz)}</span>
+        </button>`).join("")}
+    </div>
+    ${ob.ziele.map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean).map((z) => `
+      <div class="card hint-card" style="margin-top:12px"><b>${esc(z.name)} – was die Wissenschaft sagt</b>${esc(z.hinweis)}</div>`).join("")}
+    <button class="btn" data-ob="next">${ob.ziele.length ? "Weiter" : "Ohne Ziele weiter"}</button>`;
+}
+
 function obToleranz() {
   return `
     <div class="screen-header"><h1>Eine Sache noch</h1></div>
@@ -138,6 +159,7 @@ function bindOnboarding() {
   app.querySelectorAll("[data-form]").forEach((b) => b.addEventListener("click", () => { ob.form = b.dataset.form; renderOnboarding(); }));
   app.querySelectorAll("[data-aus]").forEach((b) => b.addEventListener("click", () => { toggle(ob.ausschluesse, b.dataset.aus); renderOnboarding(); }));
   app.querySelectorAll("[data-stil]").forEach((b) => b.addEventListener("click", () => { toggle(ob.stile, b.dataset.stil); renderOnboarding(); }));
+  app.querySelectorAll("[data-ziel]").forEach((b) => b.addEventListener("click", () => { toggle(ob.ziele, b.dataset.ziel); renderOnboarding(); }));
   app.querySelector('[data-ob="next"]')?.addEventListener("click", () => { ob.step++; renderOnboarding(); });
   app.querySelector('[data-ob="name"]')?.addEventListener("click", () => {
     ob.name = app.querySelector("#ob-name").value.trim();
@@ -146,7 +168,7 @@ function bindOnboarding() {
   });
   app.querySelector('[data-ob="fertig"]')?.addEventListener("click", () => {
     const s = getState();
-    s.profil = { name: ob.name, ernaehrungsform: ob.form, ausschluesse: ob.ausschluesse, stile: ob.stile, onboarded: true };
+    s.profil = { name: ob.name, ernaehrungsform: ob.form, ausschluesse: ob.ausschluesse, stile: ob.stile, ziele: ob.ziele, onboarded: true };
     save();
     view = "vorrat";
     render();
@@ -317,6 +339,8 @@ function renderRezeptDetail(rezept) {
   const s = getState();
   const ab = bestandsAbgleich(rezept, s.bestand);
   const tip = TIPPS[Math.abs(hashCode(rezept.id)) % TIPPS.length];
+  // Sichtbare Rückkopplung Achse 4: auf welche gewählten Ziele zahlt das Rezept ein?
+  const zielePassend = zielTreffer(rezept, s.profil.ziele || []).filter((t) => t.fit > 0).map((t) => t.ziel.name);
 
   app.replaceChildren(h(`
     <div class="fade-in">
@@ -336,8 +360,11 @@ function renderRezeptDetail(rezept) {
           </div>`;
         }).join("")}
       </div>
+      ${zielePassend.length ? `
+        <div class="card hint-card"><b>🎯 Zahlt auf deine Ziele ein</b>${esc(zielePassend.join(" · "))}</div>` : ""}
       ${rezept.naehrwert_einordnung?.makro_hinweis ? `
         <div class="card hint-card"><b>Gut zu wissen</b>${esc(rezept.naehrwert_einordnung.makro_hinweis)}</div>` : ""}
+      ${ersatzIdeenHtml(ab.fehlt, s.profil)}
       ${ab.fehlt.length > 0 ? `
         <button class="btn" id="einkauf-starten">Einkaufsliste erstellen (${ab.fehlt.length} fehlt)</button>
         <button class="btn secondary" id="kochen-trotzdem">Trotzdem kochen</button>`
@@ -362,6 +389,34 @@ function renderRezeptDetail(rezept) {
 function zutatText(z) {
   const menge = z.menge != null ? `${z.menge} ${z.einheit === "Stk" ? "" : z.einheit + " "}`.trim() + " " : "";
   return `${menge}${z.zutat_name}`;
+}
+
+/* Ersatz-Ideen für fehlende Zutaten (Substitutions-DB): statt einkaufen ggf.
+   pflanzlich ersetzen – Profil-Ausschlüsse sind bereits herausgefiltert.
+   Ei ist funktionsbasiert (binden/lockern/aufschlagen …), daher mehrere Zeilen. */
+function ersatzIdeenHtml(fehlt, profil) {
+  const zeilen = [];
+  for (const z of fehlt) {
+    const vs = ersatzVorschlaege(z.zutat_id, profil);
+    for (const e of vs) {
+      // Mehrere Datensätze je Zutat (Ei-Funktionen, Schlag- vs. Kochsahne) unterscheidbar halten
+      const label = e.funktion || (vs.length > 1 ? e.original : null);
+      zeilen.push(`
+        <div class="list-item">
+          <div class="grow small">
+            <b>${esc(z.zutat_name)}</b>${label ? ` <span class="subtle">(${esc(label)})</span>` : ""}
+            → ${esc(e.name)} <span class="subtle">· ${esc(e.verhaeltnis)}</span>
+          </div>
+        </div>`);
+    }
+  }
+  if (!zeilen.length) return "";
+  return `
+    <div class="card">
+      <h2>Fehlt? Lässt sich ersetzen</h2>
+      <p class="subtle small" style="margin:6px 0 4px">Pflanzliche Alternativen aus der Substitutions-DB – Details im Wissen-Tab unter „Ersatz“.</p>
+      ${zeilen.join("")}
+    </div>`;
 }
 
 function hashCode(str) {
@@ -817,8 +872,10 @@ function renderEinkauf() {
         </div>
         <button class="btn secondary" id="woche-fertig">Erledigtes in den Bestand buchen</button>` : `
         <div class="empty-state"><p class="small">Gerade nichts auf der Liste – dein Vorrat sieht gut aus.</p></div>`}
-      <p class="subtle small" style="margin-top:14px;text-align:center">Der wöchentliche Angebots-Crawl (bester Markt für deine Liste) ist als Ausbaustufe geplant.</p>
+      ${angebotsSektion(s)}
     </div>`));
+
+  bindAngebote(s);
 
   app.querySelectorAll("[data-r-check]").forEach((b) => b.addEventListener("click", () => {
     s.einkauf.rezept[b.dataset.rCheck].erledigt = !s.einkauf.rezept[b.dataset.rCheck].erledigt;
@@ -963,12 +1020,228 @@ function buchZugang(s, zutatId, menge = null, einheit = null) {
   item.updated = new Date().toISOString();
 }
 
+/* ------------------------------------------------------- Angebots-Crawl
+   Kap. 4.7/7.4: einmal wöchentlich Wocheneinkaufsliste × Standort-Angebote →
+   Markt-Empfehlung mit Abdeckung und Konditionen. Ergebnis gilt eine
+   Kalenderwoche; bewusst kein Markt-Hopping (1 Empfehlung + max. 2 Alternativen). */
+let crawlLaeuft = null;        // { done, total } während eines Laufs
+let crawlFehler = null;
+let crawlSetupOffen = false;
+
+/* Alle offenen Einkaufspunkte (Wochenliste + rezeptbezogene Liste), dedupliziert. */
+function crawlListe(s) {
+  const punkte = [...s.einkauf.woche, ...s.einkauf.rezept].filter((e) => !e.erledigt && e.zutat_id);
+  const gesehen = new Set();
+  return punkte.filter((e) => !gesehen.has(e.zutat_id) && gesehen.add(e.zutat_id))
+    .map((e) => ({ zutat_id: e.zutat_id, name: e.name }));
+}
+
+const preisFmt = (n) => n == null ? "–" : `${n.toFixed(2).replace(".", ",")} €`;
+
+function angebotsSektion(s) {
+  const a = s.angebote;
+  const liste = crawlListe(s);
+  const live = liveKonfiguriert(a) && !a.demo;
+  const erg = a.letzter;
+  const aktuell = erg && erg.kw === isoWoche();
+
+  let inhalt;
+  if (crawlLaeuft) {
+    inhalt = `
+      <div class="card" style="text-align:center">
+        <p><b>Crawl läuft …</b></p>
+        <p class="subtle small" id="crawl-progress">${crawlLaeuft.done}/${crawlLaeuft.total}</p>
+      </div>`;
+  } else if (erg) {
+    inhalt = `
+      ${aktuell ? "" : `<div class="card hint-card"><b>Ergebnis aus KW ${esc(erg.kw.slice(-2))}</b>Die Angebote sind wahrscheinlich abgelaufen – einmal neu checken.</div>`}
+      ${angebotsErgebnisHtml(erg)}
+      <button class="btn secondary" id="crawl-start" ${liste.length ? "" : "disabled"}>Angebote neu checken</button>`;
+  } else {
+    inhalt = `
+      <button class="btn" id="crawl-start" ${liste.length ? "" : "disabled"}>Besten Markt für ${liste.length || "deine"} Punkte finden</button>
+      ${liste.length ? "" : '<p class="subtle small" style="text-align:center;margin-top:6px">Sobald etwas auf der Liste steht, kann der Crawl loslegen.</p>'}`;
+  }
+
+  return `
+    <hr class="divider">
+    <div class="card-row" style="align-items:center">
+      <h2 style="margin-bottom:0">Angebots-Crawl</h2>
+      <button class="btn ghost small-btn" id="crawl-setup">${crawlSetupOffen ? "Schließen" : "Einstellungen"}</button>
+    </div>
+    <p class="subtle small" style="margin:2px 0 10px">Einmal wöchentlich, z. B. freitags: Welcher Markt deckt deine Liste am besten ab? Quelle: ${live ? `Marktguru (PLZ ${esc(a.plz)})` : "Demo-Daten"}</p>
+    ${crawlSetupOffen ? angebotsSetupHtml(a) : ""}
+    ${crawlFehler ? `<div class="card" style="border-color:var(--warn)"><p class="small" style="color:var(--warn)"><b>Crawl fehlgeschlagen:</b> ${esc(crawlFehler)}</p><p class="subtle small" style="margin-top:6px">Typische Ursachen: Keys abgelaufen, CORS blockiert (dann Proxy eintragen) oder offline. Der Demo-Modus geht immer.</p></div>` : ""}
+    ${inhalt}`;
+}
+
+function angebotsSetupHtml(a) {
+  return `
+    <div class="card">
+      <label class="field">Postleitzahl (Standort für die Angebote)
+        <input type="text" id="crawl-plz" inputmode="numeric" maxlength="5" placeholder="z. B. 20095" value="${esc(a.plz)}"></label>
+      <label class="field">Marktguru x-apikey
+        <input type="text" id="crawl-apikey" autocomplete="off" placeholder="aus marktguru.de kopieren" value="${esc(a.apikey)}"></label>
+      <label class="field">Marktguru x-clientkey
+        <input type="text" id="crawl-clientkey" autocomplete="off" value="${esc(a.clientkey)}"></label>
+      <label class="field">CORS-Proxy (optional, Präfix vor der API-URL)
+        <input type="text" id="crawl-proxy" autocomplete="off" placeholder="leer = direkt" value="${esc(a.proxy)}"></label>
+      <button class="chip ${a.demo ? "selected" : ""}" id="crawl-demo">Demo-Modus erzwingen</button>
+      <p class="subtle small" style="margin-top:10px">Keys holen: marktguru.de im Desktop-Browser öffnen → Entwicklertools → Netzwerk → eine Anfrage an api.marktguru.de anklicken → Request-Header <code>x-apikey</code> und <code>x-clientkey</code> kopieren. Ohne Keys läuft der Crawl mit Demo-Daten. Details: docs/angebots-crawl.md.</p>
+      <button class="btn small-btn" id="crawl-speichern" style="margin-top:8px">Speichern</button>
+    </div>`;
+}
+
+function angebotsErgebnisHtml(erg) {
+  const datum = new Date(erg.datum).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" });
+  const quelle = erg.quelle === "demo" ? "Demo-Daten" : `Marktguru, PLZ ${esc(erg.plz)}`;
+  const fuss = `<p class="subtle small" style="text-align:center;margin-top:4px">Stand ${datum} (KW ${esc(erg.kw.slice(-2))}) · Quelle: ${quelle}</p>`;
+
+  if (!erg.maerkte.length) {
+    return `<div class="card"><p class="small">Für deine Liste gibt es diese Woche keine passenden Angebote.</p></div>${fuss}`;
+  }
+
+  const [best, ...alternativen] = erg.empfehlung;
+  const bestHtml = `
+    <div class="card">
+      <div class="card-row">
+        <h3>Dein Markt der Woche: ${esc(best.name)}</h3>
+        <span class="badge">deckt ${best.deckung} von ${erg.listeGroesse}</span>
+      </div>
+      <p class="subtle small">${best.angebote} passende Angebote${best.ersparnisPct != null ? ` · Ø −${best.ersparnisPct} %` : ""}</p>
+      ${best.positionen.map((p) => `
+        <div class="list-item">
+          <div class="grow">
+            <span class="name">${esc(p.name)}</span>
+            <span class="subtle small" style="display:block">${esc(p.angebot.produkt)}${p.angebot.marke ? ` · ${esc(p.angebot.marke)}` : ""}${p.angebot.mengeText ? ` · ${esc(p.angebot.mengeText)}` : ""}</span>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <b>${preisFmt(p.angebot.preis)}</b>
+            ${p.angebot.altpreis != null ? `<span class="subtle small" style="display:block"><s>${preisFmt(p.angebot.altpreis)}</s></span>` : ""}
+          </div>
+        </div>`).join("")}
+    </div>`;
+
+  const altHtml = alternativen.length ? `
+    <div class="card">
+      ${alternativen.map((m) => `
+        <div class="list-item">
+          <div class="grow">
+            <span class="name">${esc(m.name)}</span>
+            <span class="subtle small" style="display:block">deckt ${m.deckung} von ${erg.listeGroesse}${m.ersparnisPct != null ? ` · Ø −${m.ersparnisPct} %` : ""} · ${m.angebote} Angebote</span>
+          </div>
+        </div>`).join("")}
+      <p class="subtle small" style="margin-top:8px">Bewusst kein Markt-Hopping – mehr als zwei, drei Märkte zeigt Vorratio nicht.</p>
+    </div>` : "";
+
+  const ohne = erg.ohneAngebot.length
+    ? `<p class="subtle small" style="margin:2px 0 6px">Ohne Angebot diese Woche: ${erg.ohneAngebot.map(esc).join(", ")}</p>` : "";
+
+  return bestHtml + altHtml + ohne + fuss;
+}
+
+function bindAngebote(s) {
+  app.querySelector("#crawl-setup")?.addEventListener("click", () => { crawlSetupOffen = !crawlSetupOffen; renderEinkauf(); });
+  app.querySelector("#crawl-demo")?.addEventListener("click", (e) => {
+    s.angebote.demo = !s.angebote.demo;
+    save();
+    e.target.classList.toggle("selected", s.angebote.demo);
+  });
+  app.querySelector("#crawl-speichern")?.addEventListener("click", () => {
+    s.angebote.plz = (app.querySelector("#crawl-plz").value.match(/\d{5}/) || [""])[0];
+    s.angebote.apikey = app.querySelector("#crawl-apikey").value.trim();
+    s.angebote.clientkey = app.querySelector("#crawl-clientkey").value.trim();
+    s.angebote.proxy = app.querySelector("#crawl-proxy").value.trim();
+    save();
+    crawlSetupOffen = false;
+    renderEinkauf();
+  });
+  app.querySelector("#crawl-start")?.addEventListener("click", () => starteCrawl(s));
+}
+
+async function starteCrawl(s) {
+  const liste = crawlListe(s);
+  if (!liste.length || crawlLaeuft) return;
+  crawlLaeuft = { done: 0, total: liste.length };
+  crawlFehler = null;
+  renderEinkauf();
+  try {
+    const ergebnis = await angebotsCrawl(liste, s.angebote, {
+      onProgress: (done, total, name) => {
+        crawlLaeuft = { done, total };
+        const el = document.getElementById("crawl-progress");
+        if (el) el.textContent = `${done}/${total} · ${name}`;
+      },
+    });
+    const s2 = getState();
+    s2.angebote.letzter = ergebnis;
+    if (ergebnis.fehler.length && !ergebnis.maerkte.length) {
+      // Alle Anfragen gescheitert (z. B. CORS/Keys) → Fehler zeigen statt leerem Ergebnis
+      crawlFehler = ergebnis.fehler[0];
+      s2.angebote.letzter = null;
+    }
+    save();
+  } catch (e) {
+    crawlFehler = e?.message || String(e);
+  }
+  crawlLaeuft = null;
+  if (view === "einkauf" && !cook && !detailRezept) renderEinkauf();
+}
+
 /* ------------------------------------------------------------------ Wissen */
 let wissenTab = "tipps";
+let ersatzKat = null;   // Kategorie-Filter im Ersatz-Tab (null = alle)
+let ersatzAnw = null;   // Anwendungsfall-Filter (backen/aufschlagen/… , null = alle)
+
+/* Substitutions-DB als browsebarer Wissens-Tab: Kategorie- und Anwendungs-
+   Filter, Alternativen priorisiert (1 = neutralste Wahl), Handelsbeispiele
+   mit Eigenmarken zuerst. Profil-Ausschlüsse filtern hart (wie überall). */
+function ersatzTabHtml(s) {
+  const eintraege = subsFiltern({ kategorie: ersatzKat, anwendung: ersatzAnw, profil: s.profil });
+  const b12 = s.profil.ernaehrungsform === "vegan" ? `
+    <div class="card hint-card"><b>Dauerhinweis für dein veganes Profil</b>${esc(FORM_HINWEISE.vegan[0])}</div>` : "";
+  const ausgeblendetGesamt = eintraege.reduce((n, e) => n + e.ausgeblendet, 0);
+  return `
+    <p class="subtle small" style="margin-bottom:10px">Pflanzliche Alternativen zu tierischen Zutaten – priorisiert, mit Mengenverhältnis und Handelsbeispielen (Stand 08/2026; Sortimente ändern sich).${ausgeblendetGesamt ? ` ${ausgeblendetGesamt} Alternativen sind wegen deiner Ausschlüsse ausgeblendet.` : ""}</p>
+    ${b12}
+    <div class="chip-wrap" style="margin-bottom:8px">
+      <button class="chip ${!ersatzKat ? "selected" : ""}" data-ekat="">Alle</button>
+      ${Object.entries(SUB_KATEGORIEN).map(([id, name]) => `
+        <button class="chip ${ersatzKat === id ? "selected" : ""}" data-ekat="${id}">${esc(name)}</button>`).join("")}
+    </div>
+    <div class="chip-wrap" style="margin-bottom:16px">
+      <button class="chip ${!ersatzAnw ? "selected" : ""}" data-eanw="">Jede Anwendung</button>
+      ${Object.entries(SUB_ANWENDUNGEN).map(([id, name]) => `
+        <button class="chip ${ersatzAnw === id ? "selected" : ""}" data-eanw="${id}">${esc(name)}</button>`).join("")}
+    </div>
+    ${eintraege.map(({ sub, alternativen }) => `
+      <div class="card">
+        <div class="card-row">
+          <h3>${esc(sub.original_zutat)}</h3>
+          ${sub.funktion_name ? `<span class="badge neutral">${esc(sub.funktion_name)}</span>` : ""}
+        </div>
+        ${alternativen.map((a, i) => {
+          const produkte = produkteSortiert(a).slice(0, 3)
+            .map((p) => `${esc(p.produkt)} (${p.laeden.map(esc).join(", ")})`).join(" · ");
+          return `
+          <div style="margin-top:${i ? 12 : 8}px${i ? ";border-top:1px solid var(--line, #eceae4);padding-top:10px" : ""}">
+            <p><b>${esc(a.alternative_name)}</b> <span class="subtle small">· ${esc(a.verhaeltnis)}</span></p>
+            <p class="small subtle" style="margin-top:4px">${esc(a.hinweise || "")}</p>
+            <div class="chip-wrap" style="margin-top:6px">
+              ${(a.geeignet_fuer || []).map((g) => `<span class="badge neutral">${esc(SUB_ANWENDUNGEN[g] || g)}</span>`).join("")}
+            </div>
+            ${a.naehrwert_hinweis ? `<p class="small" style="margin-top:6px;color:var(--accent)">${esc(a.naehrwert_hinweis)}</p>` : ""}
+            ${produkte ? `<p class="small subtle" style="margin-top:6px">Im Handel: ${produkte}</p>` : ""}
+          </div>`;
+        }).join("")}
+      </div>`).join("") || '<div class="empty-state"><p class="small">Keine Alternative passt zu dieser Filter-Kombination.</p></div>'}
+    <p class="subtle small" style="text-align:center;margin-top:14px">Bei Fertigprodukten (v. a. Worcestersauce, Milchpulver, Brühe) immer Zutatenliste/V-Label prüfen – Rezepturen variieren.</p>`;
+}
 
 function renderWissen() {
-  const tabs = { tipps: "Tipps", preps: "Zubereitung", bases: "Grundrezepte", techniken: "Techniken" };
+  const tabs = { tipps: "Tipps", ersatz: "Ersatz", preps: "Zubereitung", bases: "Grundrezepte", techniken: "Techniken" };
   const inhalt = {
+    ersatz: () => ersatzTabHtml(getState()),
     tipps: () => TIPPS.map((t) => `<div class="card"><p class="small">💡 ${esc(t.text)}</p></div>`).join("")
       + IDEEN.map((i) => `<div class="card"><p class="small">✦ ${esc(i.text)}</p></div>`).join(""),
     preps: () => PREPS.map((p) => `
@@ -996,6 +1269,8 @@ function renderWissen() {
     </div>`));
 
   app.querySelectorAll("[data-wtab]").forEach((b) => b.addEventListener("click", () => { wissenTab = b.dataset.wtab; renderWissen(); }));
+  app.querySelectorAll("[data-ekat]").forEach((b) => b.addEventListener("click", () => { ersatzKat = b.dataset.ekat || null; renderWissen(); }));
+  app.querySelectorAll("[data-eanw]").forEach((b) => b.addEventListener("click", () => { ersatzAnw = b.dataset.eanw || null; renderWissen(); }));
 }
 
 /* ------------------------------------------------------------------ Profil */
@@ -1025,6 +1300,14 @@ function renderProfil() {
       <div class="chip-wrap">
         ${STILE.map((st) => `<button class="chip ${s.profil.stile.includes(st.id) ? "selected" : ""}" data-pstil="${st.id}">${esc(st.name)}</button>`).join("")}
       </div>
+
+      <h2 class="section-gap">Ziele</h2>
+      <p class="subtle small" style="margin-bottom:8px">Passende Rezepte werden bevorzugt (Vorschläge + AI-Generierung), nichts wird verboten.</p>
+      <div class="chip-wrap">
+        ${ZIELE.map((z) => `<button class="chip ${(s.profil.ziele || []).includes(z.id) ? "selected" : ""}" data-pziel="${z.id}">${esc(z.name)}</button>`).join("")}
+      </div>
+      ${(s.profil.ziele || []).map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean).map((z) => `
+        <div class="card hint-card" style="margin-top:12px"><b>${esc(z.name)} – was die Wissenschaft sagt</b>${esc(z.hinweis)}</div>`).join("")}
 
       <h2 class="section-gap">Hinweise zu deiner Ernährungsform</h2>
       ${hinweise.map((t) => `<div class="card hint-card">${esc(t)}</div>`).join("")}
@@ -1065,6 +1348,7 @@ function renderProfil() {
   app.querySelectorAll("[data-pform]").forEach((b) => b.addEventListener("click", () => { s.profil.ernaehrungsform = b.dataset.pform; save(); renderProfil(); }));
   app.querySelectorAll("[data-paus]").forEach((b) => b.addEventListener("click", () => { toggle(s.profil.ausschluesse, b.dataset.paus); save(); renderProfil(); }));
   app.querySelectorAll("[data-pstil]").forEach((b) => b.addEventListener("click", () => { toggle(s.profil.stile, b.dataset.pstil); save(); renderProfil(); }));
+  app.querySelectorAll("[data-pziel]").forEach((b) => b.addEventListener("click", () => { s.profil.ziele ||= []; toggle(s.profil.ziele, b.dataset.pziel); save(); renderProfil(); }));
   app.querySelector("#api-key-save").addEventListener("click", () => {
     s.settings.apiKey = app.querySelector("#api-key").value.trim() || null;
     save();
@@ -1082,7 +1366,7 @@ function renderProfil() {
     catch (err) { alert(`Import fehlgeschlagen: ${err.message}`); }
   });
   app.querySelector("#reset").addEventListener("click", () => {
-    if (confirm("Wirklich ALLE Daten löschen? Ohne Export ist das endgültig.")) { resetAll(); ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [] }; render(); }
+    if (confirm("Wirklich ALLE Daten löschen? Ohne Export ist das endgültig.")) { resetAll(); ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [], ziele: [] }; render(); }
   });
 }
 
