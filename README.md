@@ -109,12 +109,13 @@ js/storage.js         Auto-Save, JSON-Export/-Import
 js/data/kerndb.js     Kern-DB nach kruggel-recipe-db/v1 (Rezepte, Preps, Techniken …)
 js/data/profil.js     Ernährungsprofil-Achsen + DGE/BfR-Hinweise
 js/data/angebote-demo.js  Demo-Angebote für den Crawl (offline testbar)
-docs/                 Projektdoku, die drei Daten-Recherchen + Angebots-Crawl-Doku
+docs/                 Projektdoku, fünf Recherchen (Daten, Snacks, Picnic-Recht) + Angebots-Crawl-Doku
 ```
 
 ## Nächste Ausbaustufen (siehe Doku Kap. 9)
 
-Lokale OFF/BLS-Produkt-DB (statt Live-Lookup) · Picnic-Anbindung (nach Rechtsrecherche) ·
+Lokale OFF/BLS-Produkt-DB (statt Live-Lookup) · Picnic-Anbindung (Rechtsrecherche liegt
+vor: [docs/recherche-5-picnic-recht.md](docs/recherche-5-picnic-recht.md)) ·
 Web-Push für feste Vorschlagszeiten (braucht Push-Server; bis dahin gilt der Fallback:
 Vorschläge liegen beim Öffnen bereit – schaltet auch den automatischen Freitags-Crawl
 frei) · Diktat/Chatbot- und Schrankfoto-Erfassung · Icon-Palette & finales Branding.
