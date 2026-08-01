@@ -14,7 +14,7 @@ const DEFAULT_STATE = {
     onboarded: false,
   },
   bestand: [],               // [{ id, zutat_id, name, kategorie, art, einheit, menge, fuellstand, updated }]
-  vorschlaege: null,         // { datum, slot, rezeptIds: [], gewuerfelt }
+  vorschlaege: null,         // Push-Fallback: { datum, slot, rezeptIds: [], gewuerfelt, bestandLeer }
   historie: [],              // [{ rezeptId, name, portionen, datum }]
   einkauf: {
     rezept: [],              // rezeptbezogene Liste [{ zutat_id, name, menge, einheit, erledigt }]
@@ -29,7 +29,8 @@ const DEFAULT_STATE = {
     demo: false,             // true = Demo-Daten erzwingen (ohne Keys ohnehin Demo)
     letzter: null,           // letztes Crawl-Ergebnis (gilt eine Kalenderwoche)
   },
-  settings: { erstellt: null },
+  aiRezepte: [],             // AI-generierte Rezepte (kruggel-recipe-db/v1-kompatibel)
+  settings: { erstellt: null, apiKey: null },
 };
 
 let state = null;

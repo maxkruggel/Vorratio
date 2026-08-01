@@ -7,16 +7,22 @@ import { load, save, getState, exportJson, importJson, resetAll } from "./storag
 import { ZUTATEN, REZEPTE, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN } from "./data/kerndb.js";
 import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, hinweiseFuerForm, FORM_HINWEISE } from "./data/profil.js";
 import {
-  ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, vorschlaege, bestandsAbgleich,
-  abbuchen, mengeAnzeige, wochenKandidaten,
+  ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, vorschlaege, tagesSeed,
+  bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
 } from "./engine.js";
 import { angebotsCrawl, isoWoche, liveKonfiguriert } from "./angebote.js";
+import { generiereRezepte, scanBon } from "./ai.js";
+import { lookupBarcode, vorschlagZutat, kameraVerfuegbar, starteKameraScan } from "./scan.js";
+
+/* Kern-DB + AI-generierte Rezepte als gemeinsamer Pool. */
+const alleRezepte = () => [...REZEPTE, ...(getState().aiRezepte || [])];
+const findRezept = (id) => alleRezepte().find((r) => r.id === id);
+const istAi = (r) => r.quelle_typ === "ai_generiert";
 
 const app = document.getElementById("app");
 const tabbar = document.getElementById("tabbar");
 let view = "heute";
 let cook = null;            // { rezept, portionen, step, timer }
-let wurf = 0;               // Neu-würfeln-Zähler
 let detailRezept = null;
 
 const KATEGORIE_NAMEN = {
@@ -154,10 +160,46 @@ function toggle(arr, val) {
 }
 
 /* ------------------------------------------------------------------ Heute */
+let aiLaeuft = false;
+let aiFehler = null;
+
+/* Push-Fallback (Kap. 7.1): Web Push braucht einen Push-Server – ohne ihn
+   greift der dokumentierte Fallback: die Vorschläge für den aktuellen Slot
+   werden beim Öffnen erzeugt und persistiert, liegen also sofort bereit und
+   bleiben innerhalb eines Slots stabil. Neu erzeugt wird bei Tages- oder
+   Slot-Wechsel, bei "Neu würfeln", nach der Bestands-Ersteinrichtung und
+   wenn ein gemerktes Rezept nicht mehr zum Profil passt oder aus dem
+   AI-Pool gefallen ist. */
+function stelleVorschlaegeBereit(neuWuerfeln = false) {
+  const s = getState();
+  if (!s.profil.onboarded) return null;
+  const datum = heuteStr();
+  const slot = aktuellerSlot();
+  const bestandLeer = s.bestand.length === 0;
+  const v = s.vorschlaege;
+  const gueltig = v && v.datum === datum && v.slot === slot
+    && !(v.bestandLeer && !bestandLeer)
+    && (v.rezeptIds || []).every((id) => {
+      const r = findRezept(id);
+      return r && rezeptErlaubt(r, s.profil);
+    });
+  if (gueltig && !neuWuerfeln) return v;
+
+  const gewuerfelt = gueltig ? (v.gewuerfelt || 0) + 1 : 0;
+  const vs = vorschlaege(s.profil, s.bestand, slot, tagesSeed(datum, gewuerfelt), 3, alleRezepte());
+  s.vorschlaege = { datum, slot, rezeptIds: vs.map((x) => x.rezept.id), gewuerfelt, bestandLeer };
+  save();
+  return s.vorschlaege;
+}
+
 function renderHeute() {
   const s = getState();
-  const slot = aktuellerSlot();
-  const vs = vorschlaege(s.profil, s.bestand, slot, wurf);
+  const bereit = stelleVorschlaegeBereit();
+  const slot = bereit.slot;
+  const vs = bereit.rezeptIds
+    .map((id) => findRezept(id))
+    .filter(Boolean)
+    .map((rezept) => ({ rezept, abgleich: bestandsAbgleich(rezept, s.bestand) }));
   const gruss = s.profil.name ? `Moin, ${esc(s.profil.name)}` : "Moin";
   const leererBestand = s.bestand.length === 0;
 
@@ -174,7 +216,7 @@ function renderHeute() {
       ${vs.map((v, i) => `
         <div class="card tappable" data-rezept="${v.rezept.id}">
           <div class="card-row">
-            <h3>${esc(v.rezept.name)}</h3>
+            <h3>${esc(v.rezept.name)}${istAi(v.rezept) ? ' <span class="badge">✨ AI</span>' : ""}</h3>
             <span class="badge neutral">${v.rezept.gesamtzeit_min.gesamt} Min</span>
           </div>
           <p class="subtle">${esc(v.rezept.cuisine)} · ${esc(v.rezept.schwierigkeit)} · ${v.rezept.portionen} Portionen</p>
@@ -183,15 +225,41 @@ function renderHeute() {
             : `<p class="small" style="margin-top:8px;color:var(--warn)">Das fehlt dir: ${v.abgleich.fehlt.map((z) => esc(z.zutat_name)).join(", ")}</p>`}
         </div>`).join("")}
       <button class="btn secondary" id="wuerfeln">↻ Neu würfeln</button>
-      <p class="subtle small" style="text-align:center;margin-top:14px">Feste Zeiten: 8:00 Frühstück · 11:30 Mittag · 17:30 Abend</p>
+      <button class="btn" id="ai-generieren" ${aiLaeuft ? "disabled" : ""}>${aiLaeuft ? "✨ Claude kocht Ideen …" : "✨ Neue Ideen von Claude"}</button>
+      ${aiFehler ? `<p class="small" style="color:var(--warn);text-align:center;margin-top:8px">${esc(aiFehler)}</p>` : ""}
+      <p class="subtle small" style="text-align:center;margin-top:14px">Feste Zeiten: 8:00 Frühstück · 11:30 Mittag · 17:30 Abend<br>Ohne Push-Einrichtung liegen die Vorschläge beim Öffnen bereit.</p>
     </div>`));
 
   app.querySelectorAll("[data-rezept]").forEach((c) => c.addEventListener("click", () => {
-    detailRezept = REZEPTE.find((r) => r.id === c.dataset.rezept);
+    detailRezept = findRezept(c.dataset.rezept);
     render();
   }));
-  app.querySelector("#wuerfeln").addEventListener("click", () => { wurf++; render(); });
+  app.querySelector("#wuerfeln").addEventListener("click", () => { stelleVorschlaegeBereit(true); render(); });
+  app.querySelector("#ai-generieren").addEventListener("click", () => starteAiGenerierung(slot));
   app.querySelector('[data-go="vorrat"]')?.addEventListener("click", (e) => { e.stopPropagation(); view = "vorrat"; render(); });
+}
+
+/* AI-Rezeptgenerierung (Kap. 4.3): 3 frische Vorschläge aus dem Bestand. */
+async function starteAiGenerierung(slot) {
+  const s = getState();
+  if (!s.settings.apiKey) {
+    aiFehler = "Kein API-Key hinterlegt – einmalig im Profil unter 'Claude API' eintragen.";
+    render();
+    return;
+  }
+  aiLaeuft = true;
+  aiFehler = null;
+  render();
+  try {
+    const neue = await generiereRezepte(s.settings.apiKey, s.profil, s.bestand, slot);
+    s.aiRezepte = [...neue, ...(s.aiRezepte || [])].slice(0, 24);  // jüngste behalten
+    save();
+    stelleVorschlaegeBereit(true);                                 // neue Rezepte in die Slot-Vorschläge würfeln
+  } catch (e) {
+    aiFehler = e.message;
+  }
+  aiLaeuft = false;
+  render();
 }
 
 /* ---------------------------------------------------------- Rezept-Detail */
@@ -387,8 +455,12 @@ function renderVorrat() {
     <div class="fade-in">
       <div class="screen-header card-row">
         <div><h1>Vorrat</h1><p class="subtle">${s.bestand.length} Artikel · Mengen sind Näherungen</p></div>
-        <button class="btn small-btn" id="add-toggle">${vorratAddOffen ? "Schließen" : "+ Erfassen"}</button>
+        <div>
+          <button class="btn small-btn secondary" id="scan-toggle" style="width:auto;display:inline-block">▮▮ Barcode</button>
+          <button class="btn small-btn" id="add-toggle">${vorratAddOffen ? "Schließen" : "+ Erfassen"}</button>
+        </div>
       </div>
+      ${scanPanel ? barcodeUi() : ""}
       ${vorratAddOffen ? vorratAddForm() : ""}
       ${s.bestand.length === 0 && !vorratAddOffen ? `
         <div class="empty-state"><div class="big">▤</div>
@@ -412,8 +484,121 @@ function renderVorrat() {
     </div>`));
 
   app.querySelector("#add-toggle").addEventListener("click", () => { vorratAddOffen = !vorratAddOffen; renderVorrat(); });
+  app.querySelector("#scan-toggle").addEventListener("click", () => {
+    stoppeKamera();
+    scanPanel = scanPanel ? null : { status: "start" };
+    renderVorrat();
+  });
   bindVorratAdd();
+  bindBarcode();
   app.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => renderVorratEdit(b.dataset.edit)));
+}
+
+/* -------------------------------------------- Barcode-Scan (Kap. 6.3)
+   EAN → Open-Food-Facts-Lookup → Zutat-Zuordnung bestätigen → Buchung. */
+let scanPanel = null;   // {status:'start'|'kamera'|'laden'|'fehler'|'treffer'|'kein_treffer', ...}
+let kamera = null;      // aktiver Kamera-Scan { stop }
+
+function stoppeKamera() { kamera?.stop?.(); kamera = null; }
+
+function barcodeUi() {
+  const p = scanPanel;
+  if (p.status === "start") {
+    return `
+      <div class="card">
+        <label class="field">EAN-Barcode (8 oder 13 Ziffern)
+          <input type="text" id="ean-input" inputmode="numeric" placeholder="z. B. 4311501659286">
+        </label>
+        <div class="btn-row">
+          ${kameraVerfuegbar() ? '<button class="btn secondary" id="ean-kamera">📷 Mit Kamera scannen</button>' : ""}
+          <button class="btn" id="ean-suchen">Nachschlagen</button>
+        </div>
+        ${kameraVerfuegbar() ? "" : '<p class="subtle small" style="margin-top:8px">Kamera-Scan ist auf diesem Browser nicht verfügbar (iOS Safari) – die Nummer steht unter dem Strichcode.</p>'}
+        <p class="subtle small" style="margin-top:8px">Produktdaten: Open Food Facts (ODbL).</p>
+      </div>`;
+  }
+  if (p.status === "kamera") return `
+    <div class="card" style="text-align:center">
+      <video id="scan-video" playsinline muted style="width:100%;border-radius:10px;background:#000"></video>
+      <button class="btn secondary" id="ean-kamera-stopp" style="margin-top:10px">Abbrechen</button>
+    </div>`;
+  if (p.status === "laden") return `<div class="card"><p class="small subtle">Suche ${esc(p.ean)} bei Open Food Facts …</p></div>`;
+  if (p.status === "fehler") return `
+    <div class="card"><p class="small" style="color:var(--warn)">${esc(p.msg)}</p>
+    <button class="btn small-btn secondary" id="ean-zurueck" style="margin-top:10px">Zurück</button></div>`;
+  if (p.status === "kein_treffer") return `
+    <div class="card">
+      <p class="small">Barcode ${esc(p.ean)} ist nicht in Open Food Facts. Produkt bitte über „+ Erfassen“ anlegen.</p>
+      <button class="btn small-btn secondary" id="ean-zurueck" style="margin-top:10px">Zurück</button>
+    </div>`;
+  // Treffer: Produkt + Zuordnungsvorschlag
+  const produkt = p.produkt;
+  return `
+    <div class="card">
+      <div class="card-row">
+        <div>
+          <h3>${esc(produkt.name)}</h3>
+          <p class="subtle small">${produkt.marke ? esc(produkt.marke) + " · " : ""}${produkt.menge_text ? esc(produkt.menge_text) + " · " : ""}EAN ${esc(produkt.gtin)}</p>
+        </div>
+        ${produkt.bild ? `<img src="${esc(produkt.bild)}" alt="" style="width:48px;height:48px;object-fit:contain;border-radius:8px">` : ""}
+      </div>
+      <hr class="divider">
+      <p class="small" style="margin-bottom:8px">Als welche Zutat in den Bestand?</p>
+      <select id="ean-zutat">
+        ${ZUTATEN.map((z) => `<option value="${z.id}" ${p.vorschlag?.id === z.id ? "selected" : ""}>${esc(z.name)}</option>`).join("")}
+      </select>
+      ${p.vorschlag ? "" : '<p class="subtle small" style="margin-top:6px">Kein automatischer Treffer – bitte auswählen.</p>'}
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn secondary" id="ean-zurueck">Abbrechen</button>
+        <button class="btn" id="ean-buchen">In den Bestand</button>
+      </div>
+    </div>`;
+}
+
+function bindBarcode() {
+  const suche = async (ean) => {
+    scanPanel = { status: "laden", ean };
+    renderVorrat();
+    try {
+      const produkt = await lookupBarcode(ean);
+      scanPanel = produkt
+        ? { status: "treffer", produkt, vorschlag: vorschlagZutat(produkt.name) }
+        : { status: "kein_treffer", ean };
+    } catch (e) {
+      scanPanel = { status: "fehler", msg: e.message };
+    }
+    renderVorrat();
+  };
+
+  app.querySelector("#ean-suchen")?.addEventListener("click", () => {
+    const ean = app.querySelector("#ean-input").value.trim();
+    if (ean) suche(ean);
+  });
+  app.querySelector("#ean-input")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { const ean = e.target.value.trim(); if (ean) suche(ean); }
+  });
+  app.querySelector("#ean-kamera")?.addEventListener("click", async () => {
+    scanPanel = { status: "kamera" };
+    renderVorrat();
+    const video = app.querySelector("#scan-video");
+    kamera = await starteKameraScan(video,
+      (ean) => { kamera = null; suche(ean); },
+      () => { kamera = null; scanPanel = { status: "fehler", msg: "Kamera nicht verfügbar oder Zugriff abgelehnt." }; renderVorrat(); });
+  });
+  app.querySelector("#ean-kamera-stopp")?.addEventListener("click", () => { stoppeKamera(); scanPanel = { status: "start" }; renderVorrat(); });
+  app.querySelector("#ean-zurueck")?.addEventListener("click", () => { scanPanel = { status: "start" }; renderVorrat(); });
+  app.querySelector("#ean-buchen")?.addEventListener("click", () => {
+    const s = getState();
+    const zutatId = app.querySelector("#ean-zutat").value;
+    const produkt = scanPanel.produkt;
+    const kat = ZUTAT_INDEX[zutatId];
+    // OFF-Packungsgröße nutzen, wenn Einheit zum Bestandseintrag passt
+    const einheit = produkt.mengen_einheit === "g" || produkt.mengen_einheit === "ml" ? produkt.mengen_einheit : null;
+    buchZugang(s, zutatId, einheit && kat?.einheit === einheit ? produkt.menge : null, einheit);
+    save();
+    scanPanel = null;
+    renderVorrat();
+  });
 }
 
 function vorratAddForm() {
@@ -546,7 +731,7 @@ function syncWochenliste(s) {
 function renderEinkauf() {
   const s = getState();
   syncWochenliste(s);
-  const rezept = s.einkauf.rezeptId ? REZEPTE.find((r) => r.id === s.einkauf.rezeptId) : null;
+  const rezept = s.einkauf.rezeptId ? findRezept(s.einkauf.rezeptId) : null;
 
   app.replaceChildren(h(`
     <div class="fade-in">
@@ -562,8 +747,12 @@ function renderEinkauf() {
             </div>`).join("")}
         </div>
         <button class="btn" id="einkauf-fertig">Einkauf bestätigen → Bestand auffüllen</button>
-        <p class="subtle small" style="margin:8px 0 0;text-align:center">Später läuft das über den Kassenbon-Scan bzw. die Picnic-Quittung.</p>
         <hr class="divider">` : ""}
+
+      <h2>Bon-Scan</h2>
+      <p class="subtle small" style="margin-bottom:8px">Kassenbon fotografieren – Claude liest ihn und füllt den Bestand auf (auch Zusatzkäufe).</p>
+      ${bonScanUi()}
+      <hr class="divider">
 
       <h2>Wocheneinkauf</h2>
       <p class="subtle small" style="margin-bottom:8px">Leere und fast leere Vorräte, automatisch gesammelt.</p>
@@ -601,7 +790,7 @@ function renderEinkauf() {
     const rid = s.einkauf.rezeptId;
     s.einkauf.rezeptId = null;
     save();
-    if (rid) { const r = REZEPTE.find((x) => x.id === rid); if (r && confirm("Bestand aufgefüllt. Direkt mit dem Kochen loslegen?")) { startKochen(r); return; } }
+    if (rid) { const r = findRezept(rid); if (r && confirm("Bestand aufgefüllt. Direkt mit dem Kochen loslegen?")) { startKochen(r); return; } }
     renderEinkauf();
   });
   app.querySelector("#woche-fertig")?.addEventListener("click", () => {
@@ -610,10 +799,98 @@ function renderEinkauf() {
     s.einkauf.woche = s.einkauf.woche.filter((e) => !e.erledigt);
     save(); renderEinkauf();
   });
+  bindBonScan(s);
 }
 
-/* Zugang buchen: Packungsgröße liefert die Menge – kein Wiegen (Kap. 5). */
-function buchZugang(s, zutatId) {
+/* --------------------------------------------------- Bon-Scan (Kap. 7.3)
+   Foto → Claude Vision → strukturierte Artikel → Bestätigung → Buchung. */
+let bon = null;  // null | {status:'laden'|'fehler'|'ergebnis', ...}
+
+function bonScanUi() {
+  const s = getState();
+  if (!s.settings.apiKey) {
+    return `<div class="card"><p class="small subtle">Für den Bon-Scan einmalig den Claude-API-Key im Profil hinterlegen.</p></div>`;
+  }
+  if (!bon) {
+    return `
+      <button class="btn secondary" id="bon-start">📷 Bon fotografieren / hochladen</button>
+      <input type="file" id="bon-file" accept="image/*" capture="environment" hidden>`;
+  }
+  if (bon.status === "laden") return `<div class="card"><p class="small subtle">Claude liest den Bon …</p></div>`;
+  if (bon.status === "fehler") return `
+    <div class="card"><p class="small" style="color:var(--warn)">${esc(bon.msg)}</p></div>
+    <button class="btn secondary" id="bon-reset">Nochmal versuchen</button>`;
+  // Ergebnis: Artikel bestätigen
+  return `
+    <div class="card">
+      ${bon.haendler ? `<p class="small subtle" style="margin-bottom:8px">Erkannt: ${esc(bon.haendler)}</p>` : ""}
+      ${bon.artikel.map((a, i) => `
+        <div class="list-item">
+          <button class="check ${a.buchen ? "done" : ""}" data-bon-check="${i}">✓</button>
+          <div class="grow">
+            <span class="name">${esc(a.name)}</span>
+            <span class="subtle small" style="display:block">${esc(a.bon_text)}${a.menge ? ` · ~${a.menge} ${a.einheit}` : ""}${a.zutat_id ? "" : " · keine Zuordnung"}</span>
+          </div>
+        </div>`).join("")}
+    </div>
+    <div class="btn-row">
+      <button class="btn secondary" id="bon-reset">Verwerfen</button>
+      <button class="btn" id="bon-buchen">In den Bestand buchen</button>
+    </div>`;
+}
+
+function bindBonScan(s) {
+  app.querySelector("#bon-start")?.addEventListener("click", () => app.querySelector("#bon-file").click());
+  app.querySelector("#bon-file")?.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    bon = { status: "laden" };
+    renderEinkauf();
+    try {
+      const base64 = await dateiAlsBase64(file);
+      const data = await scanBon(s.settings.apiKey, base64, file.type || "image/jpeg");
+      const artikel = (data.artikel || [])
+        .filter((a) => a.lebensmittel)
+        .map((a) => ({ ...a, buchen: !!a.zutat_id }));
+      if (!artikel.length) bon = { status: "fehler", msg: "Keine Lebensmittel auf dem Bon erkannt." };
+      else bon = { status: "ergebnis", haendler: data.haendler, artikel };
+    } catch (err) {
+      bon = { status: "fehler", msg: err.message };
+    }
+    renderEinkauf();
+  });
+  app.querySelectorAll("[data-bon-check]").forEach((b) => b.addEventListener("click", () => {
+    const a = bon.artikel[b.dataset.bonCheck];
+    a.buchen = !a.buchen;
+    renderEinkauf();
+  }));
+  app.querySelector("#bon-reset")?.addEventListener("click", () => { bon = null; renderEinkauf(); });
+  app.querySelector("#bon-buchen")?.addEventListener("click", () => {
+    let gebucht = 0;
+    for (const a of bon.artikel) {
+      if (!a.buchen || !a.zutat_id) continue;
+      buchZugang(s, a.zutat_id, a.menge, a.einheit);
+      gebucht++;
+    }
+    save();
+    bon = null;
+    alert(`${gebucht} Artikel in den Bestand gebucht.`);
+    renderEinkauf();
+  });
+}
+
+function dateiAlsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1]);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+/* Zugang buchen: Packungsgröße liefert die Menge – kein Wiegen (Kap. 5).
+   Optional mit erkannter Menge (Bon-Scan / Barcode: Packungsgröße vom Produkt). */
+function buchZugang(s, zutatId, menge = null, einheit = null) {
   if (!zutatId) return;
   const kat = ZUTAT_INDEX[zutatId];
   let item = s.bestand.find((b) => b.zutat_id === zutatId);
@@ -626,9 +903,15 @@ function buchZugang(s, zutatId) {
     };
     s.bestand.push(item);
   }
-  if (item.art === "pauschal") item.menge = null;
-  else if (item.art === "zaehlbar") item.menge = (item.menge ?? 0) + (kat?.einheit === "Stk" && !kat?.inhalt_g ? 6 : 1); // Eier & Co. kommen im Karton
-  else item.menge = (item.menge ?? 0) + (item.packung || kat?.packung || 500);
+  if (item.art === "pauschal") {
+    item.menge = null;
+  } else if (menge != null && einheit === item.einheit) {
+    item.menge = (item.menge ?? 0) + menge;                       // erkannte Menge passt direkt
+  } else if (item.art === "zaehlbar") {
+    item.menge = (item.menge ?? 0) + (kat?.einheit === "Stk" && !kat?.inhalt_g ? 6 : 1); // Eier & Co. kommen im Karton
+  } else {
+    item.menge = (item.menge ?? 0) + (item.packung || kat?.packung || 500);
+  }
   item.updated = new Date().toISOString();
 }
 
@@ -875,6 +1158,19 @@ function renderProfil() {
             <span class="subtle small" style="display:block">${new Date(e.datum).toLocaleDateString("de-DE")} · ${e.portionen} Portionen</span></div></div>`).join("")}
         </div>` : ""}
 
+      <h2 class="section-gap">Claude API</h2>
+      <div class="card">
+        <label class="field">API-Key (für AI-Rezepte & Bon-Scan)
+          <input type="password" id="api-key" placeholder="sk-ant-…" value="${esc(s.settings.apiKey || "")}" autocomplete="off">
+        </label>
+        <button class="btn small-btn" id="api-key-save">Speichern</button>
+        <p class="subtle small" style="margin-top:8px">Der Key bleibt ausschließlich lokal auf diesem Gerät und wird nur an api.anthropic.com gesendet. Key erstellen: console.anthropic.com.</p>
+        ${(s.aiRezepte || []).length ? `
+          <hr class="divider">
+          <div class="card-row"><span class="small">${s.aiRezepte.length} AI-Rezepte gespeichert</span>
+          <button class="btn ghost small-btn" id="ai-loeschen">Löschen</button></div>` : ""}
+      </div>
+
       <h2 class="section-gap">Daten</h2>
       <div class="btn-row">
         <button class="btn secondary" id="export">JSON-Export</button>
@@ -889,6 +1185,14 @@ function renderProfil() {
   app.querySelectorAll("[data-pform]").forEach((b) => b.addEventListener("click", () => { s.profil.ernaehrungsform = b.dataset.pform; save(); renderProfil(); }));
   app.querySelectorAll("[data-paus]").forEach((b) => b.addEventListener("click", () => { toggle(s.profil.ausschluesse, b.dataset.paus); save(); renderProfil(); }));
   app.querySelectorAll("[data-pstil]").forEach((b) => b.addEventListener("click", () => { toggle(s.profil.stile, b.dataset.pstil); save(); renderProfil(); }));
+  app.querySelector("#api-key-save").addEventListener("click", () => {
+    s.settings.apiKey = app.querySelector("#api-key").value.trim() || null;
+    save();
+    alert(s.settings.apiKey ? "API-Key gespeichert." : "API-Key entfernt.");
+  });
+  app.querySelector("#ai-loeschen")?.addEventListener("click", () => {
+    if (confirm("Alle gespeicherten AI-Rezepte löschen?")) { s.aiRezepte = []; save(); renderProfil(); }
+  });
   app.querySelector("#export").addEventListener("click", exportJson);
   app.querySelector("#import").addEventListener("click", () => app.querySelector("#import-file").click());
   app.querySelector("#import-file").addEventListener("change", async (e) => {
@@ -904,7 +1208,17 @@ function renderProfil() {
 
 /* ------------------------------------------------------------------- Start */
 load();
+stelleVorschlaegeBereit();   // Push-Fallback: beim Öffnen liegen die Slot-Vorschläge bereit
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 render();
+
+/* iOS-PWAs werden meist fortgesetzt statt neu geladen – beim Zurückkehren in
+   den Vordergrund zählt das als "Öffnen": Slot prüfen, Vorschläge bereitlegen. */
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  const vorher = getState().vorschlaege;
+  const nachher = stelleVorschlaegeBereit();
+  if (view === "heute" && !cook && !detailRezept && nachher !== vorher) render();
+});
