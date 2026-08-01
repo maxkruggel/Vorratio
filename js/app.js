@@ -12,6 +12,8 @@ import {
 } from "./engine.js";
 import { generiereRezepte, scanBon } from "./ai.js";
 import { lookupBarcode, vorschlagZutat, kameraVerfuegbar, starteKameraScan } from "./scan.js";
+import { SUB_KATEGORIEN, SUB_ANWENDUNGEN } from "./data/substitutionen.js";
+import { subsFiltern, ersatzVorschlaege, produkteSortiert } from "./substitution.js";
 
 /* Kern-DB + AI-generierte Rezepte als gemeinsamer Pool. */
 const alleRezepte = () => [...REZEPTE, ...(getState().aiRezepte || [])];
@@ -287,6 +289,7 @@ function renderRezeptDetail(rezept) {
       </div>
       ${rezept.naehrwert_einordnung?.makro_hinweis ? `
         <div class="card hint-card"><b>Gut zu wissen</b>${esc(rezept.naehrwert_einordnung.makro_hinweis)}</div>` : ""}
+      ${ersatzIdeenHtml(ab.fehlt, s.profil)}
       ${ab.fehlt.length > 0 ? `
         <button class="btn" id="einkauf-starten">Einkaufsliste erstellen (${ab.fehlt.length} fehlt)</button>
         <button class="btn secondary" id="kochen-trotzdem">Trotzdem kochen</button>`
@@ -311,6 +314,34 @@ function renderRezeptDetail(rezept) {
 function zutatText(z) {
   const menge = z.menge != null ? `${z.menge} ${z.einheit === "Stk" ? "" : z.einheit + " "}`.trim() + " " : "";
   return `${menge}${z.zutat_name}`;
+}
+
+/* Ersatz-Ideen für fehlende Zutaten (Substitutions-DB): statt einkaufen ggf.
+   pflanzlich ersetzen – Profil-Ausschlüsse sind bereits herausgefiltert.
+   Ei ist funktionsbasiert (binden/lockern/aufschlagen …), daher mehrere Zeilen. */
+function ersatzIdeenHtml(fehlt, profil) {
+  const zeilen = [];
+  for (const z of fehlt) {
+    const vs = ersatzVorschlaege(z.zutat_id, profil);
+    for (const e of vs) {
+      // Mehrere Datensätze je Zutat (Ei-Funktionen, Schlag- vs. Kochsahne) unterscheidbar halten
+      const label = e.funktion || (vs.length > 1 ? e.original : null);
+      zeilen.push(`
+        <div class="list-item">
+          <div class="grow small">
+            <b>${esc(z.zutat_name)}</b>${label ? ` <span class="subtle">(${esc(label)})</span>` : ""}
+            → ${esc(e.name)} <span class="subtle">· ${esc(e.verhaeltnis)}</span>
+          </div>
+        </div>`);
+    }
+  }
+  if (!zeilen.length) return "";
+  return `
+    <div class="card">
+      <h2>Fehlt? Lässt sich ersetzen</h2>
+      <p class="subtle small" style="margin:6px 0 4px">Pflanzliche Alternativen aus der Substitutions-DB – Details im Wissen-Tab unter „Ersatz“.</p>
+      ${zeilen.join("")}
+    </div>`;
 }
 
 function hashCode(str) {
@@ -914,10 +945,58 @@ function buchZugang(s, zutatId, menge = null, einheit = null) {
 
 /* ------------------------------------------------------------------ Wissen */
 let wissenTab = "tipps";
+let ersatzKat = null;   // Kategorie-Filter im Ersatz-Tab (null = alle)
+let ersatzAnw = null;   // Anwendungsfall-Filter (backen/aufschlagen/… , null = alle)
+
+/* Substitutions-DB als browsebarer Wissens-Tab: Kategorie- und Anwendungs-
+   Filter, Alternativen priorisiert (1 = neutralste Wahl), Handelsbeispiele
+   mit Eigenmarken zuerst. Profil-Ausschlüsse filtern hart (wie überall). */
+function ersatzTabHtml(s) {
+  const eintraege = subsFiltern({ kategorie: ersatzKat, anwendung: ersatzAnw, profil: s.profil });
+  const b12 = s.profil.ernaehrungsform === "vegan" ? `
+    <div class="card hint-card"><b>Dauerhinweis für dein veganes Profil</b>${esc(FORM_HINWEISE.vegan[0])}</div>` : "";
+  const ausgeblendetGesamt = eintraege.reduce((n, e) => n + e.ausgeblendet, 0);
+  return `
+    <p class="subtle small" style="margin-bottom:10px">Pflanzliche Alternativen zu tierischen Zutaten – priorisiert, mit Mengenverhältnis und Handelsbeispielen (Stand 08/2026; Sortimente ändern sich).${ausgeblendetGesamt ? ` ${ausgeblendetGesamt} Alternativen sind wegen deiner Ausschlüsse ausgeblendet.` : ""}</p>
+    ${b12}
+    <div class="chip-wrap" style="margin-bottom:8px">
+      <button class="chip ${!ersatzKat ? "selected" : ""}" data-ekat="">Alle</button>
+      ${Object.entries(SUB_KATEGORIEN).map(([id, name]) => `
+        <button class="chip ${ersatzKat === id ? "selected" : ""}" data-ekat="${id}">${esc(name)}</button>`).join("")}
+    </div>
+    <div class="chip-wrap" style="margin-bottom:16px">
+      <button class="chip ${!ersatzAnw ? "selected" : ""}" data-eanw="">Jede Anwendung</button>
+      ${Object.entries(SUB_ANWENDUNGEN).map(([id, name]) => `
+        <button class="chip ${ersatzAnw === id ? "selected" : ""}" data-eanw="${id}">${esc(name)}</button>`).join("")}
+    </div>
+    ${eintraege.map(({ sub, alternativen }) => `
+      <div class="card">
+        <div class="card-row">
+          <h3>${esc(sub.original_zutat)}</h3>
+          ${sub.funktion_name ? `<span class="badge neutral">${esc(sub.funktion_name)}</span>` : ""}
+        </div>
+        ${alternativen.map((a, i) => {
+          const produkte = produkteSortiert(a).slice(0, 3)
+            .map((p) => `${esc(p.produkt)} (${p.laeden.map(esc).join(", ")})`).join(" · ");
+          return `
+          <div style="margin-top:${i ? 12 : 8}px${i ? ";border-top:1px solid var(--line, #eceae4);padding-top:10px" : ""}">
+            <p><b>${esc(a.alternative_name)}</b> <span class="subtle small">· ${esc(a.verhaeltnis)}</span></p>
+            <p class="small subtle" style="margin-top:4px">${esc(a.hinweise || "")}</p>
+            <div class="chip-wrap" style="margin-top:6px">
+              ${(a.geeignet_fuer || []).map((g) => `<span class="badge neutral">${esc(SUB_ANWENDUNGEN[g] || g)}</span>`).join("")}
+            </div>
+            ${a.naehrwert_hinweis ? `<p class="small" style="margin-top:6px;color:var(--accent)">${esc(a.naehrwert_hinweis)}</p>` : ""}
+            ${produkte ? `<p class="small subtle" style="margin-top:6px">Im Handel: ${produkte}</p>` : ""}
+          </div>`;
+        }).join("")}
+      </div>`).join("") || '<div class="empty-state"><p class="small">Keine Alternative passt zu dieser Filter-Kombination.</p></div>'}
+    <p class="subtle small" style="text-align:center;margin-top:14px">Bei Fertigprodukten (v. a. Worcestersauce, Milchpulver, Brühe) immer Zutatenliste/V-Label prüfen – Rezepturen variieren.</p>`;
+}
 
 function renderWissen() {
-  const tabs = { tipps: "Tipps", preps: "Zubereitung", bases: "Grundrezepte", techniken: "Techniken" };
+  const tabs = { tipps: "Tipps", ersatz: "Ersatz", preps: "Zubereitung", bases: "Grundrezepte", techniken: "Techniken" };
   const inhalt = {
+    ersatz: () => ersatzTabHtml(getState()),
     tipps: () => TIPPS.map((t) => `<div class="card"><p class="small">💡 ${esc(t.text)}</p></div>`).join("")
       + IDEEN.map((i) => `<div class="card"><p class="small">✦ ${esc(i.text)}</p></div>`).join(""),
     preps: () => PREPS.map((p) => `
@@ -945,6 +1024,8 @@ function renderWissen() {
     </div>`));
 
   app.querySelectorAll("[data-wtab]").forEach((b) => b.addEventListener("click", () => { wissenTab = b.dataset.wtab; renderWissen(); }));
+  app.querySelectorAll("[data-ekat]").forEach((b) => b.addEventListener("click", () => { ersatzKat = b.dataset.ekat || null; renderWissen(); }));
+  app.querySelectorAll("[data-eanw]").forEach((b) => b.addEventListener("click", () => { ersatzAnw = b.dataset.eanw || null; renderWissen(); }));
 }
 
 /* ------------------------------------------------------------------ Profil */
