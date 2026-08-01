@@ -71,6 +71,12 @@ Vier gleichwertige Erfassungswege, frei kombinierbar:
 - Mit Bestätigung des Einkaufs füllen sich die Vorräte auf – Grundlage ist der **gescannte Kassenbon** bzw. die **Picnic-Quittung**, nicht die Einkaufsliste. So werden auch Zusatzkäufe erfasst, die nicht auf dem Zettel standen.
 - Technische Umsetzung: Vision-Modell liest den Bon und mappt Bon-Bezeichnungen auf Produkte/Zutaten; kurzer Bestätigungsschritt vor dem Verbuchen (siehe 7.3).
 
+### 4.9 Snack-Ecke: Snacks, Süßes & Frozen (Recherche 4)
+- Eigene Kategorie **außerhalb der drei Essens-Slots**: Dinge, die man zwischendurch aus Vorräten herstellt – Nicecream, Sorbet, Eis am Stiel, Frozen-Joghurt-Bark, schokolierte Früchte, Fruchtleder, Apfelchips, Energiebällchen, geröstete Kichererbsen, Popcorn, Blitzkekse (Datenbasis: `docs/recherche-4-snacks.md`).
+- **Kein vierter Slot**, sondern eine slot-unabhängige „Snack-Ecke" auf dem Heute-Screen: zwei tagesstabile Vorschläge, Neu-würfeln, eigener Claude-Einstieg („Snack-Ideen von Claude", `mahlzeitentyp: ["snack"]`).
+- Snack-Rezepte laufen als Vollrezepte (`SNK-…`) durch dieselbe Maschinerie wie Hauptgerichte: Profilfilter (alle drei Achsen), Bestandsabgleich, Kochmodus mit Timern, Abbuchung, Einkaufsliste. Reine Snack-Rezepte erscheinen **nie** in den Mahlzeiten-Slots – auch nicht beim Auffüllen dünner Pools.
+- Typisches Timer-Profil: lange **passive** Wartezeiten (`ruhen` fürs Gefrieren, `ofen` fürs Dörren bei behördlich empfohlenen 60–65 °C) statt aktiver Kochschritte.
+
 ## 5. Bestandsmodell
 
 - **Kategorien:** Trockenware/Vorrat · Frischware · Konserven · Gewürze (dazu Kühl-/TK-Ware).
