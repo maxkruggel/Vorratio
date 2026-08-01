@@ -17,6 +17,40 @@ python3 -m http.server 8080
 
 Auf dem iPhone: in Safari öffnen → Teilen → „Zum Home-Bildschirm“.
 
+## Stand (v2.1)
+
+Neu gegenüber v2:
+
+- **Snack-Ecke: Snacks, Süßes & Frozen** (Kap. 4.9, [Recherche 4](docs/recherche-4-snacks.md)):
+  eigene Rezeptkategorie **außerhalb der drei Essens-Slots** – für alles, was man
+  zwischendurch aus Vorräten herstellt: Bananen-Nicecream, Beeren-Sorbet (4:1-Ratio),
+  Joghurt-Eis am Stiel, Frozen-Joghurt-Bark, Schoko-Bananen, Fruchtleder (NCHFP-Dörrwerte),
+  Apfelchips, Dattel-Energiebällchen, geröstete Kichererbsen, Popcorn, 2-Zutaten-Kekse.
+  11 neue `SNK-`Rezepte + 9 neue Vorratszutaten (Datteln, Zartbitterschokolade,
+  Popcornmais …). Eigene Vorschlagsschiene auf dem Heute-Screen (2 tagesstabile
+  Vorschläge, Neu-würfeln, „✨ Snack-Ideen von Claude") – Snack-Rezepte tauchen nie
+  in den Mahlzeiten-Slots auf, respektieren aber alle Profilregeln und laufen voll
+  durch Kochmodus, Timer (Gefrieren/Dörren als `ruhen`/`ofen`) und Abbuchung.
+
+## Stand (v2 / Ausbaustufe 2)
+
+Neu gegenüber v1:
+
+- **AI-Rezeptgenerierung** (Kap. 4.3): „✨ Neue Ideen von Claude" auf dem Heute-Screen –
+  Claude (`claude-opus-5`) generiert 3 schema-konforme Rezepte (`kruggel-recipe-db/v1`)
+  aus dem aktuellen Bestand, unter strikter Beachtung der Profilregeln (Ernährungsform,
+  Ausschlüsse, DGE-Regeln, USDA/FSIS-Kerntemperaturen). Generierte Rezepte sind vollwertig:
+  Timer, Bestandsabgleich, Abbuchung, Profilfilter.
+- **Bon-Scan** (Kap. 7.3): Kassenbon fotografieren → Claude Vision liest ihn, mappt
+  kryptische Bon-Bezeichnungen („G&G WEIZENM. 405") auf `zutat_id`s → Bestätigungsschritt →
+  Bestand füllt sich auf (auch Zusatzkäufe).
+- **Barcode-Scan** (Kap. 6.3): EAN → Open-Food-Facts-Live-Lookup („1 API call = 1 real
+  scan") → Zutat-Zuordnungsvorschlag → Buchung mit Packungsgröße vom Produkt.
+  Kamera-Scan über die native BarcodeDetector-API, wo verfügbar; sonst manuelle
+  EAN-Eingabe (iOS Safari).
+- **Claude-API-Key** im Profil: liegt ausschließlich lokal auf dem Gerät (localStorage),
+  geht nur an api.anthropic.com – gleiches Muster wie Frida/Flora AI.
+
 ## Stand (v1 / MVP)
 
 Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
@@ -30,6 +64,10 @@ Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
   vorrätig/leer für Pauschales. Anzeige immer als Näherung („~500 g“), nie Scheinpräzision.
 - **Rezeptvorschläge** (Kap. 4.3): 3 Vorschläge je Slot (8:00/11:30/17:30), gefiltert nach
   Profil, gescort nach Bestandsdeckung, mit „Das fehlt dir“-Hinweis und Neu-würfeln.
+  Web-Push braucht einen Push-Server – bis dahin greift der dokumentierte Fallback
+  (Kap. 7.1): Die Vorschläge werden beim Öffnen (App-Start und Rückkehr in den
+  Vordergrund) für den aktuellen Slot erzeugt, lokal gespeichert und bleiben innerhalb
+  des Slots stabil – pro Tag neue Ideen, Neu-würfeln überlebt den App-Neustart.
 - **Fokussierter Einkauf** (Kap. 4.4): rezeptbezogene Liste nur mit fehlenden Zutaten;
   Bestätigung füllt den Bestand über Packungsgrößen auf (Vorstufe zum Bon-Scan).
 - **Kochmodus** (Kap. 4.5): durchklickbare Schrittkarten, benannte Timer
@@ -53,17 +91,21 @@ sw.js                 Service Worker (Offline-Shell)
 css/style.css         Neutrales Design (Branding wird später übergelegt)
 js/app.js             Views & Steuerung
 js/engine.js          Rezept-Engine: Profilfilter, Bestandsabgleich, Abbuchung
+js/ai.js              Claude API: Rezeptgenerierung + Bon-Scan (strukturierte Ausgaben)
+js/scan.js            Barcode: Open-Food-Facts-Lookup, Zutat-Matching, Kamera-Scan
 js/storage.js         Auto-Save, JSON-Export/-Import
 js/data/kerndb.js     Kern-DB nach kruggel-recipe-db/v1 (Rezepte, Preps, Techniken …)
 js/data/profil.js     Ernährungsprofil-Achsen + DGE/BfR-Hinweise
-docs/                 Projektdoku + die vier Recherchen (Daten + Picnic-Recht)
+docs/                 Projektdoku + die fünf Recherchen (Daten, Snacks, Picnic-Recht)
 ```
 
 ## Nächste Ausbaustufen (siehe Doku Kap. 9)
 
-AI-Rezeptgenerierung · Bon-Scan (Vision) · Barcode-Scan + OFF/BLS-Produkt-DB ·
-Picnic-Anbindung (Rechtsrecherche liegt vor: [docs/recherche-4-picnic-recht.md](docs/recherche-4-picnic-recht.md)) · Angebots-Crawl · Web-Push für feste
-Vorschlagszeiten · Diktat/Chatbot- und Foto-Erfassung · Icon-Palette & finales Branding.
+Lokale OFF/BLS-Produkt-DB (statt Live-Lookup) · Picnic-Anbindung (Rechtsrecherche liegt
+vor: [docs/recherche-5-picnic-recht.md](docs/recherche-5-picnic-recht.md)) ·
+Angebots-Crawl · Web-Push für feste Vorschlagszeiten (braucht Push-Server; bis dahin gilt
+der Fallback: Vorschläge liegen beim Öffnen bereit) · Diktat/Chatbot- und
+Schrankfoto-Erfassung · Icon-Palette & finales Branding.
 
 ---
 

@@ -14,14 +14,16 @@ const DEFAULT_STATE = {
     onboarded: false,
   },
   bestand: [],               // [{ id, zutat_id, name, kategorie, art, einheit, menge, fuellstand, updated }]
-  vorschlaege: null,         // { datum, slot, rezeptIds: [], gewuerfelt }
+  vorschlaege: null,         // Push-Fallback: { datum, slot, rezeptIds: [], gewuerfelt, bestandLeer }
+  snackVorschlaege: null,    // Snack-Ecke (slot-unabhängig): { datum, rezeptIds: [], gewuerfelt }
   historie: [],              // [{ rezeptId, name, portionen, datum }]
   einkauf: {
     rezept: [],              // rezeptbezogene Liste [{ zutat_id, name, menge, einheit, erledigt }]
     woche: [],               // Wocheneinkauf [{ zutat_id, name, erledigt, auto }]
     rezeptId: null,
   },
-  settings: { erstellt: null },
+  aiRezepte: [],             // AI-generierte Rezepte (kruggel-recipe-db/v1-kompatibel)
+  settings: { erstellt: null, apiKey: null },
 };
 
 let state = null;

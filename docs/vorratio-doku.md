@@ -1,7 +1,7 @@
 # VORRATIO – Projektdokumentation
 
 **Version 1.1 · Stand: 01.08.2026 · Max Kruggel**
-Führende Quelle: Diktat vom 01.08.2026 (= Übergabe zur App-Erstellung). Integriert: Recherche 1 (Ernährungsformen), Recherche 2 (Zubereitungs- & Rezeptdatenbank), Recherche 3 (Produktdatenbank). Die Datenarchitektur ist damit vollständig; die Rechtsrecherche zur Picnic-API liegt als Recherche 4 vor ([docs/recherche-4-picnic-recht.md](recherche-4-picnic-recht.md)).
+Führende Quelle: Diktat vom 01.08.2026 (= Übergabe zur App-Erstellung). Integriert: Recherche 1 (Ernährungsformen), Recherche 2 (Zubereitungs- & Rezeptdatenbank), Recherche 3 (Produktdatenbank). Die Datenarchitektur ist damit vollständig; die Rechtsrecherche zur Picnic-API liegt als Recherche 5 vor ([docs/recherche-5-picnic-recht.md](recherche-5-picnic-recht.md)).
 
 ---
 
@@ -70,6 +70,12 @@ Vier gleichwertige Erfassungswege, frei kombinierbar:
 ### 4.8 Bestandsauffüllung: Bon-Scan
 - Mit Bestätigung des Einkaufs füllen sich die Vorräte auf – Grundlage ist der **gescannte Kassenbon** bzw. die **Picnic-Quittung**, nicht die Einkaufsliste. So werden auch Zusatzkäufe erfasst, die nicht auf dem Zettel standen.
 - Technische Umsetzung: Vision-Modell liest den Bon und mappt Bon-Bezeichnungen auf Produkte/Zutaten; kurzer Bestätigungsschritt vor dem Verbuchen (siehe 7.3).
+
+### 4.9 Snack-Ecke: Snacks, Süßes & Frozen (Recherche 4)
+- Eigene Kategorie **außerhalb der drei Essens-Slots**: Dinge, die man zwischendurch aus Vorräten herstellt – Nicecream, Sorbet, Eis am Stiel, Frozen-Joghurt-Bark, schokolierte Früchte, Fruchtleder, Apfelchips, Energiebällchen, geröstete Kichererbsen, Popcorn, Blitzkekse (Datenbasis: `docs/recherche-4-snacks.md`).
+- **Kein vierter Slot**, sondern eine slot-unabhängige „Snack-Ecke" auf dem Heute-Screen: zwei tagesstabile Vorschläge, Neu-würfeln, eigener Claude-Einstieg („Snack-Ideen von Claude", `mahlzeitentyp: ["snack"]`).
+- Snack-Rezepte laufen als Vollrezepte (`SNK-…`) durch dieselbe Maschinerie wie Hauptgerichte: Profilfilter (alle drei Achsen), Bestandsabgleich, Kochmodus mit Timern, Abbuchung, Einkaufsliste. Reine Snack-Rezepte erscheinen **nie** in den Mahlzeiten-Slots – auch nicht beim Auffüllen dünner Pools.
+- Typisches Timer-Profil: lange **passive** Wartezeiten (`ruhen` fürs Gefrieren, `ofen` fürs Dörren bei behördlich empfohlenen 60–65 °C) statt aktiver Kochschritte.
 
 ## 5. Bestandsmodell
 
@@ -144,7 +150,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 
 ### 7.1 iOS-HTML-App (PWA)
 - Installation über Safari-Share „Zum Home-Bildschirm".
-- **Web Push** für die festen Vorschlagszeiten (8:00/11:30/17:30) ist ab iOS 16.4 für Homescreen-Web-Apps verfügbar – muss aktiv eingerichtet werden; Fallback: Vorschläge liegen beim Öffnen bereit.
+- **Web Push** für die festen Vorschlagszeiten (8:00/11:30/17:30) ist ab iOS 16.4 für Homescreen-Web-Apps verfügbar – braucht aber einen Push-Server und muss aktiv eingerichtet werden; Fallback (in v1 umgesetzt): Vorschläge liegen beim Öffnen bereit – sie werden beim App-Start bzw. beim Zurückkehren in den Vordergrund für den aktuellen Slot erzeugt, lokal gespeichert und bleiben innerhalb des Slots stabil.
 - Kein direkter Schreibzugriff auf Apple Notizen/Erinnerungen und kein HealthKit aus der PWA. Export-Wege für Listen: Web Share API (Share-Sheet), Zwischenablage, optional Apple-Shortcut als Brücke.
 - Lokale Datenhaltung nach Kap. 6.4: Auto-Save je Aktion, JSON-Export/-Import als Backup gegen Storage-Eviction.
 
@@ -152,7 +158,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 - Community-APIs mit DE-Support: `python-picnic-api2` (Python, gepflegt; 2FA; `get_deliveries`/`get_delivery(id)` liefert Bestellhistorie inkl. Artikelzeilen; `search`, `add_product`, `get_cart`) und `picnic-api` (Node, MRVDH).
 - Damit möglich: (a) Picnic-Quittungen/Bestellhistorie automatisch in den Bestand; (b) Einkaufsliste als Picnic-Warenkorb übergeben.
 - Status: inoffiziell, „use at your own risk", kann bei API-Umbauten brechen → als gekapseltes Modul mit manuellem Fallback (Quittungs-Scan) bauen. **Picnic-Zugang ist vorhanden.**
-- **Rechtslage geklärt (Recherche 4, 01.08.2026, [recherche-4-picnic-recht.md](recherche-4-picnic-recht.md)):** Für die private Nutzung mit eigenem Konto ist das Risiko niedrig (Strafrecht/UrhG/UWG greifen nicht); reales Maximalrisiko ist die Kontosperrung. Freigabe für Umsetzung in zwei Stufen: erst Lese-Pfad (Bestellhistorie → Bestand), dann Schreib-Pfad (Warenkorb). Schonend nutzen (ereignisgesteuert, Token wiederverwenden, kein Sortiments-Crawling); rote Linien: technische Schutzmaßnahmen nicht umgehen, vor einem Marktgang neu bewerten.
+- **Rechtslage geklärt (Recherche 5, 01.08.2026, [recherche-5-picnic-recht.md](recherche-5-picnic-recht.md)):** Für die private Nutzung mit eigenem Konto ist das Risiko niedrig (Strafrecht/UrhG/UWG greifen nicht); reales Maximalrisiko ist die Kontosperrung. Freigabe für Umsetzung in zwei Stufen: erst Lese-Pfad (Bestellhistorie → Bestand), dann Schreib-Pfad (Warenkorb). Schonend nutzen (ereignisgesteuert, Token wiederverwenden, kein Sortiments-Crawling); rote Linien: technische Schutzmaßnahmen nicht umgehen, vor einem Marktgang neu bewerten.
 
 ### 7.3 Bon-Scan
 - Pipeline: Foto → Vision-LLM → strukturiertes JSON (Artikel, Menge, Preis) → Validierung → Buchung; Größenordnung ~0,002 $ pro Bon.
@@ -181,7 +187,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 | 3 | Bon-Scan-Prototyp – Testdaten: allgemeine Grundzutaten (kein echtes Bon-Material nötig) | mit dem Aufbau |
 | 4 | Picnic: Rechtsrecherche liegt vor (Freigabe privat, Kap. 7.2) → Funktionsvalidierung mit vorhandenem Zugang | To-do |
 | 5 | Angebots-Crawl: Quelle + Matching prototypen | To-do |
-| 6 | Web-Push für feste Vorschlagszeiten einrichten (Muster aus Flora AI übernehmen) | To-do |
+| 6 | Web-Push für feste Vorschlagszeiten einrichten (Muster aus Flora AI übernehmen; braucht Push-Server) | To-do – Fallback aktiv: Vorschläge liegen beim Öffnen bereit |
 | 7 | Icon-Palette erstellen | To-do |
 | 8 | Kern-Rezept-DB von 60 auf 300–500 Datensätze ausbauen | geplant |
 | 9 | Finales Branding + Chatbot-Name | später |
@@ -193,4 +199,5 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 2. **Recherche 1: Ernährungsformen als Zielgruppen-Presets** (DGE/BfR/MRI, Stand 08/2026) – Basis für Kapitel 6.1.
 3. **Recherche 2: Zubereitungs- & Rezeptdatenbank** (Schema, 60 Datensätze, Quellen-/Lizenzbewertung) – Basis für Kapitel 6.2.
 4. **Recherche 3: Produktdatenbank** (Open Food Facts, BLS 4.0, Barcode/Foto-Identifikation, Recht) – Basis für Kapitel 6.3.
-5. **Recherche 4: Rechtslage inoffizielle Picnic-API** (AGB, DE/EU-Recht, Ökosystem, Durchsetzungsfälle; Stand 01.08.2026) – Basis für Kapitel 7.2, beigelegt als [recherche-4-picnic-recht.md](recherche-4-picnic-recht.md).
+5. **Recherche 4: Snacks, Süßes & Frozen** (Rezept-/Sicherheitsbasis der Snack-Ecke) – Basis für Kapitel 4.9, beigelegt als [recherche-4-snacks.md](recherche-4-snacks.md).
+6. **Recherche 5: Rechtslage inoffizielle Picnic-API** (AGB, DE/EU-Recht, Ökosystem, Durchsetzungsfälle; Stand 01.08.2026) – Basis für Kapitel 7.2, beigelegt als [recherche-5-picnic-recht.md](recherche-5-picnic-recht.md).

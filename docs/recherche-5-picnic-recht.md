@@ -1,6 +1,6 @@
 # Deep-Research-Bericht: Rechtslage der inoffiziellen Picnic-API für Vorratio
 
-Recherche 4 · Stand: 01.08.2026 · Neuauflage, unabhängig von den Annahmen der Projektdoku erstellt.
+Recherche 5 · Stand: 01.08.2026 · Neuauflage, unabhängig von den Annahmen der Projektdoku erstellt.
 Vier parallele Recherche-Stränge: (1) Picnic-AGB, (2) deutsche/EU-Rechtslage, (3) Zustand des
 Community-API-Ökosystems, (4) reale Durchsetzungsfälle. **Keine Rechtsberatung** – Einordnung auf
 Basis öffentlich zugänglicher Quellen, Rechtsprechung und Kommentarliteratur.
