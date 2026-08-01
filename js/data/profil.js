@@ -1,5 +1,6 @@
-/* Vorratio Ernährungsprofil – drei unabhängige Achsen (Recherche 1, DGE/BfR-basiert)
-   Achse 1: Ernährungsform (genau eine) · Achse 2: Ausschlüsse (mehrfach) · Achse 3: Stil (optional, mehrfach) */
+/* Vorratio Ernährungsprofil – vier unabhängige Achsen (Recherche 1, DGE/BfR-basiert)
+   Achse 1: Ernährungsform (genau eine) · Achse 2: Ausschlüsse (mehrfach) ·
+   Achse 3: Stil (optional, mehrfach) · Achse 4: Ziele (optional, mehrfach) */
 
 const ERNAEHRUNGSFORMEN = [
   { id: "mischkost",      name: "Mischkost / omnivor",      kurz: "Alles – Fleisch, Fisch, Milch, Ei" },
@@ -55,6 +56,76 @@ const STILE = [
   { id: "paleo",        name: "Paleo",        hinweis: "Schließt ganze Lebensmittelgruppen aus (Vollkorn, Hülsenfrüchte) – widerspricht DGE-Empfehlungen." },
 ];
 
+/* Achse 4: Ziele – nur Ziele, die (a) wissenschaftlich belegt über Ernährung
+   beeinflussbar sind und (b) in der App rückkoppelbar: `bevorzugt`/`meidet`
+   koppeln an naehrwert_einordnung.profil + Rezept-Tags (→ Vorschlags-Score in
+   engine.js), `ai` fließt in den Systemprompt der Rezeptgenerierung (ai.js).
+   Weiche Präferenzen, keine Verbote. Der `hinweis` benennt ehrlich die
+   Evidenzlage (DGE, EFSA, ISSN 2017, DIETFITS 2018, PREDIMED/MIND) –
+   inkl. dessen, was NICHT belegt ist (z. B. Spot Reduction). */
+const ZIELE = [
+  {
+    id: "energie",
+    name: "Mehr Energie",
+    kurz: "Weniger Tiefs nach dem Essen, gleichmäßiger durch den Tag",
+    evidenz: "hoch",
+    hinweis: "Energietiefs entstehen vor allem durch Blutzuckerspitzen nach zucker- und weißmehlreichen Mahlzeiten. Gut belegt helfen: Vollkorn und Hülsenfrüchte (niedrige glykämische Last), regelmäßige Mahlzeiten und ausreichend Trinken (~1,5 l/Tag, DGE). Bei anhaltender Müdigkeit auch die Eisenversorgung ärztlich prüfen lassen – nicht auf Verdacht supplementieren.",
+    bevorzugt: { profile: ["ballaststoffreich", "ausgewogen"], tags: [] },
+    meidet: { profile: ["fettreich"] },
+    ai: "Bevorzuge Vollkorn und Hülsenfrüchte (niedrige glykämische Last) und sättigende, aber nicht schwere Gerichte; vermeide zuckerlastige Rezepte und sehr fettreiche Mahlzeiten.",
+  },
+  {
+    id: "abnehmen",
+    name: "Abnehmen",
+    kurz: "Sättigende, kalorienbewusste Rezepte werden bevorzugt",
+    evidenz: "hoch",
+    hinweis: "Entscheidend ist ein moderates Kaloriendefizit – die Diätform ist zweitrangig (Low-Carb vs. Low-Fat: bei gleichem Defizit gleiche Abnahme, u. a. DIETFITS 2018). Protein und Ballaststoffe sättigen pro Kalorie am besten. Vorratio bevorzugt darum kalorienärmere, protein- und ballaststoffreiche Rezepte – ohne Verbote.",
+    bevorzugt: { profile: ["kalorienarm", "proteinreich", "ballaststoffreich"], tags: [] },
+    meidet: { profile: ["fettreich"] },
+    ai: "Kalorienbewusste Rezepte mit hohem Protein- und Ballaststoffanteil und viel Gemüse (geringe Energiedichte); Frittiertes und sehr Fettreiches meiden, keine Crash-Diät-Rhetorik.",
+  },
+  {
+    id: "muskeln",
+    name: "Fitter werden / Muskelaufbau",
+    kurz: "Proteinreiche Rezepte als Baumaterial fürs Training",
+    evidenz: "hoch",
+    hinweis: "Fitter wirst du durchs Training – die Ernährung liefert das Baumaterial: 1,2–2,0 g Protein pro kg Körpergewicht und Tag (ISSN 2017, DGE-Position Sport), sinnvoll über die Mahlzeiten verteilt (~20–40 g pro Mahlzeit). Vorratio bevorzugt proteinreiche Rezepte.",
+    bevorzugt: { profile: ["proteinreich"], tags: ["high-protein"] },
+    meidet: { profile: [] },
+    ai: "Jede Hauptmahlzeit mit 20–40 g Protein (Hülsenfrüchte, Tofu, Fisch, Geflügel, Magerquark, Eier); Kohlenhydrate als Trainingsenergie einplanen.",
+  },
+  {
+    id: "bauch",
+    name: "Flacherer Bauch",
+    kurz: "Ehrliche Variante: Energiebilanz + blähungsarm essen",
+    evidenz: "mittel",
+    hinweis: "Ehrlich: Gezielt am Bauch abnehmen („Spot Reduction“) ist wissenschaftlich widerlegt – Bauchfett reagiert nur auf die Gesamt-Energiebilanz, wie beim Ziel Abnehmen. Zusätzlich gegen Blähbauch belegt: Ballaststoffe langsam steigern, ausreichend trinken, sehr fettige und stark verarbeitete Mahlzeiten reduzieren.",
+    bevorzugt: { profile: ["kalorienarm", "ballaststoffreich"], tags: [] },
+    meidet: { profile: ["fettreich"] },
+    ai: "Wie beim Abnehmen (Energiebilanz zählt); zusätzlich blähungsarm kochen: Ballaststoffe moderat dosieren, nichts extrem Fettiges oder stark Verarbeitetes.",
+  },
+  {
+    id: "fokus",
+    name: "Mehr Konzentration",
+    kurz: "Stabiler Blutzucker, Omega-3, genug trinken",
+    evidenz: "mittel",
+    hinweis: "Das Gehirn mag stabilen Blutzucker: Vollkorn statt Zuckerspitzen. Schon ~2 % Flüssigkeitsdefizit verschlechtert die Konzentration messbar (EFSA-Referenz: ~2 l Wasser/Tag über Getränke und Essen). Am besten belegt sind außerdem Omega-3 über fetten Seefisch (DGE: 1–2 Portionen Fisch/Woche) und ein mediterranes Ernährungsmuster (PREDIMED-/MIND-Daten).",
+    bevorzugt: { profile: ["ausgewogen", "ballaststoffreich"], tags: [] },
+    meidet: { profile: ["fettreich"] },
+    ai: "Niedrig-glykämische Basis (Vollkorn), regelmäßig fetten Seefisch (Omega-3) und mediterrane Muster einstreuen; mittags keine schweren, sehr fettreichen Gerichte.",
+  },
+  {
+    id: "verdauung",
+    name: "Gesunde Verdauung",
+    kurz: "Ballaststoffreiche Rezepte werden bevorzugt",
+    evidenz: "hoch",
+    hinweis: "Der am besten belegte Hebel: mindestens 30 g Ballaststoffe am Tag (DGE-Referenzwert) aus Vollkorn, Hülsenfrüchten, Gemüse und Obst – plus ausreichend trinken. Die Menge langsam steigern, sonst drohen anfangs Blähungen.",
+    bevorzugt: { profile: ["ballaststoffreich"], tags: [] },
+    meidet: { profile: [] },
+    ai: "Ballaststoffreich kochen (Vollkorn, Hülsenfrüchte, Gemüse); den DGE-Richtwert von 30 g Ballaststoffen am Tag mitdenken.",
+  },
+];
+
 // App-Level-Hinweise je Ernährungsform (KEINE Rezeptregeln, keine medizinische
 // Beratung – Quelle: DGE-Positionspapier 13.06.2024, DGE-FBDG 2024, BfR 17/2024)
 const FORM_HINWEISE = {
@@ -95,4 +166,4 @@ function hinweiseFuerForm(formId) {
   }
 }
 
-export { ERNAEHRUNGSFORMEN, FORM_ERLAUBT, AUSSCHLUESSE, STILE, FORM_HINWEISE, hinweiseFuerForm };
+export { ERNAEHRUNGSFORMEN, FORM_ERLAUBT, AUSSCHLUESSE, STILE, ZIELE, FORM_HINWEISE, hinweiseFuerForm };
