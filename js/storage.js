@@ -21,7 +21,8 @@ const DEFAULT_STATE = {
     woche: [],               // Wocheneinkauf [{ zutat_id, name, erledigt, auto }]
     rezeptId: null,
   },
-  settings: { erstellt: null },
+  aiRezepte: [],             // AI-generierte Rezepte (kruggel-recipe-db/v1-kompatibel)
+  settings: { erstellt: null, apiKey: null },
 };
 
 let state = null;

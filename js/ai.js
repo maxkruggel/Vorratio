@@ -1,0 +1,242 @@
+/* Vorratio AI-Modul: Rezeptgenerierung + Bon-Scan über die Claude API.
+   Rein clientseitig (wie Flora AI): Der API-Key liegt ausschließlich lokal auf
+   diesem Gerät (localStorage) und geht nur an api.anthropic.com.
+   Strukturierte Ausgaben (output_config.format) erzwingen Schema-Treue –
+   generierte Rezepte sind direkt kochbar (Timer, Abbuchung, Filter). */
+
+import { ZUTATEN } from "./data/kerndb.js";
+import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE } from "./data/profil.js";
+
+const API_URL = "https://api.anthropic.com/v1/messages";
+const MODEL = "claude-opus-5";
+
+function headers(apiKey) {
+  return {
+    "content-type": "application/json",
+    "x-api-key": apiKey,
+    "anthropic-version": "2023-06-01",
+    // Nötig für direkte Browser-Aufrufe (CORS-Opt-in der Claude API).
+    "anthropic-dangerous-direct-browser-access": "true",
+  };
+}
+
+async function anfrage(apiKey, body) {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: headers(apiKey),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let msg = `API-Fehler ${res.status}`;
+    try {
+      const err = await res.json();
+      if (err?.error?.message) msg += `: ${err.error.message}`;
+    } catch { /* Rohtext ignorieren */ }
+    if (res.status === 401) msg = "API-Key ungültig – bitte im Profil prüfen.";
+    if (res.status === 429) msg = "Rate-Limit erreicht – kurz warten und nochmal versuchen.";
+    throw new Error(msg);
+  }
+  const data = await res.json();
+  if (data.stop_reason === "refusal") throw new Error("Anfrage wurde vom Modell abgelehnt.");
+  const text = data.content?.find((b) => b.type === "text")?.text;
+  if (!text) throw new Error("Leere Antwort vom Modell.");
+  return JSON.parse(text);
+}
+
+/* ------------------------------------------------------------ Rezept-Schema */
+const EINHEITEN = ["g", "kg", "ml", "l", "Stk", "EL", "TL", "Prise", "Bund", "Zehe", "Dose", "Pck", "Stange", "nach_Bedarf"];
+const FORMEN_TAGS = ["vegan", "vegetarisch", "pescetarisch", "mit_fisch", "mit_fleisch", "mit_gefluegel"];
+const ALLERGENE_TAGS = ["gluten", "laktose", "ei", "fisch", "krebstiere", "schalenfruechte", "erdnuss", "soja", "sesam", "senf", "sellerie", "sulfite"];
+
+const REZEPT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["rezepte"],
+  properties: {
+    rezepte: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "kategorie", "cuisine", "mahlzeitentyp", "portionen", "schwierigkeit",
+          "zutaten", "schritte", "gesamtzeit_min", "ernaehrungsform", "allergene", "makro_hinweis", "tags"],
+        properties: {
+          name: { type: "string" },
+          kategorie: { type: "string" },
+          cuisine: { type: "string" },
+          mahlzeitentyp: { type: "array", items: { type: "string", enum: ["fruehstueck", "mittag", "abend", "snack"] } },
+          portionen: { type: "integer" },
+          schwierigkeit: { type: "string", enum: ["einfach", "mittel", "fortgeschritten"] },
+          zutaten: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["menge", "einheit", "zutat_id", "zutat_name", "optional"],
+              properties: {
+                menge: { type: ["number", "null"] },
+                einheit: { type: "string", enum: EINHEITEN },
+                zutat_id: { type: ["string", "null"] },
+                zutat_name: { type: "string" },
+                optional: { type: "boolean" },
+              },
+            },
+          },
+          schritte: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["nr", "text", "dauer_sekunden", "temperatur_c", "timer_typ", "timer_name"],
+              properties: {
+                nr: { type: "integer" },
+                text: { type: "string" },
+                dauer_sekunden: { type: ["number", "null"] },
+                temperatur_c: { type: ["number", "null"] },
+                timer_typ: { type: ["string", "null"], enum: ["aktiv", "passiv", "ofen", "ruhen", null] },
+                timer_name: { type: ["string", "null"] },
+              },
+            },
+          },
+          gesamtzeit_min: {
+            type: "object",
+            additionalProperties: false,
+            required: ["vorbereitung", "garzeit", "gesamt"],
+            properties: {
+              vorbereitung: { type: "integer" },
+              garzeit: { type: "integer" },
+              gesamt: { type: "integer" },
+            },
+          },
+          ernaehrungsform: { type: "array", items: { type: "string", enum: FORMEN_TAGS } },
+          allergene: { type: "array", items: { type: "string", enum: ALLERGENE_TAGS } },
+          makro_hinweis: { type: "string" },
+          tags: { type: "array", items: { type: "string" } },
+        },
+      },
+    },
+  },
+};
+
+/* Profilregeln aus Doku Kap. 6.1 (DGE/BfR/USDA-basiert) als Systemprompt. */
+function systemPrompt(profil) {
+  const form = ERNAEHRUNGSFORMEN.find((f) => f.id === profil.ernaehrungsform);
+  const ausschluesse = (profil.ausschluesse || [])
+    .map((id) => AUSSCHLUESSE.find((a) => a.id === id)?.name || id);
+  const stile = (profil.stile || []).map((id) => STILE.find((s) => s.id === id)?.name || id);
+  const katalog = ZUTATEN.map((z) => `${z.id} = ${z.name}`).join("\n");
+
+  return `Du bist der Rezeptgenerator der Vorrats-App Vorratio. Du erstellst alltagstaugliche,
+anfängertaugliche Rezepte, die sich strikt am Vorratsbestand des Nutzers orientieren.
+
+## Nutzerprofil (hart einhalten)
+- Ernährungsform: ${form?.name || "Mischkost"} (${form?.kurz || ""})
+- Harte Ausschlüsse (NIE verwenden, auch nicht in Spuren-relevanten Zutaten): ${ausschluesse.join(", ") || "keine"}
+- Stil-Präferenzen (bevorzugen, nicht erzwingen): ${stile.join(", ") || "keine"}
+
+## Ernährungsregeln (DGE/BfR-basiert, quellenbelegt)
+- Vegan: keinerlei Tierprodukte inkl. Honig. Jede Hauptmahlzeit mit Proteinquelle (Hülsenfrüchte/Tofu/Tempeh/Seitan), Getreide + Hülsenfrüchte kombinieren. Eisenreiche Gerichte IMMER mit Vitamin-C-Komponente (Paprika, Zitrone, Brokkoli). Kaffee/Schwarztee nie als Mahlzeitgetränk vorschlagen. Jodiertes Salz als Default, Algen nicht als Jod-/B12-Quelle.
+- Vegetarisch: Eisen-Vitamin-C-Kopplung wie vegan; Milch/Ei als Protein-, B12- und Calciumquelle nutzen. Lacto = kein Ei, Ovo = keine Milchprodukte.
+- Pescetarisch: Fisch aus der Positivliste bevorzugen (Lachs, Makrele, Hering, Kabeljau, Seelachs); große Raubfische (Thunfisch, Hai, Schwertfisch, Heilbutt, Rotbarsch, Aal) meiden (BfR 17/2024).
+- Mischkost/Flexitarisch: überwiegend pflanzlich (DGE 2024: >75% pflanzlich, Fleisch/Wurst max. 300 g/Woche) – Fleisch sparsam und bewusst einsetzen.
+- Kerntemperaturen sind Pflicht und dürfen USDA/FSIS-Minima nie unterschreiten: Geflügel 74 °C, Hackfleisch 71 °C, ganze Fleischstücke 63 °C + 3 Min Ruhe, Fisch 63 °C. Nenne sie im betreffenden Schritt (temperatur_c).
+
+## Zutaten-Katalog (für den Bestandsabgleich)
+Verwende für zutat_id NUR IDs aus dieser Liste. Für Zutaten ohne passende ID setze zutat_id auf null:
+${katalog}
+
+## Rezept-Anforderungen
+- Bevorzuge stark die Zutaten aus dem BESTAND des Nutzers (siehe Anfrage). Wenige, gängige Zusatzzutaten sind erlaubt.
+- Schritte: ein Handlungsschritt pro Eintrag, Imperativ, anfängertauglich (inkl. Basics wie "Reis abspülen").
+- Timer: dauer_sekunden + timer_typ (aktiv = Nutzer arbeitet, passiv = köcheln, ofen = Backzeit, ruhen) + sprechender timer_name ("Nudeln kochen") überall, wo eine Wartezeit existiert. Schritte ohne Wartezeit: alle Timer-Felder null.
+- Streue in 1–2 Schritte einen kurzen, lehrreichen Küchen-Tipp ein (Flora-Prinzip).
+- ernaehrungsform: alle zutreffenden Tags. allergene: alle im Rezept enthaltenen.
+- Erfinde keine Garzeiten – nutze etablierte Richtwerte.
+- Antworte ausschließlich als JSON gemäß Schema, Texte auf Deutsch.`;
+}
+
+/* 3 neue Rezepte für den Slot generieren – orientiert am Bestand. */
+async function generiereRezepte(apiKey, profil, bestand, slot, anzahl = 3) {
+  const bestandListe = bestand.length
+    ? bestand.map((b) => `- ${b.name} (${b.zutat_id}), verfügbar: ${b.menge ?? "vorrätig"} ${b.einheit}`).join("\n")
+    : "- (Bestand leer – schlage einfache Basisrezepte mit wenigen, günstigen Zutaten vor)";
+  const slotName = { fruehstueck: "Frühstück", mittag: "Mittagessen", abend: "Abendessen" }[slot] || slot;
+
+  const data = await anfrage(apiKey, {
+    model: MODEL,
+    max_tokens: 16000,
+    output_config: { format: { type: "json_schema", schema: REZEPT_SCHEMA } },
+    system: systemPrompt(profil),
+    messages: [{
+      role: "user",
+      content: `Erstelle ${anzahl} unterschiedliche Rezepte für: ${slotName}.
+
+AKTUELLER BESTAND:
+${bestandListe}
+
+Maximiere die Bestandsdeckung (möglichst wenig zukaufen), variiere Cuisine und Kategorie zwischen den ${anzahl} Vorschlägen.`,
+    }],
+  });
+
+  const jetzt = Date.now();
+  return (data.rezepte || []).slice(0, anzahl).map((r, i) => ({
+    ...r,
+    id: `AI-${jetzt}-${i}`,
+    typ: "rezept",
+    quelle_typ: "ai_generiert",
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: r.makro_hinweis },
+    substitutionen: [],
+    erstellt: new Date(jetzt).toISOString(),
+  }));
+}
+
+/* ------------------------------------------------------------------ Bon-Scan */
+const BON_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["haendler", "artikel"],
+  properties: {
+    haendler: { type: ["string", "null"] },
+    artikel: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["bon_text", "name", "zutat_id", "menge", "einheit", "lebensmittel"],
+        properties: {
+          bon_text: { type: "string" },
+          name: { type: "string" },
+          zutat_id: { type: ["string", "null"] },
+          menge: { type: ["number", "null"] },
+          einheit: { type: "string", enum: ["g", "ml", "Stk", "Dose", "Pck", "unbekannt"] },
+          lebensmittel: { type: "boolean" },
+        },
+      },
+    },
+  },
+};
+
+/* Kassenbon-Foto → strukturierte Artikelliste mit zutat_id-Mapping (Kap. 7.3). */
+async function scanBon(apiKey, imageBase64, mediaType) {
+  const katalog = ZUTATEN.map((z) => `${z.id} = ${z.name}`).join("\n");
+  return anfrage(apiKey, {
+    model: MODEL,
+    max_tokens: 8000,
+    output_config: { format: { type: "json_schema", schema: BON_SCHEMA } },
+    system: `Du liest deutsche Kassenbons für die Vorrats-App Vorratio.
+Extrahiere alle Artikel. Übersetze kryptische Bon-Bezeichnungen ("G&G WEIZENM. 405" → "Weizenmehl Type 405").
+Mappe jeden Lebensmittel-Artikel auf eine zutat_id aus diesem Katalog (oder null, wenn nichts passt):
+${katalog}
+Schätze die Menge aus der Bon-Zeile (Packungsgröße, Multiplikatoren wie "2x"). Non-Food: lebensmittel=false.
+Pfand, Rabatte und Summenzeilen sind KEINE Artikel.`,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
+        { type: "text", text: "Lies diesen Kassenbon und extrahiere die Artikel als JSON." },
+      ],
+    }],
+  });
+}
+
+export { generiereRezepte, scanBon, MODEL };
