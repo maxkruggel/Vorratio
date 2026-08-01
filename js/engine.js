@@ -109,10 +109,23 @@ function vorschlaege(profil, bestand, slot, seed = 0, anzahl = 3, rezepte = REZE
   return pool.slice(0, anzahl);
 }
 
+/* FNV-1a mit Avalanche-Finalizer: nichtlinear im Seed, damit "Neu würfeln"
+   und der Tageswechsel die Rangfolge wirklich durchmischen. */
 function pseudoZufall(id, seed) {
-  let h = seed * 2654435761;
-  for (const c of id) h = ((h << 5) - h + c.charCodeAt(0)) | 0;
-  return Math.abs(h % 1000) / 1000;
+  let h = 2166136261 ^ seed;
+  for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  h ^= h >>> 15;
+  h = Math.imul(h, 2246822519);
+  h ^= h >>> 13;
+  return ((h >>> 0) % 1000) / 1000;
+}
+
+/* Tagesseed: Datum + Wurf → pro Tag neue Rezeptideen (Kap. 4.3), innerhalb
+   eines Slots stabil, "Neu würfeln" zählt den Wurf hoch. */
+function tagesSeed(datumStr, wurf = 0) {
+  let h = 0;
+  for (const c of datumStr) h = ((h << 5) - h + c.charCodeAt(0)) | 0;
+  return Math.abs(h) + wurf * 7919;
 }
 
 /* Abbuchung nach "Gekocht": Bestand um Rezeptmengen × Portionsfaktor reduzieren.
@@ -162,5 +175,5 @@ function wochenKandidaten(bestand) {
 
 export {
   ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, bestandsAbgleich,
-  vorschlaege, abbuchen, mengeAnzeige, wochenKandidaten, mengeInBestandsEinheit,
+  vorschlaege, tagesSeed, abbuchen, mengeAnzeige, wochenKandidaten, mengeInBestandsEinheit,
 };

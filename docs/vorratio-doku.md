@@ -144,7 +144,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 
 ### 7.1 iOS-HTML-App (PWA)
 - Installation über Safari-Share „Zum Home-Bildschirm".
-- **Web Push** für die festen Vorschlagszeiten (8:00/11:30/17:30) ist ab iOS 16.4 für Homescreen-Web-Apps verfügbar – muss aktiv eingerichtet werden; Fallback: Vorschläge liegen beim Öffnen bereit.
+- **Web Push** für die festen Vorschlagszeiten (8:00/11:30/17:30) ist ab iOS 16.4 für Homescreen-Web-Apps verfügbar – braucht aber einen Push-Server und muss aktiv eingerichtet werden; Fallback (in v1 umgesetzt): Vorschläge liegen beim Öffnen bereit – sie werden beim App-Start bzw. beim Zurückkehren in den Vordergrund für den aktuellen Slot erzeugt, lokal gespeichert und bleiben innerhalb des Slots stabil.
 - Kein direkter Schreibzugriff auf Apple Notizen/Erinnerungen und kein HealthKit aus der PWA. Export-Wege für Listen: Web Share API (Share-Sheet), Zwischenablage, optional Apple-Shortcut als Brücke.
 - Lokale Datenhaltung nach Kap. 6.4: Auto-Save je Aktion, JSON-Export/-Import als Backup gegen Storage-Eviction.
 
@@ -181,7 +181,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 | 3 | Bon-Scan-Prototyp – Testdaten: allgemeine Grundzutaten (kein echtes Bon-Material nötig) | mit dem Aufbau |
 | 4 | Picnic: Rechtsrecherche abwarten, dann Funktionsvalidierung mit vorhandenem Zugang | läuft |
 | 5 | Angebots-Crawl: Quelle + Matching prototypen | To-do |
-| 6 | Web-Push für feste Vorschlagszeiten einrichten (Muster aus Flora AI übernehmen) | To-do |
+| 6 | Web-Push für feste Vorschlagszeiten einrichten (Muster aus Flora AI übernehmen; braucht Push-Server) | To-do – Fallback aktiv: Vorschläge liegen beim Öffnen bereit |
 | 7 | Icon-Palette erstellen | To-do |
 | 8 | Kern-Rezept-DB von 60 auf 300–500 Datensätze ausbauen | geplant |
 | 9 | Finales Branding + Chatbot-Name | später |

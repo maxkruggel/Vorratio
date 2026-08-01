@@ -14,7 +14,7 @@ const DEFAULT_STATE = {
     onboarded: false,
   },
   bestand: [],               // [{ id, zutat_id, name, kategorie, art, einheit, menge, fuellstand, updated }]
-  vorschlaege: null,         // { datum, slot, rezeptIds: [], gewuerfelt }
+  vorschlaege: null,         // Push-Fallback: { datum, slot, rezeptIds: [], gewuerfelt, bestandLeer }
   historie: [],              // [{ rezeptId, name, portionen, datum }]
   einkauf: {
     rezept: [],              // rezeptbezogene Liste [{ zutat_id, name, menge, einheit, erledigt }]
