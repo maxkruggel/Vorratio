@@ -17,6 +17,21 @@ python3 -m http.server 8080
 
 Auf dem iPhone: in Safari öffnen → Teilen → „Zum Home-Bildschirm“.
 
+## Stand (v2.1)
+
+Neu gegenüber v2:
+
+- **Snack-Ecke: Snacks, Süßes & Frozen** (Kap. 4.9, [Recherche 4](docs/recherche-4-snacks.md)):
+  eigene Rezeptkategorie **außerhalb der drei Essens-Slots** – für alles, was man
+  zwischendurch aus Vorräten herstellt: Bananen-Nicecream, Beeren-Sorbet (4:1-Ratio),
+  Joghurt-Eis am Stiel, Frozen-Joghurt-Bark, Schoko-Bananen, Fruchtleder (NCHFP-Dörrwerte),
+  Apfelchips, Dattel-Energiebällchen, geröstete Kichererbsen, Popcorn, 2-Zutaten-Kekse.
+  11 neue `SNK-`Rezepte + 9 neue Vorratszutaten (Datteln, Zartbitterschokolade,
+  Popcornmais …). Eigene Vorschlagsschiene auf dem Heute-Screen (2 tagesstabile
+  Vorschläge, Neu-würfeln, „✨ Snack-Ideen von Claude") – Snack-Rezepte tauchen nie
+  in den Mahlzeiten-Slots auf, respektieren aber alle Profilregeln und laufen voll
+  durch Kochmodus, Timer (Gefrieren/Dörren als `ruhen`/`ofen`) und Abbuchung.
+
 ## Stand (v2 / Ausbaustufe 2)
 
 Neu gegenüber v1:

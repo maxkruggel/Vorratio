@@ -15,6 +15,7 @@ const DEFAULT_STATE = {
   },
   bestand: [],               // [{ id, zutat_id, name, kategorie, art, einheit, menge, fuellstand, updated }]
   vorschlaege: null,         // Push-Fallback: { datum, slot, rezeptIds: [], gewuerfelt, bestandLeer }
+  snackVorschlaege: null,    // Snack-Ecke (slot-unabhängig): { datum, rezeptIds: [], gewuerfelt }
   historie: [],              // [{ rezeptId, name, portionen, datum }]
   einkauf: {
     rezept: [],              // rezeptbezogene Liste [{ zutat_id, name, menge, einheit, erledigt }]
