@@ -164,7 +164,15 @@ async function generiereRezepte(apiKey, profil, bestand, slot, anzahl = 3) {
   const bestandListe = bestand.length
     ? bestand.map((b) => `- ${b.name} (${b.zutat_id}), verfügbar: ${b.menge ?? "vorrätig"} ${b.einheit}`).join("\n")
     : "- (Bestand leer – schlage einfache Basisrezepte mit wenigen, günstigen Zutaten vor)";
-  const slotName = { fruehstueck: "Frühstück", mittag: "Mittagessen", abend: "Abendessen" }[slot] || slot;
+  const slotName = { fruehstueck: "Frühstück", mittag: "Mittagessen", abend: "Abendessen", snack: "Snacks & Süßes" }[slot] || slot;
+  // Snack-Ecke (Recherche 4): eigene Rezeptfamilie außerhalb der Essenszeiten
+  const snackHinweis = slot === "snack" ? `
+
+Es geht um SNACKS für zwischendurch, unabhängig von den Mahlzeiten – süß oder herzhaft:
+Eis/Sorbet/Nicecream, Eis am Stiel, Frozen-Joghurt-Bark, schokolierte Früchte, Fruchtleder,
+Obst-/Gemüsechips, Energiebällchen, geröstete Kichererbsen, Popcorn, Blitzgebäck.
+Lange passive Wartezeiten (Gefrieren, Dörren) sind okay – timer_typ "ruhen"/"ofen" nutzen.
+Setze mahlzeitentyp exakt auf ["snack"].` : "";
 
   const data = await anfrage(apiKey, {
     model: MODEL,
@@ -173,7 +181,7 @@ async function generiereRezepte(apiKey, profil, bestand, slot, anzahl = 3) {
     system: systemPrompt(profil),
     messages: [{
       role: "user",
-      content: `Erstelle ${anzahl} unterschiedliche Rezepte für: ${slotName}.
+      content: `Erstelle ${anzahl} unterschiedliche Rezepte für: ${slotName}.${snackHinweis}
 
 AKTUELLER BESTAND:
 ${bestandListe}

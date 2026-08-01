@@ -96,6 +96,17 @@ function zielTreffer(rezept, zielIds = []) {
   }));
 }
 
+/* Ziel-Bonus fürs Scoring: gemittelt über die gewählten Ziele (weiche
+   Präferenz, ±18 max – Bestandsdeckung bleibt der dominante Faktor). */
+function zielBonus(rezept, profil) {
+  const zt = zielTreffer(rezept, profil.ziele || []);
+  return zt.length ? 18 * (zt.reduce((sum, t) => sum + t.fit, 0) / zt.length) : 0;
+}
+
+/* Reine Snack-Rezepte (Recherche 4) gehören in die Snack-Ecke, nie in die
+   Essens-Slots – auch nicht beim Auffüllen dünner Slot-Pools. */
+const nurSnack = (r) => r.mahlzeitentyp.every((t) => t === "snack");
+
 /* 3 Vorschläge für den Slot: Profilfilter → Score nach Bestandsdeckung + Stil + Ziele.
    seed steuert das Neu-Würfeln (deterministisch pro Tag+Wurf). */
 function vorschlaege(profil, bestand, slot, seed = 0, anzahl = 3, rezepte = REZEPTE) {
@@ -106,10 +117,7 @@ function vorschlaege(profil, bestand, slot, seed = 0, anzahl = 3, rezepte = REZE
       const abgleich = bestandsAbgleich(r, bestand);
       let score = abgleich.quote * 100;
       if ((profil.stile || []).some((s) => (r.tags || []).includes(s))) score += 15;
-      // Ziel-Bonus: gemittelt über die gewählten Ziele (weiche Präferenz,
-      // ±18 max – Bestandsdeckung bleibt der dominante Faktor)
-      const zt = zielTreffer(r, profil.ziele || []);
-      if (zt.length) score += 18 * (zt.reduce((sum, t) => sum + t.fit, 0) / zt.length);
+      score += zielBonus(r, profil);                 // Achse 4: weiche Ziel-Präferenz
       score += pseudoZufall(r.id, seed) * 20;        // Varianz pro Wurf
       return { rezept: r, abgleich, score };
     })
@@ -119,11 +127,29 @@ function vorschlaege(profil, bestand, slot, seed = 0, anzahl = 3, rezepte = REZE
   if (pool.length < anzahl) {
     const ids = new Set(pool.map((p) => p.rezept.id));
     const rest = rezepte
-      .filter((r) => !ids.has(r.id) && rezeptErlaubt(r, profil))
+      .filter((r) => !ids.has(r.id) && !nurSnack(r) && rezeptErlaubt(r, profil))
       .map((r) => ({ rezept: r, abgleich: bestandsAbgleich(r, bestand), score: 0 }));
     pool.push(...rest);
   }
   return pool.slice(0, anzahl);
+}
+
+/* Snack-Ecke: Vorschläge unabhängig von den Essenszeiten (Kap. Snacks).
+   Gleiche Score-Logik wie die Slots (inkl. Ziel-Bonus), nur "snack"-Typ. */
+function snackVorschlaege(profil, bestand, seed = 0, anzahl = 2, rezepte = REZEPTE) {
+  return rezepte
+    .filter((r) => r.mahlzeitentyp.includes("snack"))
+    .filter((r) => rezeptErlaubt(r, profil))
+    .map((r) => {
+      const abgleich = bestandsAbgleich(r, bestand);
+      let score = abgleich.quote * 100;
+      if ((profil.stile || []).some((s) => (r.tags || []).includes(s))) score += 15;
+      score += zielBonus(r, profil);                 // Achse 4: weiche Ziel-Präferenz
+      score += pseudoZufall(r.id, seed) * 20;
+      return { rezept: r, abgleich, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, anzahl);
 }
 
 /* FNV-1a mit Avalanche-Finalizer: nichtlinear im Seed, damit "Neu würfeln"
@@ -192,5 +218,6 @@ function wochenKandidaten(bestand) {
 
 export {
   ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, bestandsAbgleich,
-  vorschlaege, zielTreffer, tagesSeed, abbuchen, mengeAnzeige, wochenKandidaten, mengeInBestandsEinheit,
+  vorschlaege, snackVorschlaege, zielTreffer, tagesSeed, abbuchen, mengeAnzeige,
+  wochenKandidaten, mengeInBestandsEinheit,
 };

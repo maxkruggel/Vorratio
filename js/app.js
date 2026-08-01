@@ -7,8 +7,8 @@ import { load, save, getState, exportJson, importJson, resetAll } from "./storag
 import { ZUTATEN, REZEPTE, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN } from "./data/kerndb.js";
 import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, ZIELE, hinweiseFuerForm, FORM_HINWEISE } from "./data/profil.js";
 import {
-  ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, vorschlaege, zielTreffer, tagesSeed,
-  bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
+  ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, vorschlaege, snackVorschlaege,
+  zielTreffer, tagesSeed, bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
 } from "./engine.js";
 import { generiereRezepte, scanBon } from "./ai.js";
 import { lookupBarcode, vorschlagZutat, kameraVerfuegbar, starteKameraScan } from "./scan.js";
@@ -210,11 +210,38 @@ function stelleVorschlaegeBereit(neuWuerfeln = false) {
   return s.vorschlaege;
 }
 
+/* Snack-Ecke: Vorschläge unabhängig von den Essenszeiten – tagesstabil,
+   eigener Wurf-Zähler, gleiche Gültigkeitsprüfung wie die Slot-Vorschläge. */
+function stelleSnacksBereit(neuWuerfeln = false) {
+  const s = getState();
+  if (!s.profil.onboarded) return null;
+  const datum = heuteStr();
+  const v = s.snackVorschlaege;
+  const gueltig = v && v.datum === datum
+    && (v.rezeptIds || []).length > 0
+    && (v.rezeptIds || []).every((id) => {
+      const r = findRezept(id);
+      return r && rezeptErlaubt(r, s.profil);
+    });
+  if (gueltig && !neuWuerfeln) return v;
+
+  const gewuerfelt = gueltig ? (v.gewuerfelt || 0) + 1 : 0;
+  const vs = snackVorschlaege(s.profil, s.bestand, tagesSeed(datum, gewuerfelt) ^ 0x5eed, 2, alleRezepte());
+  s.snackVorschlaege = { datum, rezeptIds: vs.map((x) => x.rezept.id), gewuerfelt };
+  save();
+  return s.snackVorschlaege;
+}
+
 function renderHeute() {
   const s = getState();
   const bereit = stelleVorschlaegeBereit();
   const slot = bereit.slot;
   const vs = bereit.rezeptIds
+    .map((id) => findRezept(id))
+    .filter(Boolean)
+    .map((rezept) => ({ rezept, abgleich: bestandsAbgleich(rezept, s.bestand) }));
+  const snacksBereit = stelleSnacksBereit();
+  const snacks = (snacksBereit?.rezeptIds || [])
     .map((id) => findRezept(id))
     .filter(Boolean)
     .map((rezept) => ({ rezept, abgleich: bestandsAbgleich(rezept, s.bestand) }));
@@ -245,7 +272,27 @@ function renderHeute() {
       <button class="btn secondary" id="wuerfeln">↻ Neu würfeln</button>
       <button class="btn" id="ai-generieren" ${aiLaeuft ? "disabled" : ""}>${aiLaeuft ? "✨ Claude kocht Ideen …" : "✨ Neue Ideen von Claude"}</button>
       ${aiFehler ? `<p class="small" style="color:var(--warn);text-align:center;margin-top:8px">${esc(aiFehler)}</p>` : ""}
-      <p class="subtle small" style="text-align:center;margin-top:14px">Feste Zeiten: 8:00 Frühstück · 11:30 Mittag · 17:30 Abend<br>Ohne Push-Einrichtung liegen die Vorschläge beim Öffnen bereit.</p>
+
+      <hr class="divider">
+      <div class="section-gap">
+        <h2>Snacks &amp; Süßes</h2>
+        <p class="subtle small" style="margin-bottom:10px">Unabhängig von den Essenszeiten – Eis, Sorbet, Fruchtleder &amp; Co. aus deinem Vorrat.</p>
+        ${snacks.map((v) => `
+          <div class="card tappable" data-rezept="${v.rezept.id}">
+            <div class="card-row">
+              <h3>${esc(v.rezept.name)}${istAi(v.rezept) ? ' <span class="badge">✨ AI</span>' : ""}</h3>
+              <span class="badge neutral">${v.rezept.gesamtzeit_min.gesamt} Min</span>
+            </div>
+            <p class="subtle">${esc(v.rezept.kategorie)} · ${esc(v.rezept.schwierigkeit)} · ${v.rezept.portionen} Portionen</p>
+            ${v.abgleich.fehlt.length === 0
+              ? `<span class="badge" style="margin-top:8px">Alles da ✓</span>`
+              : `<p class="small" style="margin-top:8px;color:var(--warn)">Das fehlt dir: ${v.abgleich.fehlt.map((z) => esc(z.zutat_name)).join(", ")}</p>`}
+          </div>`).join("") || '<div class="empty-state"><p class="small">Kein Snack passt gerade zu deinem Profil.</p></div>'}
+        <button class="btn secondary" id="snack-wuerfeln">↻ Andere Snacks</button>
+        <button class="btn secondary" id="ai-snacks" ${aiLaeuft ? "disabled" : ""}>${aiLaeuft ? "✨ Claude denkt nach …" : "✨ Snack-Ideen von Claude"}</button>
+      </div>
+
+      <p class="subtle small" style="text-align:center;margin-top:14px">Feste Zeiten: 8:00 Frühstück · 11:30 Mittag · 17:30 Abend<br>Snacks laufen außerhalb der Zeiten. Ohne Push-Einrichtung liegen die Vorschläge beim Öffnen bereit.</p>
     </div>`));
 
   app.querySelectorAll("[data-rezept]").forEach((c) => c.addEventListener("click", () => {
@@ -253,7 +300,9 @@ function renderHeute() {
     render();
   }));
   app.querySelector("#wuerfeln").addEventListener("click", () => { stelleVorschlaegeBereit(true); render(); });
+  app.querySelector("#snack-wuerfeln").addEventListener("click", () => { stelleSnacksBereit(true); render(); });
   app.querySelector("#ai-generieren").addEventListener("click", () => starteAiGenerierung(slot));
+  app.querySelector("#ai-snacks").addEventListener("click", () => starteAiGenerierung("snack"));
   app.querySelector('[data-go="vorrat"]')?.addEventListener("click", (e) => { e.stopPropagation(); view = "vorrat"; render(); });
 }
 
@@ -272,7 +321,9 @@ async function starteAiGenerierung(slot) {
     const neue = await generiereRezepte(s.settings.apiKey, s.profil, s.bestand, slot);
     s.aiRezepte = [...neue, ...(s.aiRezepte || [])].slice(0, 24);  // jüngste behalten
     save();
-    stelleVorschlaegeBereit(true);                                 // neue Rezepte in die Slot-Vorschläge würfeln
+    // Neue Rezepte in die passende Vorschlagsschiene würfeln
+    if (slot === "snack") stelleSnacksBereit(true);
+    else stelleVorschlaegeBereit(true);
   } catch (e) {
     aiFehler = e.message;
   }
@@ -1070,6 +1121,7 @@ function renderProfil() {
 /* ------------------------------------------------------------------- Start */
 load();
 stelleVorschlaegeBereit();   // Push-Fallback: beim Öffnen liegen die Slot-Vorschläge bereit
+stelleSnacksBereit();        // … und die Snack-Ecke gleich mit
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
@@ -1080,6 +1132,8 @@ render();
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;
   const vorher = getState().vorschlaege;
+  const snacksVorher = getState().snackVorschlaege;
   const nachher = stelleVorschlaegeBereit();
-  if (view === "heute" && !cook && !detailRezept && nachher !== vorher) render();
+  const snacksNachher = stelleSnacksBereit();
+  if (view === "heute" && !cook && !detailRezept && (nachher !== vorher || snacksNachher !== snacksVorher)) render();
 });
