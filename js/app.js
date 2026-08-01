@@ -5,14 +5,16 @@
 
 import { load, save, getState, exportJson, importJson, resetAll } from "./storage.js";
 import { ZUTATEN, REZEPTE, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN } from "./data/kerndb.js";
-import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, hinweiseFuerForm, FORM_HINWEISE } from "./data/profil.js";
+import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, ZIELE, hinweiseFuerForm, FORM_HINWEISE } from "./data/profil.js";
 import {
-  ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, vorschlaege, tagesSeed,
-  bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
+  ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, vorschlaege, snackVorschlaege,
+  zielTreffer, tagesSeed, bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
 } from "./engine.js";
 import { angebotsCrawl, isoWoche, liveKonfiguriert } from "./angebote.js";
 import { generiereRezepte, scanBon } from "./ai.js";
 import { lookupBarcode, vorschlagZutat, kameraVerfuegbar, starteKameraScan } from "./scan.js";
+import { SUB_KATEGORIEN, SUB_ANWENDUNGEN } from "./data/substitutionen.js";
+import { subsFiltern, ersatzVorschlaege, produkteSortiert } from "./substitution.js";
 
 /* Kern-DB + AI-generierte Rezepte als gemeinsamer Pool. */
 const alleRezepte = () => [...REZEPTE, ...(getState().aiRezepte || [])];
@@ -63,10 +65,10 @@ tabbar.addEventListener("click", (e) => {
 });
 
 /* ------------------------------------------------------------ Onboarding */
-let ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [] };
+let ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [], ziele: [] };
 
 function renderOnboarding() {
-  const steps = [obWelcome, obName, obForm, obAusschluesse, obStile, obToleranz];
+  const steps = [obWelcome, obName, obForm, obAusschluesse, obStile, obZiele, obToleranz];
   app.replaceChildren(h(`<div class="fade-in">${steps[ob.step]()}</div>`));
   bindOnboarding();
 }
@@ -125,6 +127,24 @@ function obStile() {
     <button class="btn" data-ob="next">Weiter</button>`;
 }
 
+/* Achse 4: Ziele – nur wissenschaftlich belegte, über Ernährung beeinflussbare
+   Ziele; jede Auswahl zeigt sofort ehrlich die Evidenzlage (inkl. dem, was
+   NICHT belegt ist). Rückkopplung: Vorschlags-Score + AI-Rezeptgenerierung. */
+function obZiele() {
+  return `
+    <div class="screen-header"><h1>Deine Ziele</h1><p class="subtle">Optional, Mehrfachauswahl – passende Rezepte werden bevorzugt, nichts wird verboten. Nur Ziele, die nachweislich über Ernährung beeinflussbar sind.</p></div>
+    <div class="choice-list">
+      ${ZIELE.map((z) => `
+        <button class="choice ${ob.ziele.includes(z.id) ? "selected" : ""}" data-ziel="${z.id}">
+          <b>${esc(z.name)} ${z.evidenz === "hoch" ? '<span class="badge">Evidenz: hoch</span>' : '<span class="badge neutral">Evidenz: begrenzt</span>'}</b>
+          <span class="subtle">${esc(z.kurz)}</span>
+        </button>`).join("")}
+    </div>
+    ${ob.ziele.map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean).map((z) => `
+      <div class="card hint-card" style="margin-top:12px"><b>${esc(z.name)} – was die Wissenschaft sagt</b>${esc(z.hinweis)}</div>`).join("")}
+    <button class="btn" data-ob="next">${ob.ziele.length ? "Weiter" : "Ohne Ziele weiter"}</button>`;
+}
+
 function obToleranz() {
   return `
     <div class="screen-header"><h1>Eine Sache noch</h1></div>
@@ -139,6 +159,7 @@ function bindOnboarding() {
   app.querySelectorAll("[data-form]").forEach((b) => b.addEventListener("click", () => { ob.form = b.dataset.form; renderOnboarding(); }));
   app.querySelectorAll("[data-aus]").forEach((b) => b.addEventListener("click", () => { toggle(ob.ausschluesse, b.dataset.aus); renderOnboarding(); }));
   app.querySelectorAll("[data-stil]").forEach((b) => b.addEventListener("click", () => { toggle(ob.stile, b.dataset.stil); renderOnboarding(); }));
+  app.querySelectorAll("[data-ziel]").forEach((b) => b.addEventListener("click", () => { toggle(ob.ziele, b.dataset.ziel); renderOnboarding(); }));
   app.querySelector('[data-ob="next"]')?.addEventListener("click", () => { ob.step++; renderOnboarding(); });
   app.querySelector('[data-ob="name"]')?.addEventListener("click", () => {
     ob.name = app.querySelector("#ob-name").value.trim();
@@ -147,7 +168,7 @@ function bindOnboarding() {
   });
   app.querySelector('[data-ob="fertig"]')?.addEventListener("click", () => {
     const s = getState();
-    s.profil = { name: ob.name, ernaehrungsform: ob.form, ausschluesse: ob.ausschluesse, stile: ob.stile, onboarded: true };
+    s.profil = { name: ob.name, ernaehrungsform: ob.form, ausschluesse: ob.ausschluesse, stile: ob.stile, ziele: ob.ziele, onboarded: true };
     save();
     view = "vorrat";
     render();
@@ -192,11 +213,38 @@ function stelleVorschlaegeBereit(neuWuerfeln = false) {
   return s.vorschlaege;
 }
 
+/* Snack-Ecke: Vorschläge unabhängig von den Essenszeiten – tagesstabil,
+   eigener Wurf-Zähler, gleiche Gültigkeitsprüfung wie die Slot-Vorschläge. */
+function stelleSnacksBereit(neuWuerfeln = false) {
+  const s = getState();
+  if (!s.profil.onboarded) return null;
+  const datum = heuteStr();
+  const v = s.snackVorschlaege;
+  const gueltig = v && v.datum === datum
+    && (v.rezeptIds || []).length > 0
+    && (v.rezeptIds || []).every((id) => {
+      const r = findRezept(id);
+      return r && rezeptErlaubt(r, s.profil);
+    });
+  if (gueltig && !neuWuerfeln) return v;
+
+  const gewuerfelt = gueltig ? (v.gewuerfelt || 0) + 1 : 0;
+  const vs = snackVorschlaege(s.profil, s.bestand, tagesSeed(datum, gewuerfelt) ^ 0x5eed, 2, alleRezepte());
+  s.snackVorschlaege = { datum, rezeptIds: vs.map((x) => x.rezept.id), gewuerfelt };
+  save();
+  return s.snackVorschlaege;
+}
+
 function renderHeute() {
   const s = getState();
   const bereit = stelleVorschlaegeBereit();
   const slot = bereit.slot;
   const vs = bereit.rezeptIds
+    .map((id) => findRezept(id))
+    .filter(Boolean)
+    .map((rezept) => ({ rezept, abgleich: bestandsAbgleich(rezept, s.bestand) }));
+  const snacksBereit = stelleSnacksBereit();
+  const snacks = (snacksBereit?.rezeptIds || [])
     .map((id) => findRezept(id))
     .filter(Boolean)
     .map((rezept) => ({ rezept, abgleich: bestandsAbgleich(rezept, s.bestand) }));
@@ -227,7 +275,27 @@ function renderHeute() {
       <button class="btn secondary" id="wuerfeln">↻ Neu würfeln</button>
       <button class="btn" id="ai-generieren" ${aiLaeuft ? "disabled" : ""}>${aiLaeuft ? "✨ Claude kocht Ideen …" : "✨ Neue Ideen von Claude"}</button>
       ${aiFehler ? `<p class="small" style="color:var(--warn);text-align:center;margin-top:8px">${esc(aiFehler)}</p>` : ""}
-      <p class="subtle small" style="text-align:center;margin-top:14px">Feste Zeiten: 8:00 Frühstück · 11:30 Mittag · 17:30 Abend<br>Ohne Push-Einrichtung liegen die Vorschläge beim Öffnen bereit.</p>
+
+      <hr class="divider">
+      <div class="section-gap">
+        <h2>Snacks &amp; Süßes</h2>
+        <p class="subtle small" style="margin-bottom:10px">Unabhängig von den Essenszeiten – Eis, Sorbet, Fruchtleder &amp; Co. aus deinem Vorrat.</p>
+        ${snacks.map((v) => `
+          <div class="card tappable" data-rezept="${v.rezept.id}">
+            <div class="card-row">
+              <h3>${esc(v.rezept.name)}${istAi(v.rezept) ? ' <span class="badge">✨ AI</span>' : ""}</h3>
+              <span class="badge neutral">${v.rezept.gesamtzeit_min.gesamt} Min</span>
+            </div>
+            <p class="subtle">${esc(v.rezept.kategorie)} · ${esc(v.rezept.schwierigkeit)} · ${v.rezept.portionen} Portionen</p>
+            ${v.abgleich.fehlt.length === 0
+              ? `<span class="badge" style="margin-top:8px">Alles da ✓</span>`
+              : `<p class="small" style="margin-top:8px;color:var(--warn)">Das fehlt dir: ${v.abgleich.fehlt.map((z) => esc(z.zutat_name)).join(", ")}</p>`}
+          </div>`).join("") || '<div class="empty-state"><p class="small">Kein Snack passt gerade zu deinem Profil.</p></div>'}
+        <button class="btn secondary" id="snack-wuerfeln">↻ Andere Snacks</button>
+        <button class="btn secondary" id="ai-snacks" ${aiLaeuft ? "disabled" : ""}>${aiLaeuft ? "✨ Claude denkt nach …" : "✨ Snack-Ideen von Claude"}</button>
+      </div>
+
+      <p class="subtle small" style="text-align:center;margin-top:14px">Feste Zeiten: 8:00 Frühstück · 11:30 Mittag · 17:30 Abend<br>Snacks laufen außerhalb der Zeiten. Ohne Push-Einrichtung liegen die Vorschläge beim Öffnen bereit.</p>
     </div>`));
 
   app.querySelectorAll("[data-rezept]").forEach((c) => c.addEventListener("click", () => {
@@ -235,7 +303,9 @@ function renderHeute() {
     render();
   }));
   app.querySelector("#wuerfeln").addEventListener("click", () => { stelleVorschlaegeBereit(true); render(); });
+  app.querySelector("#snack-wuerfeln").addEventListener("click", () => { stelleSnacksBereit(true); render(); });
   app.querySelector("#ai-generieren").addEventListener("click", () => starteAiGenerierung(slot));
+  app.querySelector("#ai-snacks").addEventListener("click", () => starteAiGenerierung("snack"));
   app.querySelector('[data-go="vorrat"]')?.addEventListener("click", (e) => { e.stopPropagation(); view = "vorrat"; render(); });
 }
 
@@ -254,7 +324,9 @@ async function starteAiGenerierung(slot) {
     const neue = await generiereRezepte(s.settings.apiKey, s.profil, s.bestand, slot);
     s.aiRezepte = [...neue, ...(s.aiRezepte || [])].slice(0, 24);  // jüngste behalten
     save();
-    stelleVorschlaegeBereit(true);                                 // neue Rezepte in die Slot-Vorschläge würfeln
+    // Neue Rezepte in die passende Vorschlagsschiene würfeln
+    if (slot === "snack") stelleSnacksBereit(true);
+    else stelleVorschlaegeBereit(true);
   } catch (e) {
     aiFehler = e.message;
   }
@@ -267,6 +339,8 @@ function renderRezeptDetail(rezept) {
   const s = getState();
   const ab = bestandsAbgleich(rezept, s.bestand);
   const tip = TIPPS[Math.abs(hashCode(rezept.id)) % TIPPS.length];
+  // Sichtbare Rückkopplung Achse 4: auf welche gewählten Ziele zahlt das Rezept ein?
+  const zielePassend = zielTreffer(rezept, s.profil.ziele || []).filter((t) => t.fit > 0).map((t) => t.ziel.name);
 
   app.replaceChildren(h(`
     <div class="fade-in">
@@ -286,8 +360,11 @@ function renderRezeptDetail(rezept) {
           </div>`;
         }).join("")}
       </div>
+      ${zielePassend.length ? `
+        <div class="card hint-card"><b>🎯 Zahlt auf deine Ziele ein</b>${esc(zielePassend.join(" · "))}</div>` : ""}
       ${rezept.naehrwert_einordnung?.makro_hinweis ? `
         <div class="card hint-card"><b>Gut zu wissen</b>${esc(rezept.naehrwert_einordnung.makro_hinweis)}</div>` : ""}
+      ${ersatzIdeenHtml(ab.fehlt, s.profil)}
       ${ab.fehlt.length > 0 ? `
         <button class="btn" id="einkauf-starten">Einkaufsliste erstellen (${ab.fehlt.length} fehlt)</button>
         <button class="btn secondary" id="kochen-trotzdem">Trotzdem kochen</button>`
@@ -312,6 +389,34 @@ function renderRezeptDetail(rezept) {
 function zutatText(z) {
   const menge = z.menge != null ? `${z.menge} ${z.einheit === "Stk" ? "" : z.einheit + " "}`.trim() + " " : "";
   return `${menge}${z.zutat_name}`;
+}
+
+/* Ersatz-Ideen für fehlende Zutaten (Substitutions-DB): statt einkaufen ggf.
+   pflanzlich ersetzen – Profil-Ausschlüsse sind bereits herausgefiltert.
+   Ei ist funktionsbasiert (binden/lockern/aufschlagen …), daher mehrere Zeilen. */
+function ersatzIdeenHtml(fehlt, profil) {
+  const zeilen = [];
+  for (const z of fehlt) {
+    const vs = ersatzVorschlaege(z.zutat_id, profil);
+    for (const e of vs) {
+      // Mehrere Datensätze je Zutat (Ei-Funktionen, Schlag- vs. Kochsahne) unterscheidbar halten
+      const label = e.funktion || (vs.length > 1 ? e.original : null);
+      zeilen.push(`
+        <div class="list-item">
+          <div class="grow small">
+            <b>${esc(z.zutat_name)}</b>${label ? ` <span class="subtle">(${esc(label)})</span>` : ""}
+            → ${esc(e.name)} <span class="subtle">· ${esc(e.verhaeltnis)}</span>
+          </div>
+        </div>`);
+    }
+  }
+  if (!zeilen.length) return "";
+  return `
+    <div class="card">
+      <h2>Fehlt? Lässt sich ersetzen</h2>
+      <p class="subtle small" style="margin:6px 0 4px">Pflanzliche Alternativen aus der Substitutions-DB – Details im Wissen-Tab unter „Ersatz“.</p>
+      ${zeilen.join("")}
+    </div>`;
 }
 
 function hashCode(str) {
@@ -1085,10 +1190,58 @@ async function starteCrawl(s) {
 
 /* ------------------------------------------------------------------ Wissen */
 let wissenTab = "tipps";
+let ersatzKat = null;   // Kategorie-Filter im Ersatz-Tab (null = alle)
+let ersatzAnw = null;   // Anwendungsfall-Filter (backen/aufschlagen/… , null = alle)
+
+/* Substitutions-DB als browsebarer Wissens-Tab: Kategorie- und Anwendungs-
+   Filter, Alternativen priorisiert (1 = neutralste Wahl), Handelsbeispiele
+   mit Eigenmarken zuerst. Profil-Ausschlüsse filtern hart (wie überall). */
+function ersatzTabHtml(s) {
+  const eintraege = subsFiltern({ kategorie: ersatzKat, anwendung: ersatzAnw, profil: s.profil });
+  const b12 = s.profil.ernaehrungsform === "vegan" ? `
+    <div class="card hint-card"><b>Dauerhinweis für dein veganes Profil</b>${esc(FORM_HINWEISE.vegan[0])}</div>` : "";
+  const ausgeblendetGesamt = eintraege.reduce((n, e) => n + e.ausgeblendet, 0);
+  return `
+    <p class="subtle small" style="margin-bottom:10px">Pflanzliche Alternativen zu tierischen Zutaten – priorisiert, mit Mengenverhältnis und Handelsbeispielen (Stand 08/2026; Sortimente ändern sich).${ausgeblendetGesamt ? ` ${ausgeblendetGesamt} Alternativen sind wegen deiner Ausschlüsse ausgeblendet.` : ""}</p>
+    ${b12}
+    <div class="chip-wrap" style="margin-bottom:8px">
+      <button class="chip ${!ersatzKat ? "selected" : ""}" data-ekat="">Alle</button>
+      ${Object.entries(SUB_KATEGORIEN).map(([id, name]) => `
+        <button class="chip ${ersatzKat === id ? "selected" : ""}" data-ekat="${id}">${esc(name)}</button>`).join("")}
+    </div>
+    <div class="chip-wrap" style="margin-bottom:16px">
+      <button class="chip ${!ersatzAnw ? "selected" : ""}" data-eanw="">Jede Anwendung</button>
+      ${Object.entries(SUB_ANWENDUNGEN).map(([id, name]) => `
+        <button class="chip ${ersatzAnw === id ? "selected" : ""}" data-eanw="${id}">${esc(name)}</button>`).join("")}
+    </div>
+    ${eintraege.map(({ sub, alternativen }) => `
+      <div class="card">
+        <div class="card-row">
+          <h3>${esc(sub.original_zutat)}</h3>
+          ${sub.funktion_name ? `<span class="badge neutral">${esc(sub.funktion_name)}</span>` : ""}
+        </div>
+        ${alternativen.map((a, i) => {
+          const produkte = produkteSortiert(a).slice(0, 3)
+            .map((p) => `${esc(p.produkt)} (${p.laeden.map(esc).join(", ")})`).join(" · ");
+          return `
+          <div style="margin-top:${i ? 12 : 8}px${i ? ";border-top:1px solid var(--line, #eceae4);padding-top:10px" : ""}">
+            <p><b>${esc(a.alternative_name)}</b> <span class="subtle small">· ${esc(a.verhaeltnis)}</span></p>
+            <p class="small subtle" style="margin-top:4px">${esc(a.hinweise || "")}</p>
+            <div class="chip-wrap" style="margin-top:6px">
+              ${(a.geeignet_fuer || []).map((g) => `<span class="badge neutral">${esc(SUB_ANWENDUNGEN[g] || g)}</span>`).join("")}
+            </div>
+            ${a.naehrwert_hinweis ? `<p class="small" style="margin-top:6px;color:var(--accent)">${esc(a.naehrwert_hinweis)}</p>` : ""}
+            ${produkte ? `<p class="small subtle" style="margin-top:6px">Im Handel: ${produkte}</p>` : ""}
+          </div>`;
+        }).join("")}
+      </div>`).join("") || '<div class="empty-state"><p class="small">Keine Alternative passt zu dieser Filter-Kombination.</p></div>'}
+    <p class="subtle small" style="text-align:center;margin-top:14px">Bei Fertigprodukten (v. a. Worcestersauce, Milchpulver, Brühe) immer Zutatenliste/V-Label prüfen – Rezepturen variieren.</p>`;
+}
 
 function renderWissen() {
-  const tabs = { tipps: "Tipps", preps: "Zubereitung", bases: "Grundrezepte", techniken: "Techniken" };
+  const tabs = { tipps: "Tipps", ersatz: "Ersatz", preps: "Zubereitung", bases: "Grundrezepte", techniken: "Techniken" };
   const inhalt = {
+    ersatz: () => ersatzTabHtml(getState()),
     tipps: () => TIPPS.map((t) => `<div class="card"><p class="small">💡 ${esc(t.text)}</p></div>`).join("")
       + IDEEN.map((i) => `<div class="card"><p class="small">✦ ${esc(i.text)}</p></div>`).join(""),
     preps: () => PREPS.map((p) => `
@@ -1116,6 +1269,8 @@ function renderWissen() {
     </div>`));
 
   app.querySelectorAll("[data-wtab]").forEach((b) => b.addEventListener("click", () => { wissenTab = b.dataset.wtab; renderWissen(); }));
+  app.querySelectorAll("[data-ekat]").forEach((b) => b.addEventListener("click", () => { ersatzKat = b.dataset.ekat || null; renderWissen(); }));
+  app.querySelectorAll("[data-eanw]").forEach((b) => b.addEventListener("click", () => { ersatzAnw = b.dataset.eanw || null; renderWissen(); }));
 }
 
 /* ------------------------------------------------------------------ Profil */
@@ -1145,6 +1300,14 @@ function renderProfil() {
       <div class="chip-wrap">
         ${STILE.map((st) => `<button class="chip ${s.profil.stile.includes(st.id) ? "selected" : ""}" data-pstil="${st.id}">${esc(st.name)}</button>`).join("")}
       </div>
+
+      <h2 class="section-gap">Ziele</h2>
+      <p class="subtle small" style="margin-bottom:8px">Passende Rezepte werden bevorzugt (Vorschläge + AI-Generierung), nichts wird verboten.</p>
+      <div class="chip-wrap">
+        ${ZIELE.map((z) => `<button class="chip ${(s.profil.ziele || []).includes(z.id) ? "selected" : ""}" data-pziel="${z.id}">${esc(z.name)}</button>`).join("")}
+      </div>
+      ${(s.profil.ziele || []).map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean).map((z) => `
+        <div class="card hint-card" style="margin-top:12px"><b>${esc(z.name)} – was die Wissenschaft sagt</b>${esc(z.hinweis)}</div>`).join("")}
 
       <h2 class="section-gap">Hinweise zu deiner Ernährungsform</h2>
       ${hinweise.map((t) => `<div class="card hint-card">${esc(t)}</div>`).join("")}
@@ -1185,6 +1348,7 @@ function renderProfil() {
   app.querySelectorAll("[data-pform]").forEach((b) => b.addEventListener("click", () => { s.profil.ernaehrungsform = b.dataset.pform; save(); renderProfil(); }));
   app.querySelectorAll("[data-paus]").forEach((b) => b.addEventListener("click", () => { toggle(s.profil.ausschluesse, b.dataset.paus); save(); renderProfil(); }));
   app.querySelectorAll("[data-pstil]").forEach((b) => b.addEventListener("click", () => { toggle(s.profil.stile, b.dataset.pstil); save(); renderProfil(); }));
+  app.querySelectorAll("[data-pziel]").forEach((b) => b.addEventListener("click", () => { s.profil.ziele ||= []; toggle(s.profil.ziele, b.dataset.pziel); save(); renderProfil(); }));
   app.querySelector("#api-key-save").addEventListener("click", () => {
     s.settings.apiKey = app.querySelector("#api-key").value.trim() || null;
     save();
@@ -1202,13 +1366,14 @@ function renderProfil() {
     catch (err) { alert(`Import fehlgeschlagen: ${err.message}`); }
   });
   app.querySelector("#reset").addEventListener("click", () => {
-    if (confirm("Wirklich ALLE Daten löschen? Ohne Export ist das endgültig.")) { resetAll(); ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [] }; render(); }
+    if (confirm("Wirklich ALLE Daten löschen? Ohne Export ist das endgültig.")) { resetAll(); ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [], ziele: [] }; render(); }
   });
 }
 
 /* ------------------------------------------------------------------- Start */
 load();
 stelleVorschlaegeBereit();   // Push-Fallback: beim Öffnen liegen die Slot-Vorschläge bereit
+stelleSnacksBereit();        // … und die Snack-Ecke gleich mit
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
@@ -1219,6 +1384,8 @@ render();
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;
   const vorher = getState().vorschlaege;
+  const snacksVorher = getState().snackVorschlaege;
   const nachher = stelleVorschlaegeBereit();
-  if (view === "heute" && !cook && !detailRezept && nachher !== vorher) render();
+  const snacksNachher = stelleSnacksBereit();
+  if (view === "heute" && !cook && !detailRezept && (nachher !== vorher || snacksNachher !== snacksVorher)) render();
 });

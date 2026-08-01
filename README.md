@@ -17,6 +17,21 @@ python3 -m http.server 8080
 
 Auf dem iPhone: in Safari öffnen → Teilen → „Zum Home-Bildschirm“.
 
+## Stand (v2.1)
+
+Neu gegenüber v2:
+
+- **Snack-Ecke: Snacks, Süßes & Frozen** (Kap. 4.9, [Recherche 4](docs/recherche-4-snacks.md)):
+  eigene Rezeptkategorie **außerhalb der drei Essens-Slots** – für alles, was man
+  zwischendurch aus Vorräten herstellt: Bananen-Nicecream, Beeren-Sorbet (4:1-Ratio),
+  Joghurt-Eis am Stiel, Frozen-Joghurt-Bark, Schoko-Bananen, Fruchtleder (NCHFP-Dörrwerte),
+  Apfelchips, Dattel-Energiebällchen, geröstete Kichererbsen, Popcorn, 2-Zutaten-Kekse.
+  11 neue `SNK-`Rezepte + 9 neue Vorratszutaten (Datteln, Zartbitterschokolade,
+  Popcornmais …). Eigene Vorschlagsschiene auf dem Heute-Screen (2 tagesstabile
+  Vorschläge, Neu-würfeln, „✨ Snack-Ideen von Claude") – Snack-Rezepte tauchen nie
+  in den Mahlzeiten-Slots auf, respektieren aber alle Profilregeln und laufen voll
+  durch Kochmodus, Timer (Gefrieren/Dörren als `ruhen`/`ofen`) und Abbuchung.
+
 ## Stand (v2 / Ausbaustufe 2)
 
 Neu gegenüber v1:
@@ -40,10 +55,17 @@ Neu gegenüber v1:
 
 Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
 
-- **Onboarding** mit Ernährungsprofil auf drei unabhängigen Achsen (Kap. 6.1):
+- **Onboarding** mit Ernährungsprofil auf vier unabhängigen Achsen (Kap. 6.1):
   Ernährungsform (8 Presets, DGE-basiert) · Ausschlüsse (EU-14-Allergene, halal/koscher) ·
-  Stil-Präferenzen (mediterran, High-Protein, Low-Carb; Keto/Paleo mit Evidenz-Hinweis) –
-  plus Toleranz-Hinweis.
+  Stil-Präferenzen (mediterran, High-Protein, Low-Carb; Keto/Paleo mit Evidenz-Hinweis) ·
+  **Ziele** (mehr Energie, Abnehmen, fitter werden/Muskelaufbau, flacherer Bauch, mehr
+  Konzentration, gesunde Verdauung) – nur Ziele, die wissenschaftlich belegt über
+  Ernährung beeinflussbar sind (DGE, EFSA, ISSN 2017, DIETFITS 2018, PREDIMED/MIND);
+  jede Auswahl zeigt ehrlich die Evidenzlage inkl. dem, was NICHT belegt ist
+  („Spot Reduction“). Rückkopplung: Ziele fließen als weiche Präferenz in den
+  Vorschlags-Score, in den Systemprompt der AI-Rezeptgenerierung und als
+  „🎯 Zahlt auf deine Ziele ein“-Hinweis im Rezept-Detail – nichts wird verboten.
+  Plus Toleranz-Hinweis.
 - **Bestand** (Kap. 5): Kategorien Trockenware/Frischware/Konserven/Gewürze/Kühl/TK,
   Stepper für Zählbares, Silhouetten-Slider („Wie voll ist die Packung?“) für Schüttgut,
   vorrätig/leer für Pauschales. Anzeige immer als Näherung („~500 g“), nie Scheinpräzision.

@@ -11,10 +11,12 @@ const DEFAULT_STATE = {
     ernaehrungsform: null,   // Achse 1 (genau eine)
     ausschluesse: [],        // Achse 2 (Allergien/Intoleranzen + halal/koscher)
     stile: [],               // Achse 3 (optional)
+    ziele: [],               // Achse 4 (optional, wissenschaftlich rückgekoppelt)
     onboarded: false,
   },
   bestand: [],               // [{ id, zutat_id, name, kategorie, art, einheit, menge, fuellstand, updated }]
   vorschlaege: null,         // Push-Fallback: { datum, slot, rezeptIds: [], gewuerfelt, bestandLeer }
+  snackVorschlaege: null,    // Snack-Ecke (slot-unabhängig): { datum, rezeptIds: [], gewuerfelt }
   historie: [],              // [{ rezeptId, name, portionen, datum }]
   einkauf: {
     rezept: [],              // rezeptbezogene Liste [{ zutat_id, name, menge, einheit, erledigt }]
@@ -41,6 +43,7 @@ function load() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       state = { ...structuredClone(DEFAULT_STATE), ...JSON.parse(raw) };
+      state.profil.ziele ||= [];   // Migration: Sicherungen vor Achse 4
     }
   } catch (e) {
     console.warn("Vorratio: Ladefehler, starte frisch.", e);
@@ -89,6 +92,7 @@ function importJson(file) {
           throw new Error("Keine gültige Vorratio-Sicherung.");
         }
         state = { ...structuredClone(DEFAULT_STATE), ...data };
+        state.profil.ziele ||= [];   // Migration: Sicherungen vor Achse 4
         save();
         resolve(state);
       } catch (e) { reject(e); }

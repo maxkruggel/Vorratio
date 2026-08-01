@@ -71,6 +71,12 @@ Vier gleichwertige Erfassungswege, frei kombinierbar:
 - Mit Bestätigung des Einkaufs füllen sich die Vorräte auf – Grundlage ist der **gescannte Kassenbon** bzw. die **Picnic-Quittung**, nicht die Einkaufsliste. So werden auch Zusatzkäufe erfasst, die nicht auf dem Zettel standen.
 - Technische Umsetzung: Vision-Modell liest den Bon und mappt Bon-Bezeichnungen auf Produkte/Zutaten; kurzer Bestätigungsschritt vor dem Verbuchen (siehe 7.3).
 
+### 4.9 Snack-Ecke: Snacks, Süßes & Frozen (Recherche 4)
+- Eigene Kategorie **außerhalb der drei Essens-Slots**: Dinge, die man zwischendurch aus Vorräten herstellt – Nicecream, Sorbet, Eis am Stiel, Frozen-Joghurt-Bark, schokolierte Früchte, Fruchtleder, Apfelchips, Energiebällchen, geröstete Kichererbsen, Popcorn, Blitzkekse (Datenbasis: `docs/recherche-4-snacks.md`).
+- **Kein vierter Slot**, sondern eine slot-unabhängige „Snack-Ecke" auf dem Heute-Screen: zwei tagesstabile Vorschläge, Neu-würfeln, eigener Claude-Einstieg („Snack-Ideen von Claude", `mahlzeitentyp: ["snack"]`).
+- Snack-Rezepte laufen als Vollrezepte (`SNK-…`) durch dieselbe Maschinerie wie Hauptgerichte: Profilfilter (alle drei Achsen), Bestandsabgleich, Kochmodus mit Timern, Abbuchung, Einkaufsliste. Reine Snack-Rezepte erscheinen **nie** in den Mahlzeiten-Slots – auch nicht beim Auffüllen dünner Pools.
+- Typisches Timer-Profil: lange **passive** Wartezeiten (`ruhen` fürs Gefrieren, `ofen` fürs Dörren bei behördlich empfohlenen 60–65 °C) statt aktiver Kochschritte.
+
 ## 5. Bestandsmodell
 
 - **Kategorien:** Trockenware/Vorrat · Frischware · Konserven · Gewürze (dazu Kühl-/TK-Ware).
@@ -138,7 +144,22 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 - **Strukturierte lokale Speicherung**, sodass alle eingegebenen und sich aktualisierenden Informationen dauerhaft aktuell und erhalten bleiben (Bestand, Profil, Rezepthistorie, Listen).
 - **JSON-Export und JSON-Import**: vollständiger Datenbestand als Datei sicherbar und wieder einspielbar – zugleich Backup gegen iOS-Storage-Eviction und späterer Migrationspfad Richtung Server-Variante.
 
-*Die Datenarchitektur ist mit 6.1–6.3 vollständig; sollten weitere Datenquellen dazukommen, werden sie hier ergänzt.*
+### 6.5 DB Substitutionen (Recherche Substitutionen, 08/2026 – umgesetzt)
+
+**Pflanzliche Alternativen zu tierischen Zutaten** als eigene In-App-Datenbank (`js/data/substitutionen.js`, Schema `vorratio-substitutions-db/v1`, 47 Datensätze in 6 Kategorien: Milchprodukte · Käse · Ei · Fleisch & Wurst · Fisch & Meer · Sonstiges).
+
+**Kernentscheidungen (quellenbelegt):**
+- **Ei ist funktionsbasiert modelliert** (5 Datensätze: Binden · Lockern/Backen · Hauptzutat Rührei/Omelett · Aufschlagen/Eischnee · Ei-Geschmack) – es gibt keinen 1:1-Allrounder. Alle anderen Zutaten zutatenbasiert.
+- **`prioritaet: 1` = neutralste/verlässlichste Alternative**, bei Milchprodukten meist Sojabasis (einzige proteinstarke Wahl, ~3,5 g Protein/100 ml – Kuhmilch ebenbürtig; Hafer/Kokos liefern kaum Protein).
+- **Anwendungsfall-Filter** über `geeignet_fuer` (backen/kochen/kalt/aufschlagen/binden/überbacken/…): Aufschlagbarkeit ist der kritische Sonderfall (nur Spezial-Schlagcremes werden fest, Koch-/Hafersahne nicht); Schmelzen zum Überbacken gelingt nur mit Kaufprodukten, DIY-Cashew-Parmesan streut nur.
+- **Kopplung an die Kern-DB** über `zutat_ids` (FK auf normalisierte Zutatenliste) → im Rezept-Detail werden für fehlende Zutaten Ersatz-Ideen angezeigt.
+- **Allergie-Filterung hart** über die Basis (Soja → soja/tofu/tempeh, Nüsse → cashew/mandel, Gluten → weizen_seitan, Lupinen → lupine), konsistent mit den Profil-Ausschlüssen (6.1).
+- **Handelsprodukte**: Eigenmarken (Vemondo, K-take it veggie, Vehappy, MyVay/GutBio …) werden zuerst gelistet (Preis/Verfügbarkeit), Markenprodukte als Fallback; Ladenzuordnung über `laeden`.
+- **B12-Dauerhinweis** beim veganen Profil im Ersatz-Tab (DGE-Position 2024: nur per Präparat lösbar) – Anzeige, keine Rezeptregel.
+
+**Bekannte Vorbehalte:** Sortimente/Produktnamen ändern sich schnell (Stand 08/2026, quartalsweise gegen Open Food Facts abgleichen); Worcestersauce-Veganität variiert je Marke/Charge („Zutatenliste/V-Label prüfen" ist fester Hinweis); Namensfallen beachten („Alnatura Hühner Brühe" enthält echtes Hühnerpulver; EU-Milchbezeichnungsschutz → „Drink"/„Reibegenuss" statt Milch/Käse); manche Kokosmilchpulver enthalten Natriumkaseinat (nicht vegan).
+
+*Die Datenarchitektur ist mit 6.1–6.3 und 6.5 vollständig; sollten weitere Datenquellen dazukommen, werden sie hier ergänzt.*
 
 ## 7. Technik-Notizen
 
@@ -195,3 +216,4 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 3. **Recherche 2: Zubereitungs- & Rezeptdatenbank** (Schema, 60 Datensätze, Quellen-/Lizenzbewertung) – Basis für Kapitel 6.2.
 4. **Recherche 3: Produktdatenbank** (Open Food Facts, BLS 4.0, Barcode/Foto-Identifikation, Recht) – Basis für Kapitel 6.3.
 5. **Recherche 4: Rechtslage inoffizielle Picnic-API** – läuft, wird nach Fertigstellung hier beigelegt (Kapitel 7.2).
+6. **Recherche Substitutionen: Pflanzliche Alternativen zu tierischen Zutaten** (DGE 2024, Stiftung Warentest 3/2025, ProVeg, Hersteller-/Händlerangaben, Stand 08/2026) – Basis für Kapitel 6.5, umgesetzt in `js/data/substitutionen.js`.

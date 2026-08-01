@@ -93,6 +93,16 @@ const ZUTATEN = [
   { id: "ing_koriander",            name: "Koriander",               kategorie: "frisch",   art: "pauschal",   einheit: "Bund" },
   { id: "ing_minze",                name: "Minze",                   kategorie: "frisch",   art: "pauschal",   einheit: "Bund" },
   { id: "ing_ingwer",               name: "Ingwer",                  kategorie: "frisch",   art: "pauschal",   einheit: "g" },
+  // Snack-Vorräte (Recherche 4: Snacks, Süßes & Frozen)
+  { id: "ing_datteln",              name: "Datteln (entsteint)",     kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 250 },
+  { id: "ing_schoko_zartbitter",    name: "Zartbitterschokolade",    kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 100 },
+  { id: "ing_popcornmais",          name: "Popcorn-Mais",            kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_erdnussmus",           name: "Erdnussmus/-butter",      kategorie: "trocken",  art: "pauschal",   einheit: "g" },
+  { id: "ing_honig",                name: "Honig",                   kategorie: "trocken",  art: "pauschal",   einheit: "g" },
+  { id: "ing_kokosraspel",          name: "Kokosraspel",             kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 200 },
+  { id: "ing_mandeln",              name: "Mandeln/Nüsse (gemischt)", kategorie: "trocken", art: "schuettgut", einheit: "g",  packung: 200 },
+  { id: "ing_apfelmus",             name: "Apfelmus (Glas)",         kategorie: "konserve", art: "schuettgut", einheit: "g",  packung: 360 },
+  { id: "ing_kokosoel",             name: "Kokosöl",                 kategorie: "trocken",  art: "pauschal",   einheit: "ml" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -651,6 +661,243 @@ const REZEPTE = [
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Warm und kalt gut – Mealprep-Klassiker." },
     substitutionen: [], tags: ["budget", "mealprep"], quelle_typ: "etablierte_kochseite",
   },
+
+  // -------------------------------------------------------------------------
+  // Snacks, Süßes & Frozen (SNK) – aus Recherche 4. Laufen außerhalb der drei
+  // Essens-Slots (mahlzeitentyp: ["snack"]) in der eigenen Snack-Ecke.
+  // Typisch: lange passive Wartezeiten (Gefrieren, Dörren) statt Kochen.
+  // -------------------------------------------------------------------------
+  {
+    id: "SNK-001", name: "Bananen-Nicecream", typ: "rezept", kategorie: "Eis & Frozen",
+    cuisine: "universell", mahlzeitentyp: ["snack"], portionen: 2, schwierigkeit: "einfach",
+    zutaten: [
+      { menge: 3, einheit: "Stk", zutat_id: "ing_banane", zutat_name: "Reife Bananen" },
+      { menge: 1, einheit: "EL", zutat_id: "ing_erdnussmus", zutat_name: "Erdnussmus", optional: true },
+      { menge: null, einheit: "nach_Bedarf", zutat_id: null, zutat_name: "Schluck Milch/Pflanzendrink", optional: true },
+    ],
+    schritte: [
+      { nr: 1, text: "Reife Bananen schälen, in Scheiben schneiden und flach ausgelegt einfrieren – je reifer, desto süßer wird das Eis.", dauer_sekunden: 10800, timer_typ: "ruhen", timer_name: "Bananen einfrieren" },
+      { nr: 2, text: "Gefrorene Scheiben 10 Minuten antauen lassen – steinharte Stücke quälen jeden Mixer.", dauer_sekunden: 600, timer_typ: "ruhen", timer_name: "Antauen" },
+      { nr: 3, text: "Im Mixer oder Food Processor 3–5 Minuten cremig mixen, zwischendurch vom Rand schieben. Bei Bedarf schluckweise Flüssigkeit zugeben.", dauer_sekunden: 240, timer_typ: "aktiv", timer_name: "Cremig mixen" },
+      { nr: 4, text: "Optional Erdnussmus (oder Kakao, Zimt, TK-Beeren) untermixen. Sofort als Softeis essen – oder 1–2 h nachfrieren für feste Kugeln.", dauer_sekunden: null, timer_typ: null },
+    ],
+    gesamtzeit_min: { vorbereitung: 10, garzeit: 0, gesamt: 10 },
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["erdnuss"],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Eis aus einer Zutat – ohne Zuckerzusatz, ohne Maschine. Ideal für überreife Bananen." },
+    substitutionen: [{ fehlt: "Erdnussmus", ersatz: "Kakao, Zimt oder eine Handvoll TK-Beeren", hinweis: "Nussfreie Varianten – Geschmack nach Vorrat." }],
+    tags: ["snack", "suess", "tk", "schnell", "resteverwertung"], quelle_typ: "etablierte_kochseite",
+  },
+  {
+    id: "SNK-002", name: "Beeren-Sorbet (ohne Eismaschine)", typ: "rezept", kategorie: "Eis & Frozen",
+    cuisine: "universell", mahlzeitentyp: ["snack"], portionen: 3, schwierigkeit: "einfach",
+    zutaten: [
+      { menge: 300, einheit: "g", zutat_id: "ing_beeren_tk", zutat_name: "Beeren (TK)" },
+      { menge: 75, einheit: "g", zutat_id: "ing_zucker", zutat_name: "Zucker" },
+      { menge: 1, einheit: "Stk", zutat_id: "ing_zitrone", zutat_name: "Zitrone (Saft)" },
+    ],
+    schritte: [
+      { nr: 1, text: "TK-Beeren 10 Minuten antauen lassen, bis der Mixer sie packt.", dauer_sekunden: 600, timer_typ: "ruhen", timer_name: "Beeren antauen" },
+      { nr: 2, text: "Beeren mit Zucker und Zitronensaft glatt mixen. Die Master-Ratio ist 4 Teile Frucht auf 1 Teil Zucker – der Zucker hält das Sorbet geschmeidig und ist nicht nur Süße, also nicht stark kürzen.", dauer_sekunden: 120, timer_typ: "aktiv", timer_name: "Mixen" },
+      { nr: 3, text: "Sofort als Softsorbet servieren – oder 1–2 h ins Gefrierfach für eine kugelfeste Konsistenz (nach 1 h einmal durchrühren).", dauer_sekunden: 5400, timer_typ: "ruhen", timer_name: "Anfrieren" },
+    ],
+    gesamtzeit_min: { vorbereitung: 15, garzeit: 0, gesamt: 15 },
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: [],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "kohlenhydratreich", makro_hinweis: "Funktioniert mit jeder TK-Frucht – Mango, Erdbeere, gemischte Beeren." },
+    substitutionen: [{ fehlt: "Zitrone", ersatz: "Limette", hinweis: "Säure hebt das Fruchtaroma und hält das Sorbet weich." }],
+    tags: ["snack", "suess", "tk", "schnell"], quelle_typ: "etablierte_kochseite",
+  },
+  {
+    id: "SNK-003", name: "Joghurt-Beeren-Eis am Stiel", typ: "rezept", kategorie: "Eis & Frozen",
+    cuisine: "universell", mahlzeitentyp: ["snack"], portionen: 4, schwierigkeit: "einfach",
+    zutaten: [
+      { menge: 300, einheit: "g", zutat_id: "ing_joghurt_natur", zutat_name: "Naturjoghurt (vollfett)" },
+      { menge: 150, einheit: "g", zutat_id: "ing_beeren_tk", zutat_name: "Beeren (TK oder frisch)" },
+      { menge: 2, einheit: "EL", zutat_id: "ing_honig", zutat_name: "Honig" },
+      { menge: 1, einheit: "Stk", zutat_id: "ing_zitrone", zutat_name: "Zitrone (Spritzer)", optional: true },
+    ],
+    schritte: [
+      { nr: 1, text: "Beeren mit dem Honig grob pürieren oder mit der Gabel zerdrücken.", dauer_sekunden: 120, timer_typ: "aktiv", timer_name: "Beeren zerdrücken" },
+      { nr: 2, text: "Joghurt und Beerenmasse nur grob verrühren (Swirl-Optik). Wichtig: Der Joghurt-Anteil muss mindestens so groß sein wie der Fruchtanteil, sonst zerfällt das Eis beim Entformen.", dauer_sekunden: null, timer_typ: null },
+      { nr: 3, text: "In Eisformen oder kleine Becher füllen, Stiele hineinstecken.", dauer_sekunden: null, timer_typ: null },
+      { nr: 4, text: "Mindestens 6 h, besser über Nacht gefrieren. Zum Entformen die Form kurz in warmes Wasser tauchen.", dauer_sekunden: 21600, timer_typ: "ruhen", timer_name: "Eis gefrieren" },
+    ],
+    gesamtzeit_min: { vorbereitung: 10, garzeit: 0, gesamt: 10 },
+    ernaehrungsform: ["vegetarisch"], allergene: ["laktose"],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Vollfett-Joghurt bleibt cremiger als fettarmer; Honig und Zitrone halten das Eis weich." },
+    substitutionen: [{ fehlt: "Honig", ersatz: "Agavendicksaft + Sojajoghurt", hinweis: "Vegane Variante." }],
+    tags: ["snack", "suess", "tk", "high-protein", "mealprep"], quelle_typ: "etablierte_kochseite",
+  },
+  {
+    id: "SNK-004", name: "Frozen-Joghurt-Bark", typ: "rezept", kategorie: "Eis & Frozen",
+    cuisine: "US-amerikanisch", mahlzeitentyp: ["snack"], portionen: 6, schwierigkeit: "einfach",
+    zutaten: [
+      { menge: 400, einheit: "g", zutat_id: "ing_joghurt_natur", zutat_name: "Naturjoghurt (griechische Art ideal)" },
+      { menge: 1, einheit: "EL", zutat_id: "ing_honig", zutat_name: "Honig" },
+      { menge: 100, einheit: "g", zutat_id: "ing_beeren_tk", zutat_name: "Beeren" },
+      { menge: 2, einheit: "EL", zutat_id: "ing_mandeln", zutat_name: "Gehackte Mandeln/Nüsse", optional: true },
+      { menge: 1, einheit: "EL", zutat_id: "ing_kokosraspel", zutat_name: "Kokosraspel", optional: true },
+    ],
+    schritte: [
+      { nr: 1, text: "Joghurt mit Honig verrühren und auf einem mit Backpapier belegten Blech etwa ½ cm dick ausstreichen.", dauer_sekunden: 180, timer_typ: "aktiv", timer_name: "Ausstreichen" },
+      { nr: 2, text: "Beeren, gehackte Nüsse und Kokosraspel darauf verteilen und leicht eindrücken.", dauer_sekunden: null, timer_typ: null },
+      { nr: 3, text: "3–4 h gefrieren, bis die Platte durchgefroren ist.", dauer_sekunden: 12600, timer_typ: "ruhen", timer_name: "Bark gefrieren" },
+      { nr: 4, text: "In Stücke brechen. Im Gefrierbeutel hält der Vorrat bis zu 3 Monate – der 'immer da'-Snack direkt aus dem TK-Fach.", dauer_sekunden: null, timer_typ: null },
+    ],
+    gesamtzeit_min: { vorbereitung: 10, garzeit: 0, gesamt: 10 },
+    ernaehrungsform: ["vegetarisch"], allergene: ["laktose", "schalenfruechte"],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Joghurt-Protein statt Süßigkeiten-Zucker; Toppings frei nach Vorrat." },
+    substitutionen: [{ fehlt: "Mandeln", ersatz: "Haferflocken oder Erdnüsse", hinweis: "Crunch nach Vorrat – oder ganz weglassen." }],
+    tags: ["snack", "suess", "tk", "mealprep", "high-protein"], quelle_typ: "etablierte_kochseite",
+  },
+  {
+    id: "SNK-005", name: "Schoko-Bananen am Stiel", typ: "rezept", kategorie: "Eis & Frozen",
+    cuisine: "US-amerikanisch", mahlzeitentyp: ["snack"], portionen: 4, schwierigkeit: "einfach",
+    zutaten: [
+      { menge: 2, einheit: "Stk", zutat_id: "ing_banane", zutat_name: "Bananen (fest, aber reif)" },
+      { menge: 100, einheit: "g", zutat_id: "ing_schoko_zartbitter", zutat_name: "Zartbitterschokolade" },
+      { menge: 1, einheit: "TL", zutat_id: "ing_kokosoel", zutat_name: "Kokosöl", optional: true },
+      { menge: 2, einheit: "EL", zutat_id: "ing_kokosraspel", zutat_name: "Kokosraspel/gehackte Erdnüsse (Topping)", optional: true },
+    ],
+    schritte: [
+      { nr: 1, text: "Bananen schälen, halbieren und je einen Holzstiel hineinstecken. 1 h vorfrieren – an warmen Bananen rutscht die Schokolade ab.", dauer_sekunden: 3600, timer_typ: "ruhen", timer_name: "Bananen vorfrieren" },
+      { nr: 2, text: "Schokolade grob hacken und im Wasserbad (oder in 20–30-s-Mikrowellen-Schüben, dazwischen rühren) schmelzen. Ein TL Kokosöl macht den Guss dünnflüssiger und schneller fest.", dauer_sekunden: 300, timer_typ: "aktiv", timer_name: "Schokolade schmelzen" },
+      { nr: 3, text: "Schokolade in ein hohes, schmales Glas füllen und die Bananen eintauchen. Toppings sofort aufstreuen, bevor der Guss anzieht.", dauer_sekunden: 300, timer_typ: "aktiv", timer_name: "Dippen" },
+      { nr: 4, text: "Auf Backpapier 30–60 Min fest frieren. Funktioniert genauso mit Apfelspalten, Erdbeeren oder Datteln.", dauer_sekunden: 3600, timer_typ: "ruhen", timer_name: "Fest werden lassen" },
+    ],
+    gesamtzeit_min: { vorbereitung: 15, garzeit: 0, gesamt: 15 },
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["soja", "erdnuss"],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Zartbitter (≥60 % Kakao) ist meist milchfrei – für streng vegan die Zutatenliste prüfen (Soja-Lecithin ist Standard)." },
+    substitutionen: [{ fehlt: "Banane", ersatz: "Apfelspalten, Erdbeeren oder Datteln", hinweis: "Gleiche Technik, anderes Obst." }],
+    tags: ["snack", "suess", "tk"], quelle_typ: "etablierte_kochseite",
+  },
+  {
+    id: "SNK-006", name: "Apfel-Fruchtleder", typ: "rezept", kategorie: "Dörrsnack",
+    cuisine: "universell", mahlzeitentyp: ["snack"], portionen: 8, schwierigkeit: "mittel",
+    zutaten: [
+      { menge: 360, einheit: "g", zutat_id: "ing_apfelmus", zutat_name: "Apfelmus (oder Püree aus ~700 g Äpfeln)" },
+      { menge: 150, einheit: "g", zutat_id: "ing_beeren_tk", zutat_name: "Beeren (für die Farbe)", optional: true },
+      { menge: 1, einheit: "Stk", zutat_id: "ing_zitrone", zutat_name: "Zitrone (Saft)" },
+      { menge: null, einheit: "Prise", zutat_id: "ing_zimt", zutat_name: "Zimt", optional: true },
+    ],
+    schritte: [
+      { nr: 1, text: "Apfelmus (optional mit aufgetauten Beeren) und Zitronensaft ganz glatt pürieren – Stückchen trocknen ungleichmäßig.", dauer_sekunden: 180, timer_typ: "aktiv", timer_name: "Pürieren" },
+      { nr: 2, text: "Püree 3–5 mm dick und möglichst gleichmäßig auf ein mit Backpapier belegtes Blech streichen.", dauer_sekunden: 300, timer_typ: "aktiv", timer_name: "Ausstreichen" },
+      { nr: 3, text: "Bei 60–65 °C trocknen (niedrigste Ofenstufe, Tür mit Holzlöffel einen Spalt offen, damit Feuchtigkeit abzieht). Im Ofen dauert das 6–10 h, im Dörrgerät 6–8 h.", dauer_sekunden: 28800, temperatur_c: 65, timer_typ: "ofen", timer_name: "Fruchtleder dörren" },
+      { nr: 4, text: "Trockentest: Das Leder ist durchscheinend und leicht klebrig, aber beim Daumendruck bleiben keine Dellen. Sonst weitertrocknen.", dauer_sekunden: null, timer_typ: null },
+      { nr: 5, text: "Noch warm mitsamt Backpapier aufrollen, in Streifen schneiden und luftdicht lagern.", dauer_sekunden: null, timer_typ: null },
+    ],
+    gesamtzeit_min: { vorbereitung: 15, garzeit: 480, gesamt: 495 },
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: [],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "kohlenhydratreich", makro_hinweis: "Fruchtzucker in konzentrierter Form – als Süßigkeiten-Ersatz gedacht, nicht als Obstportion. Dörrwerte nach NCHFP/Extension-Empfehlung." },
+    substitutionen: [{ fehlt: "Apfelmus", ersatz: "Frische Äpfel weich dünsten und pürieren", hinweis: "~700 g Äpfel ergeben ein Blech." }],
+    tags: ["snack", "suess", "mealprep", "budget"], quelle_typ: "behoerde",
+  },
+  {
+    id: "SNK-007", name: "Dattel-Energiebällchen", typ: "rezept", kategorie: "No-Bake-Snack",
+    cuisine: "universell", mahlzeitentyp: ["snack"], portionen: 6, schwierigkeit: "einfach",
+    zutaten: [
+      { menge: 200, einheit: "g", zutat_id: "ing_datteln", zutat_name: "Datteln (entsteint)" },
+      { menge: 100, einheit: "g", zutat_id: "ing_mandeln", zutat_name: "Mandeln/Nüsse" },
+      { menge: 50, einheit: "g", zutat_id: "ing_haferflocken", zutat_name: "Haferflocken" },
+      { menge: 1, einheit: "EL", zutat_id: "ing_erdnussmus", zutat_name: "Erdnussmus", optional: true },
+      { menge: null, einheit: "Prise", zutat_id: "ing_zimt", zutat_name: "Zimt", optional: true },
+      { menge: 2, einheit: "EL", zutat_id: "ing_kokosraspel", zutat_name: "Kokosraspel (zum Wälzen)", optional: true },
+    ],
+    schritte: [
+      { nr: 1, text: "Sehr trockene Datteln 10 Min in warmem Wasser einweichen und abtropfen lassen – weiche Medjool-Datteln brauchen das nicht.", dauer_sekunden: 600, timer_typ: "ruhen", timer_name: "Datteln einweichen" },
+      { nr: 2, text: "Nüsse und Haferflocken im Food Processor grob mahlen, dann Datteln (und Erdnussmus, Zimt) zugeben und mixen, bis die Masse zwischen den Fingern klebt. Faustregel: 2 Teile Datteln auf 1 Teil Nüsse – die Datteln sind Süße UND Kleber.", dauer_sekunden: 240, timer_typ: "aktiv", timer_name: "Mixen" },
+      { nr: 3, text: "Masse 30 Min kalt stellen – dann lässt sie sich sauber rollen.", dauer_sekunden: 1800, timer_typ: "ruhen", timer_name: "Masse kühlen" },
+      { nr: 4, text: "Mit leicht feuchten Händen ~15 Kugeln rollen, nach Lust in Kokosraspeln wälzen. Kühlschrank ~1 Woche, Gefrierfach ~3 Monate.", dauer_sekunden: 600, timer_typ: "aktiv", timer_name: "Rollen" },
+    ],
+    gesamtzeit_min: { vorbereitung: 20, garzeit: 0, gesamt: 50 },
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["schalenfruechte", "gluten", "erdnuss"],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "ballaststoffreich", makro_hinweis: "Ohne Zuckerzusatz – Süße und Bindung kommen komplett aus den Datteln. Energiedicht: 2–3 Bällchen sind eine Portion." },
+    substitutionen: [{ fehlt: "Mandeln", ersatz: "Nur Haferflocken (Menge verdoppeln)", hinweis: "Nussfreie Schul-/Kita-Variante." }],
+    tags: ["snack", "suess", "mealprep", "budget"], quelle_typ: "etablierte_kochseite",
+  },
+  {
+    id: "SNK-008", name: "Knusprige Ofen-Kichererbsen", typ: "rezept", kategorie: "Ofensnack",
+    cuisine: "universell", mahlzeitentyp: ["snack"], portionen: 3, schwierigkeit: "einfach",
+    zutaten: [
+      { menge: 1, einheit: "Dose", zutat_id: "ing_kichererbsen_dose", zutat_name: "Kichererbsen (Dose)" },
+      { menge: 1, einheit: "EL", zutat_id: "ing_olivenoel", zutat_name: "Olivenöl" },
+      { menge: 1, einheit: "TL", zutat_id: "ing_paprikapulver", zutat_name: "Paprikapulver" },
+      { menge: null, einheit: "Prise", zutat_id: "ing_salz", zutat_name: "Salz" },
+      { menge: null, einheit: "Prise", zutat_id: "ing_kreuzkuemmel", zutat_name: "Kreuzkümmel", optional: true },
+    ],
+    schritte: [
+      { nr: 1, text: "Ofen auf 200 °C vorheizen. Kichererbsen abspülen und zwischen zwei Küchentüchern GRÜNDLICH trockenrollen – Restfeuchte ist der häufigste Grund für labbrige Kichererbsen. Lose Häute entfernen.", dauer_sekunden: 300, temperatur_c: 200, timer_typ: "aktiv", timer_name: "Trocknen" },
+      { nr: 2, text: "Mit Olivenöl mischen (nicht am Öl sparen) und auf dem Blech verteilen – mit Abstand, sonst dämpfen sie statt zu rösten.", dauer_sekunden: null, timer_typ: null },
+      { nr: 3, text: "30–40 Min rösten, alle 10 Min rütteln, bis sie goldbraun und innen trocken sind.", dauer_sekunden: 2100, temperatur_c: 200, timer_typ: "ofen", timer_name: "Kichererbsen rösten" },
+      { nr: 4, text: "ERST JETZT würzen (Paprika, Salz, Kreuzkümmel) – Gewürze im Ofen verbrennen bitter. Offen lagern, nie luftdicht: am besten heute und morgen aufessen.", dauer_sekunden: null, timer_typ: null },
+    ],
+    gesamtzeit_min: { vorbereitung: 10, garzeit: 35, gesamt: 45 },
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: [],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Protein- und ballaststoffreicher Chips-Ersatz direkt aus der Vorratsdose." },
+    substitutionen: [{ fehlt: "Paprikapulver", ersatz: "Currypulver oder nur Salz + Pfeffer", hinweis: "Würzung frei nach Gewürzregal." }],
+    tags: ["snack", "herzhaft", "budget", "high-protein"], quelle_typ: "etablierte_kochseite",
+  },
+  {
+    id: "SNK-009", name: "Popcorn vom Herd", typ: "rezept", kategorie: "Herzhafter Snack",
+    cuisine: "US-amerikanisch", mahlzeitentyp: ["snack"], portionen: 3, schwierigkeit: "einfach",
+    zutaten: [
+      { menge: 100, einheit: "g", zutat_id: "ing_popcornmais", zutat_name: "Popcorn-Mais" },
+      { menge: 3, einheit: "EL", zutat_id: "ing_rapsoel", zutat_name: "Rapsöl (hoch erhitzbar)" },
+      { menge: null, einheit: "Prise", zutat_id: "ing_salz", zutat_name: "Salz" },
+      { menge: 1, einheit: "EL", zutat_id: "ing_zucker", zutat_name: "Zucker + Zimt (süße Variante)", optional: true },
+    ],
+    schritte: [
+      { nr: 1, text: "Öl mit 3 Testkörnern in einem schweren Topf bei mittlerer Hitze erhitzen. Poppen die Testkörner, hat das Öl die richtige Temperatur.", dauer_sekunden: 180, timer_typ: "aktiv", timer_name: "Öl erhitzen" },
+      { nr: 2, text: "Restlichen Mais zugeben, Deckel leicht versetzt auflegen (Dampf muss raus) und den Topf alle 20–30 s rütteln, damit nichts am Boden verbrennt.", dauer_sekunden: 240, timer_typ: "aktiv", timer_name: "Poppen" },
+      { nr: 3, text: "Vom Herd nehmen, sobald zwischen den Pops ~2 Sekunden Pause liegen. Mittlere Hitze statt Vollgas – zu heißes Öl verbrennt, bevor alle Körner gepoppt sind.", dauer_sekunden: null, timer_typ: null },
+      { nr: 4, text: "Sofort salzen (oder mit Zucker + Zimt mischen) und durchschwenken – Würze haftet nur am warmen Popcorn.", dauer_sekunden: null, timer_typ: null },
+    ],
+    gesamtzeit_min: { vorbereitung: 2, garzeit: 8, gesamt: 10 },
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: [],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "ballaststoffreich", makro_hinweis: "Vollkorn-Snack – selbst gemacht mit Bruchteil des Fetts und Preises von Fertigpopcorn." },
+    substitutionen: [], tags: ["snack", "herzhaft", "suess", "schnell", "budget"], quelle_typ: "etablierte_kochseite",
+  },
+  {
+    id: "SNK-010", name: "Apfelchips aus dem Ofen", typ: "rezept", kategorie: "Dörrsnack",
+    cuisine: "universell", mahlzeitentyp: ["snack"], portionen: 2, schwierigkeit: "einfach",
+    zutaten: [
+      { menge: 2, einheit: "Stk", zutat_id: "ing_apfel", zutat_name: "Äpfel" },
+      { menge: null, einheit: "Prise", zutat_id: "ing_zimt", zutat_name: "Zimt", optional: true },
+    ],
+    schritte: [
+      { nr: 1, text: "Ofen auf 100 °C vorheizen. Äpfel quer in möglichst dünne Scheiben hobeln (~2 mm, Mandoline oder scharfes Messer) – je dünner, desto knuspriger.", dauer_sekunden: 600, temperatur_c: 100, timer_typ: "aktiv", timer_name: "Hobeln" },
+      { nr: 2, text: "Scheiben nebeneinander auf Backpapier legen (nicht überlappen), optional mit Zimt bestäuben.", dauer_sekunden: null, timer_typ: null },
+      { nr: 3, text: "1 h backen, dann alle Scheiben wenden.", dauer_sekunden: 3600, temperatur_c: 100, timer_typ: "ofen", timer_name: "Erste Stunde" },
+      { nr: 4, text: "Weitere 45–60 Min backen. Die Chips werden erst beim Abkühlen richtig knusprig – im Zweifel eine Probe herausnehmen und 5 Min abkühlen lassen.", dauer_sekunden: 3300, temperatur_c: 100, timer_typ: "ofen", timer_name: "Fertig dörren" },
+      { nr: 5, text: "Komplett auskühlen lassen, dann luftdicht lagern – so halten sie bis zu 1 Woche.", dauer_sekunden: null, timer_typ: null },
+    ],
+    gesamtzeit_min: { vorbereitung: 10, garzeit: 110, gesamt: 120 },
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: [],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "kalorienarm", makro_hinweis: "Chips-Alternative aus einer Zutat – gut für Äpfel, die mehlig zu werden drohen." },
+    substitutionen: [{ fehlt: "Apfel", ersatz: "Birne", hinweis: "Gleiche Technik, etwas kürzere Trockenzeit." }],
+    tags: ["snack", "suess", "budget", "resteverwertung"], quelle_typ: "etablierte_kochseite",
+  },
+  {
+    id: "SNK-011", name: "Bananen-Hafer-Kekse (2 Zutaten)", typ: "rezept", kategorie: "Gebäck",
+    cuisine: "universell", mahlzeitentyp: ["snack"], portionen: 4, schwierigkeit: "einfach",
+    zutaten: [
+      { menge: 2, einheit: "Stk", zutat_id: "ing_banane", zutat_name: "Sehr reife Bananen" },
+      { menge: 100, einheit: "g", zutat_id: "ing_haferflocken", zutat_name: "Haferflocken" },
+      { menge: 20, einheit: "g", zutat_id: "ing_schoko_zartbitter", zutat_name: "Gehackte Zartbitterschokolade", optional: true },
+      { menge: null, einheit: "Prise", zutat_id: "ing_zimt", zutat_name: "Zimt", optional: true },
+    ],
+    schritte: [
+      { nr: 1, text: "Ofen auf 180 °C vorheizen. Bananen mit der Gabel fein zerdrücken – je reifer und fleckiger, desto süßer der Keks.", dauer_sekunden: 180, temperatur_c: 180, timer_typ: "aktiv", timer_name: "Bananen zerdrücken" },
+      { nr: 2, text: "Haferflocken (und Schokostücke, Zimt) unterrühren, bis ein klebriger Teig entsteht.", dauer_sekunden: null, timer_typ: null },
+      { nr: 3, text: "Mit einem Esslöffel ~10 Häufchen auf ein Blech mit Backpapier setzen und flach drücken – die Kekse verlaufen nicht von selbst.", dauer_sekunden: 180, timer_typ: "aktiv", timer_name: "Portionieren" },
+      { nr: 4, text: "13–15 Min backen, bis die Ränder goldbraun sind. Kurz abkühlen lassen – frisch vom Blech sind sie noch weich.", dauer_sekunden: 840, temperatur_c: 180, timer_typ: "ofen", timer_name: "Kekse backen" },
+    ],
+    gesamtzeit_min: { vorbereitung: 10, garzeit: 15, gesamt: 25 },
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["gluten", "soja"],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "ballaststoffreich", makro_hinweis: "Ohne Ei, Mehl und Zuckerzusatz – die Resteverwertung für überreife Bananen." },
+    substitutionen: [{ fehlt: "Zartbitterschokolade", ersatz: "Rosinen, Nüsse oder pur", hinweis: "Ohne Schoko entfällt auch das Soja-Lecithin-Allergen." }],
+    tags: ["snack", "suess", "schnell", "budget", "resteverwertung"], quelle_typ: "etablierte_kochseite",
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -760,6 +1007,10 @@ const TIPPS = [
   { id: "TIP-008", text: "Substitutions-Basics: Buttermilch = Milch + 1 EL Zitronensaft (10 Min stehen lassen) · 1 Ei zum Binden = 1 EL geschrotete Leinsamen + 3 EL Wasser · Sahne = Kochsahne/Kokosmilch · Parmesan = Hefeflocken (vegan)." },
   { id: "TIP-009", text: "Resteverwertung: Altes Brot → Croutons/Semmelbrösel · welkes Gemüse → Suppe oder Stir-fry · gekochter Reis vom Vortag → gebratener Reis (besser als frischer!)." },
   { id: "TIP-010", text: "Lagerung: Hart gekochte Eier in Schale halten sich im Kühlschrank bis 1 Woche. Getrocknete Hülsenfrüchte kühl/trocken 2+ Jahre (werden mit dem Alter härter → längere Garzeit). Öle dunkel lagern." },
+  { id: "TIP-011", text: "Bananen-Vorrat fürs Eis: Überreife Bananen nie wegwerfen – schälen, in Scheiben schneiden, einfrieren. Der TK-Vorrat wird zu Nicecream, Smoothies oder Keksteig, wann immer der Süßhunger kommt." },
+  { id: "TIP-012", text: "Dörr-Trockentest (Fruchtleder): fertig, wenn es durchscheinend und nur leicht klebrig ist und beim Daumendruck KEINE Dellen bleiben. Warm mit dem Backpapier aufrollen, luftdicht lagern (NCHFP-Empfehlung: bei 60–65 °C trocknen)." },
+  { id: "TIP-013", text: "Geröstete Kichererbsen bleiben nur knusprig, wenn sie offen lagern – nie luftdicht verpacken. Und: Gewürze immer erst NACH dem Rösten dazu, im Ofen verbrennen sie bitter." },
+  { id: "TIP-014", text: "Sorbet-Faustformel: 4 Teile Fruchtpüree auf 1 Teil Zucker plus Spritzer Zitrone. Der Zucker ist Strukturgeber (hält das Sorbet weich) – wer ihn stark kürzt, bekommt einen Eisblock." },
 ];
 
 const IDEEN = [
@@ -767,6 +1018,7 @@ const IDEEN = [
   { id: "IDEA-005", text: "Reste-Frittata: 4 Eier + beliebiges gekochtes Gemüse/Nudeln/Kartoffeln + Käse – Pfanne, dann Ofen 180 °C 10 Min." },
   { id: "IDEA-007", text: "Stir-fry aus dem Kühlschrank: Welkes Gemüse in Streifen + Sojasauce + Knoblauch/Ingwer, 5 Min bei hoher Hitze, zu Reis." },
   { id: "IDEA-009", text: "Wrap-Ideen: Tortilla + Hummus + Falafel oder Hähnchen + Salat = schneller Lunch." },
+  { id: "IDEA-011", text: "Snack-Baukasten aus dem Vorrat: Frozen (TK-Banane/Beeren + Joghurt), Dörren (Apfelmus/Obst bei 60–100 °C), Dippen (Zartbitter + beliebiges Obst), No-Bake (Datteln + Nüsse + Hafer) – vier Techniken, endlose Varianten." },
 ];
 
 // ---------------------------------------------------------------------------

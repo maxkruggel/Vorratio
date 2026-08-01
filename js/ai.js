@@ -5,7 +5,7 @@
    generierte Rezepte sind direkt kochbar (Timer, Abbuchung, Filter). */
 
 import { ZUTATEN } from "./data/kerndb.js";
-import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE } from "./data/profil.js";
+import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, ZIELE } from "./data/profil.js";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-opus-5";
@@ -124,6 +124,7 @@ function systemPrompt(profil) {
   const ausschluesse = (profil.ausschluesse || [])
     .map((id) => AUSSCHLUESSE.find((a) => a.id === id)?.name || id);
   const stile = (profil.stile || []).map((id) => STILE.find((s) => s.id === id)?.name || id);
+  const ziele = (profil.ziele || []).map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean);
   const katalog = ZUTATEN.map((z) => `${z.id} = ${z.name}`).join("\n");
 
   return `Du bist der Rezeptgenerator der Vorrats-App Vorratio. Du erstellst alltagstaugliche,
@@ -133,6 +134,9 @@ anfängertaugliche Rezepte, die sich strikt am Vorratsbestand des Nutzers orient
 - Ernährungsform: ${form?.name || "Mischkost"} (${form?.kurz || ""})
 - Harte Ausschlüsse (NIE verwenden, auch nicht in Spuren-relevanten Zutaten): ${ausschluesse.join(", ") || "keine"}
 - Stil-Präferenzen (bevorzugen, nicht erzwingen): ${stile.join(", ") || "keine"}
+${ziele.length ? `
+## Ziele des Nutzers (weich einfließen lassen, wissenschaftlich fundiert – keine Heilsversprechen)
+${ziele.map((z) => `- ${z.name}: ${z.ai}`).join("\n")}` : ""}
 
 ## Ernährungsregeln (DGE/BfR-basiert, quellenbelegt)
 - Vegan: keinerlei Tierprodukte inkl. Honig. Jede Hauptmahlzeit mit Proteinquelle (Hülsenfrüchte/Tofu/Tempeh/Seitan), Getreide + Hülsenfrüchte kombinieren. Eisenreiche Gerichte IMMER mit Vitamin-C-Komponente (Paprika, Zitrone, Brokkoli). Kaffee/Schwarztee nie als Mahlzeitgetränk vorschlagen. Jodiertes Salz als Default, Algen nicht als Jod-/B12-Quelle.
@@ -160,7 +164,15 @@ async function generiereRezepte(apiKey, profil, bestand, slot, anzahl = 3) {
   const bestandListe = bestand.length
     ? bestand.map((b) => `- ${b.name} (${b.zutat_id}), verfügbar: ${b.menge ?? "vorrätig"} ${b.einheit}`).join("\n")
     : "- (Bestand leer – schlage einfache Basisrezepte mit wenigen, günstigen Zutaten vor)";
-  const slotName = { fruehstueck: "Frühstück", mittag: "Mittagessen", abend: "Abendessen" }[slot] || slot;
+  const slotName = { fruehstueck: "Frühstück", mittag: "Mittagessen", abend: "Abendessen", snack: "Snacks & Süßes" }[slot] || slot;
+  // Snack-Ecke (Recherche 4): eigene Rezeptfamilie außerhalb der Essenszeiten
+  const snackHinweis = slot === "snack" ? `
+
+Es geht um SNACKS für zwischendurch, unabhängig von den Mahlzeiten – süß oder herzhaft:
+Eis/Sorbet/Nicecream, Eis am Stiel, Frozen-Joghurt-Bark, schokolierte Früchte, Fruchtleder,
+Obst-/Gemüsechips, Energiebällchen, geröstete Kichererbsen, Popcorn, Blitzgebäck.
+Lange passive Wartezeiten (Gefrieren, Dörren) sind okay – timer_typ "ruhen"/"ofen" nutzen.
+Setze mahlzeitentyp exakt auf ["snack"].` : "";
 
   const data = await anfrage(apiKey, {
     model: MODEL,
@@ -169,7 +181,7 @@ async function generiereRezepte(apiKey, profil, bestand, slot, anzahl = 3) {
     system: systemPrompt(profil),
     messages: [{
       role: "user",
-      content: `Erstelle ${anzahl} unterschiedliche Rezepte für: ${slotName}.
+      content: `Erstelle ${anzahl} unterschiedliche Rezepte für: ${slotName}.${snackHinweis}
 
 AKTUELLER BESTAND:
 ${bestandListe}
