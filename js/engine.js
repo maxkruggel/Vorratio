@@ -85,8 +85,8 @@ function mengeInBestandsEinheit(z, item) {
 
 /* 3 Vorschläge für den Slot: Profilfilter → Score nach Bestandsdeckung + Stil.
    seed steuert das Neu-Würfeln (deterministisch pro Tag+Wurf). */
-function vorschlaege(profil, bestand, slot, seed = 0, anzahl = 3) {
-  const pool = REZEPTE
+function vorschlaege(profil, bestand, slot, seed = 0, anzahl = 3, rezepte = REZEPTE) {
+  const pool = rezepte
     .filter((r) => r.mahlzeitentyp.includes(slot))
     .filter((r) => rezeptErlaubt(r, profil))
     .map((r) => {
@@ -101,7 +101,7 @@ function vorschlaege(profil, bestand, slot, seed = 0, anzahl = 3) {
   // Bei dünnem Slot-Pool (z. B. Frühstück) mit slot-fremden Treffern auffüllen
   if (pool.length < anzahl) {
     const ids = new Set(pool.map((p) => p.rezept.id));
-    const rest = REZEPTE
+    const rest = rezepte
       .filter((r) => !ids.has(r.id) && rezeptErlaubt(r, profil))
       .map((r) => ({ rezept: r, abgleich: bestandsAbgleich(r, bestand), score: 0 }));
     pool.push(...rest);

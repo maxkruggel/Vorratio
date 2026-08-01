@@ -1,5 +1,5 @@
 /* Vorratio Service Worker – App-Shell offline verfügbar halten. */
-const CACHE = "vorratio-v1";
+const CACHE = "vorratio-v2";
 const SHELL = [
   "./",
   "./index.html",
@@ -7,6 +7,8 @@ const SHELL = [
   "./js/app.js",
   "./js/storage.js",
   "./js/engine.js",
+  "./js/ai.js",
+  "./js/scan.js",
   "./js/data/kerndb.js",
   "./js/data/profil.js",
   "./manifest.webmanifest",
@@ -27,9 +29,11 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-/* Network-first für die Shell (frische Updates), Cache-Fallback offline. */
+/* Network-first für die Shell (frische Updates), Cache-Fallback offline.
+   Fremd-APIs (Claude, Open Food Facts) werden nie gecacht. */
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
