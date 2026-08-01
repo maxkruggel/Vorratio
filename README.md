@@ -56,13 +56,13 @@ js/engine.js          Rezept-Engine: Profilfilter, Bestandsabgleich, Abbuchung
 js/storage.js         Auto-Save, JSON-Export/-Import
 js/data/kerndb.js     Kern-DB nach kruggel-recipe-db/v1 (Rezepte, Preps, Techniken …)
 js/data/profil.js     Ernährungsprofil-Achsen + DGE/BfR-Hinweise
-docs/                 Projektdoku + die drei Daten-Recherchen
+docs/                 Projektdoku + die vier Recherchen (Daten + Picnic-Recht)
 ```
 
 ## Nächste Ausbaustufen (siehe Doku Kap. 9)
 
 AI-Rezeptgenerierung · Bon-Scan (Vision) · Barcode-Scan + OFF/BLS-Produkt-DB ·
-Picnic-Anbindung (nach Rechtsrecherche) · Angebots-Crawl · Web-Push für feste
+Picnic-Anbindung (Rechtsrecherche liegt vor: [docs/recherche-4-picnic-recht.md](docs/recherche-4-picnic-recht.md)) · Angebots-Crawl · Web-Push für feste
 Vorschlagszeiten · Diktat/Chatbot- und Foto-Erfassung · Icon-Palette & finales Branding.
 
 ---

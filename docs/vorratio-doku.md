@@ -1,7 +1,7 @@
 # VORRATIO – Projektdokumentation
 
 **Version 1.1 · Stand: 01.08.2026 · Max Kruggel**
-Führende Quelle: Diktat vom 01.08.2026 (= Übergabe zur App-Erstellung). Integriert: Recherche 1 (Ernährungsformen), Recherche 2 (Zubereitungs- & Rezeptdatenbank), Recherche 3 (Produktdatenbank). Die Datenarchitektur ist damit vollständig; die Rechtsrecherche zur Picnic-API läuft separat.
+Führende Quelle: Diktat vom 01.08.2026 (= Übergabe zur App-Erstellung). Integriert: Recherche 1 (Ernährungsformen), Recherche 2 (Zubereitungs- & Rezeptdatenbank), Recherche 3 (Produktdatenbank). Die Datenarchitektur ist damit vollständig; die Rechtsrecherche zur Picnic-API liegt als Recherche 4 vor ([docs/recherche-4-picnic-recht.md](recherche-4-picnic-recht.md)).
 
 ---
 
@@ -152,7 +152,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 - Community-APIs mit DE-Support: `python-picnic-api2` (Python, gepflegt; 2FA; `get_deliveries`/`get_delivery(id)` liefert Bestellhistorie inkl. Artikelzeilen; `search`, `add_product`, `get_cart`) und `picnic-api` (Node, MRVDH).
 - Damit möglich: (a) Picnic-Quittungen/Bestellhistorie automatisch in den Bestand; (b) Einkaufsliste als Picnic-Warenkorb übergeben.
 - Status: inoffiziell, „use at your own risk", kann bei API-Umbauten brechen → als gekapseltes Modul mit manuellem Fallback (Quittungs-Scan) bauen. **Picnic-Zugang ist vorhanden.**
-- **Rechtslage in Klärung:** Separate Recherche zu Legalität und möglichen Konsequenzen der inoffiziellen API-Nutzung (privat vs. späterer Marktgang) läuft; Ergebnis wird als eigenes Dokument beigelegt. Bis dahin: keine Produktivnutzung über gelegentliche eigene Abrufe hinaus.
+- **Rechtslage geklärt (Recherche 4, 01.08.2026, [recherche-4-picnic-recht.md](recherche-4-picnic-recht.md)):** Für die private Nutzung mit eigenem Konto ist das Risiko niedrig (Strafrecht/UrhG/UWG greifen nicht); reales Maximalrisiko ist die Kontosperrung. Freigabe für Umsetzung in zwei Stufen: erst Lese-Pfad (Bestellhistorie → Bestand), dann Schreib-Pfad (Warenkorb). Schonend nutzen (ereignisgesteuert, Token wiederverwenden, kein Sortiments-Crawling); rote Linien: technische Schutzmaßnahmen nicht umgehen, vor einem Marktgang neu bewerten.
 
 ### 7.3 Bon-Scan
 - Pipeline: Foto → Vision-LLM → strukturiertes JSON (Artikel, Menge, Preis) → Validierung → Buchung; Größenordnung ~0,002 $ pro Bon.
@@ -179,7 +179,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 | 1 | App-Aufbau über Claude Design (neutral), Basis: diese Doku | nächster Schritt |
 | 2 | Auto-Save + JSON-Export/-Import implementieren (Kap. 6.4) | mit dem Aufbau |
 | 3 | Bon-Scan-Prototyp – Testdaten: allgemeine Grundzutaten (kein echtes Bon-Material nötig) | mit dem Aufbau |
-| 4 | Picnic: Rechtsrecherche abwarten, dann Funktionsvalidierung mit vorhandenem Zugang | läuft |
+| 4 | Picnic: Rechtsrecherche liegt vor (Freigabe privat, Kap. 7.2) → Funktionsvalidierung mit vorhandenem Zugang | To-do |
 | 5 | Angebots-Crawl: Quelle + Matching prototypen | To-do |
 | 6 | Web-Push für feste Vorschlagszeiten einrichten (Muster aus Flora AI übernehmen) | To-do |
 | 7 | Icon-Palette erstellen | To-do |
@@ -193,4 +193,4 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 2. **Recherche 1: Ernährungsformen als Zielgruppen-Presets** (DGE/BfR/MRI, Stand 08/2026) – Basis für Kapitel 6.1.
 3. **Recherche 2: Zubereitungs- & Rezeptdatenbank** (Schema, 60 Datensätze, Quellen-/Lizenzbewertung) – Basis für Kapitel 6.2.
 4. **Recherche 3: Produktdatenbank** (Open Food Facts, BLS 4.0, Barcode/Foto-Identifikation, Recht) – Basis für Kapitel 6.3.
-5. **Recherche 4: Rechtslage inoffizielle Picnic-API** – läuft, wird nach Fertigstellung hier beigelegt (Kapitel 7.2).
+5. **Recherche 4: Rechtslage inoffizielle Picnic-API** (AGB, DE/EU-Recht, Ökosystem, Durchsetzungsfälle; Stand 01.08.2026) – Basis für Kapitel 7.2, beigelegt als [recherche-4-picnic-recht.md](recherche-4-picnic-recht.md).
