@@ -5,7 +5,7 @@
    generierte Rezepte sind direkt kochbar (Timer, Abbuchung, Filter). */
 
 import { ZUTATEN } from "./data/kerndb.js";
-import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE } from "./data/profil.js";
+import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, ZIELE } from "./data/profil.js";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-opus-5";
@@ -124,6 +124,7 @@ function systemPrompt(profil) {
   const ausschluesse = (profil.ausschluesse || [])
     .map((id) => AUSSCHLUESSE.find((a) => a.id === id)?.name || id);
   const stile = (profil.stile || []).map((id) => STILE.find((s) => s.id === id)?.name || id);
+  const ziele = (profil.ziele || []).map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean);
   const katalog = ZUTATEN.map((z) => `${z.id} = ${z.name}`).join("\n");
 
   return `Du bist der Rezeptgenerator der Vorrats-App Vorratio. Du erstellst alltagstaugliche,
@@ -133,6 +134,9 @@ anfängertaugliche Rezepte, die sich strikt am Vorratsbestand des Nutzers orient
 - Ernährungsform: ${form?.name || "Mischkost"} (${form?.kurz || ""})
 - Harte Ausschlüsse (NIE verwenden, auch nicht in Spuren-relevanten Zutaten): ${ausschluesse.join(", ") || "keine"}
 - Stil-Präferenzen (bevorzugen, nicht erzwingen): ${stile.join(", ") || "keine"}
+${ziele.length ? `
+## Ziele des Nutzers (weich einfließen lassen, wissenschaftlich fundiert – keine Heilsversprechen)
+${ziele.map((z) => `- ${z.name}: ${z.ai}`).join("\n")}` : ""}
 
 ## Ernährungsregeln (DGE/BfR-basiert, quellenbelegt)
 - Vegan: keinerlei Tierprodukte inkl. Honig. Jede Hauptmahlzeit mit Proteinquelle (Hülsenfrüchte/Tofu/Tempeh/Seitan), Getreide + Hülsenfrüchte kombinieren. Eisenreiche Gerichte IMMER mit Vitamin-C-Komponente (Paprika, Zitrone, Brokkoli). Kaffee/Schwarztee nie als Mahlzeitgetränk vorschlagen. Jodiertes Salz als Default, Algen nicht als Jod-/B12-Quelle.

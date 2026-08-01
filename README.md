@@ -40,10 +40,17 @@ Neu gegenüber v1:
 
 Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
 
-- **Onboarding** mit Ernährungsprofil auf drei unabhängigen Achsen (Kap. 6.1):
+- **Onboarding** mit Ernährungsprofil auf vier unabhängigen Achsen (Kap. 6.1):
   Ernährungsform (8 Presets, DGE-basiert) · Ausschlüsse (EU-14-Allergene, halal/koscher) ·
-  Stil-Präferenzen (mediterran, High-Protein, Low-Carb; Keto/Paleo mit Evidenz-Hinweis) –
-  plus Toleranz-Hinweis.
+  Stil-Präferenzen (mediterran, High-Protein, Low-Carb; Keto/Paleo mit Evidenz-Hinweis) ·
+  **Ziele** (mehr Energie, Abnehmen, fitter werden/Muskelaufbau, flacherer Bauch, mehr
+  Konzentration, gesunde Verdauung) – nur Ziele, die wissenschaftlich belegt über
+  Ernährung beeinflussbar sind (DGE, EFSA, ISSN 2017, DIETFITS 2018, PREDIMED/MIND);
+  jede Auswahl zeigt ehrlich die Evidenzlage inkl. dem, was NICHT belegt ist
+  („Spot Reduction“). Rückkopplung: Ziele fließen als weiche Präferenz in den
+  Vorschlags-Score, in den Systemprompt der AI-Rezeptgenerierung und als
+  „🎯 Zahlt auf deine Ziele ein“-Hinweis im Rezept-Detail – nichts wird verboten.
+  Plus Toleranz-Hinweis.
 - **Bestand** (Kap. 5): Kategorien Trockenware/Frischware/Konserven/Gewürze/Kühl/TK,
   Stepper für Zählbares, Silhouetten-Slider („Wie voll ist die Packung?“) für Schüttgut,
   vorrätig/leer für Pauschales. Anzeige immer als Näherung („~500 g“), nie Scheinpräzision.

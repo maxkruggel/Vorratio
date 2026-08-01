@@ -2,7 +2,7 @@
    Vorschlagslogik (3 Vorschläge je Slot, neu würfeln), Abbuchung mit Toleranz. */
 
 import { REZEPTE, ZUTATEN } from "./data/kerndb.js";
-import { FORM_ERLAUBT } from "./data/profil.js";
+import { FORM_ERLAUBT, ZIELE } from "./data/profil.js";
 
 const ZUTAT_INDEX = Object.fromEntries(ZUTATEN.map((z) => [z.id, z]));
 
@@ -83,7 +83,20 @@ function mengeInBestandsEinheit(z, item) {
   return null;
 }
 
-/* 3 Vorschläge für den Slot: Profilfilter → Score nach Bestandsdeckung + Stil.
+/* Achse 4: Wie zahlt ein Rezept auf die gewählten Ziele ein? Koppelt an
+   naehrwert_einordnung.profil + Tags. fit: +1 bevorzugt · −1 gemieden · 0 neutral.
+   Liefert je gewähltem Ziel einen Eintrag – fürs Scoring und für UI-Badges. */
+function zielTreffer(rezept, zielIds = []) {
+  const profilTag = rezept.naehrwert_einordnung?.profil;
+  const tags = rezept.tags || [];
+  return ZIELE.filter((z) => zielIds.includes(z.id)).map((z) => ({
+    ziel: z,
+    fit: z.bevorzugt.profile.includes(profilTag) || z.bevorzugt.tags.some((t) => tags.includes(t)) ? 1
+      : z.meidet.profile.includes(profilTag) ? -1 : 0,
+  }));
+}
+
+/* 3 Vorschläge für den Slot: Profilfilter → Score nach Bestandsdeckung + Stil + Ziele.
    seed steuert das Neu-Würfeln (deterministisch pro Tag+Wurf). */
 function vorschlaege(profil, bestand, slot, seed = 0, anzahl = 3, rezepte = REZEPTE) {
   const pool = rezepte
@@ -93,6 +106,10 @@ function vorschlaege(profil, bestand, slot, seed = 0, anzahl = 3, rezepte = REZE
       const abgleich = bestandsAbgleich(r, bestand);
       let score = abgleich.quote * 100;
       if ((profil.stile || []).some((s) => (r.tags || []).includes(s))) score += 15;
+      // Ziel-Bonus: gemittelt über die gewählten Ziele (weiche Präferenz,
+      // ±18 max – Bestandsdeckung bleibt der dominante Faktor)
+      const zt = zielTreffer(r, profil.ziele || []);
+      if (zt.length) score += 18 * (zt.reduce((sum, t) => sum + t.fit, 0) / zt.length);
       score += pseudoZufall(r.id, seed) * 20;        // Varianz pro Wurf
       return { rezept: r, abgleich, score };
     })
@@ -175,5 +192,5 @@ function wochenKandidaten(bestand) {
 
 export {
   ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, bestandsAbgleich,
-  vorschlaege, tagesSeed, abbuchen, mengeAnzeige, wochenKandidaten, mengeInBestandsEinheit,
+  vorschlaege, zielTreffer, tagesSeed, abbuchen, mengeAnzeige, wochenKandidaten, mengeInBestandsEinheit,
 };

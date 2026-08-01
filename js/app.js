@@ -5,9 +5,9 @@
 
 import { load, save, getState, exportJson, importJson, resetAll } from "./storage.js";
 import { ZUTATEN, REZEPTE, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN } from "./data/kerndb.js";
-import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, hinweiseFuerForm, FORM_HINWEISE } from "./data/profil.js";
+import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, ZIELE, hinweiseFuerForm, FORM_HINWEISE } from "./data/profil.js";
 import {
-  ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, vorschlaege, tagesSeed,
+  ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, vorschlaege, zielTreffer, tagesSeed,
   bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
 } from "./engine.js";
 import { generiereRezepte, scanBon } from "./ai.js";
@@ -62,10 +62,10 @@ tabbar.addEventListener("click", (e) => {
 });
 
 /* ------------------------------------------------------------ Onboarding */
-let ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [] };
+let ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [], ziele: [] };
 
 function renderOnboarding() {
-  const steps = [obWelcome, obName, obForm, obAusschluesse, obStile, obToleranz];
+  const steps = [obWelcome, obName, obForm, obAusschluesse, obStile, obZiele, obToleranz];
   app.replaceChildren(h(`<div class="fade-in">${steps[ob.step]()}</div>`));
   bindOnboarding();
 }
@@ -124,6 +124,24 @@ function obStile() {
     <button class="btn" data-ob="next">Weiter</button>`;
 }
 
+/* Achse 4: Ziele – nur wissenschaftlich belegte, über Ernährung beeinflussbare
+   Ziele; jede Auswahl zeigt sofort ehrlich die Evidenzlage (inkl. dem, was
+   NICHT belegt ist). Rückkopplung: Vorschlags-Score + AI-Rezeptgenerierung. */
+function obZiele() {
+  return `
+    <div class="screen-header"><h1>Deine Ziele</h1><p class="subtle">Optional, Mehrfachauswahl – passende Rezepte werden bevorzugt, nichts wird verboten. Nur Ziele, die nachweislich über Ernährung beeinflussbar sind.</p></div>
+    <div class="choice-list">
+      ${ZIELE.map((z) => `
+        <button class="choice ${ob.ziele.includes(z.id) ? "selected" : ""}" data-ziel="${z.id}">
+          <b>${esc(z.name)} ${z.evidenz === "hoch" ? '<span class="badge">Evidenz: hoch</span>' : '<span class="badge neutral">Evidenz: begrenzt</span>'}</b>
+          <span class="subtle">${esc(z.kurz)}</span>
+        </button>`).join("")}
+    </div>
+    ${ob.ziele.map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean).map((z) => `
+      <div class="card hint-card" style="margin-top:12px"><b>${esc(z.name)} – was die Wissenschaft sagt</b>${esc(z.hinweis)}</div>`).join("")}
+    <button class="btn" data-ob="next">${ob.ziele.length ? "Weiter" : "Ohne Ziele weiter"}</button>`;
+}
+
 function obToleranz() {
   return `
     <div class="screen-header"><h1>Eine Sache noch</h1></div>
@@ -138,6 +156,7 @@ function bindOnboarding() {
   app.querySelectorAll("[data-form]").forEach((b) => b.addEventListener("click", () => { ob.form = b.dataset.form; renderOnboarding(); }));
   app.querySelectorAll("[data-aus]").forEach((b) => b.addEventListener("click", () => { toggle(ob.ausschluesse, b.dataset.aus); renderOnboarding(); }));
   app.querySelectorAll("[data-stil]").forEach((b) => b.addEventListener("click", () => { toggle(ob.stile, b.dataset.stil); renderOnboarding(); }));
+  app.querySelectorAll("[data-ziel]").forEach((b) => b.addEventListener("click", () => { toggle(ob.ziele, b.dataset.ziel); renderOnboarding(); }));
   app.querySelector('[data-ob="next"]')?.addEventListener("click", () => { ob.step++; renderOnboarding(); });
   app.querySelector('[data-ob="name"]')?.addEventListener("click", () => {
     ob.name = app.querySelector("#ob-name").value.trim();
@@ -146,7 +165,7 @@ function bindOnboarding() {
   });
   app.querySelector('[data-ob="fertig"]')?.addEventListener("click", () => {
     const s = getState();
-    s.profil = { name: ob.name, ernaehrungsform: ob.form, ausschluesse: ob.ausschluesse, stile: ob.stile, onboarded: true };
+    s.profil = { name: ob.name, ernaehrungsform: ob.form, ausschluesse: ob.ausschluesse, stile: ob.stile, ziele: ob.ziele, onboarded: true };
     save();
     view = "vorrat";
     render();
@@ -266,6 +285,8 @@ function renderRezeptDetail(rezept) {
   const s = getState();
   const ab = bestandsAbgleich(rezept, s.bestand);
   const tip = TIPPS[Math.abs(hashCode(rezept.id)) % TIPPS.length];
+  // Sichtbare Rückkopplung Achse 4: auf welche gewählten Ziele zahlt das Rezept ein?
+  const zielePassend = zielTreffer(rezept, s.profil.ziele || []).filter((t) => t.fit > 0).map((t) => t.ziel.name);
 
   app.replaceChildren(h(`
     <div class="fade-in">
@@ -285,6 +306,8 @@ function renderRezeptDetail(rezept) {
           </div>`;
         }).join("")}
       </div>
+      ${zielePassend.length ? `
+        <div class="card hint-card"><b>🎯 Zahlt auf deine Ziele ein</b>${esc(zielePassend.join(" · "))}</div>` : ""}
       ${rezept.naehrwert_einordnung?.makro_hinweis ? `
         <div class="card hint-card"><b>Gut zu wissen</b>${esc(rezept.naehrwert_einordnung.makro_hinweis)}</div>` : ""}
       ${ab.fehlt.length > 0 ? `
@@ -975,6 +998,14 @@ function renderProfil() {
         ${STILE.map((st) => `<button class="chip ${s.profil.stile.includes(st.id) ? "selected" : ""}" data-pstil="${st.id}">${esc(st.name)}</button>`).join("")}
       </div>
 
+      <h2 class="section-gap">Ziele</h2>
+      <p class="subtle small" style="margin-bottom:8px">Passende Rezepte werden bevorzugt (Vorschläge + AI-Generierung), nichts wird verboten.</p>
+      <div class="chip-wrap">
+        ${ZIELE.map((z) => `<button class="chip ${(s.profil.ziele || []).includes(z.id) ? "selected" : ""}" data-pziel="${z.id}">${esc(z.name)}</button>`).join("")}
+      </div>
+      ${(s.profil.ziele || []).map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean).map((z) => `
+        <div class="card hint-card" style="margin-top:12px"><b>${esc(z.name)} – was die Wissenschaft sagt</b>${esc(z.hinweis)}</div>`).join("")}
+
       <h2 class="section-gap">Hinweise zu deiner Ernährungsform</h2>
       ${hinweise.map((t) => `<div class="card hint-card">${esc(t)}</div>`).join("")}
       <p class="subtle small">${esc(FORM_HINWEISE.sonderfaelle)}</p>
@@ -1014,6 +1045,7 @@ function renderProfil() {
   app.querySelectorAll("[data-pform]").forEach((b) => b.addEventListener("click", () => { s.profil.ernaehrungsform = b.dataset.pform; save(); renderProfil(); }));
   app.querySelectorAll("[data-paus]").forEach((b) => b.addEventListener("click", () => { toggle(s.profil.ausschluesse, b.dataset.paus); save(); renderProfil(); }));
   app.querySelectorAll("[data-pstil]").forEach((b) => b.addEventListener("click", () => { toggle(s.profil.stile, b.dataset.pstil); save(); renderProfil(); }));
+  app.querySelectorAll("[data-pziel]").forEach((b) => b.addEventListener("click", () => { s.profil.ziele ||= []; toggle(s.profil.ziele, b.dataset.pziel); save(); renderProfil(); }));
   app.querySelector("#api-key-save").addEventListener("click", () => {
     s.settings.apiKey = app.querySelector("#api-key").value.trim() || null;
     save();
@@ -1031,7 +1063,7 @@ function renderProfil() {
     catch (err) { alert(`Import fehlgeschlagen: ${err.message}`); }
   });
   app.querySelector("#reset").addEventListener("click", () => {
-    if (confirm("Wirklich ALLE Daten löschen? Ohne Export ist das endgültig.")) { resetAll(); ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [] }; render(); }
+    if (confirm("Wirklich ALLE Daten löschen? Ohne Export ist das endgültig.")) { resetAll(); ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [], ziele: [] }; render(); }
   });
 }
 
