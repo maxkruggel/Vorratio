@@ -23,6 +23,14 @@ const DEFAULT_STATE = {
     woche: [],               // Wocheneinkauf [{ zutat_id, name, erledigt, auto }]
     rezeptId: null,
   },
+  angebote: {                // Angebots-Crawl (Kap. 4.7/7.4)
+    plz: "",                 // Standort für den Crawl
+    apikey: "",              // Marktguru-Keys (aus der Web-App, s. docs/angebots-crawl.md)
+    clientkey: "",
+    proxy: "",               // optionaler CORS-Proxy-Präfix
+    demo: false,             // true = Demo-Daten erzwingen (ohne Keys ohnehin Demo)
+    letzter: null,           // letztes Crawl-Ergebnis (gilt eine Kalenderwoche)
+  },
   aiRezepte: [],             // AI-generierte Rezepte (kruggel-recipe-db/v1-kompatibel)
   settings: { erstellt: null, apiKey: null },
 };

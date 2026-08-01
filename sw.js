@@ -1,5 +1,5 @@
 /* Vorratio Service Worker – App-Shell offline verfügbar halten. */
-const CACHE = "vorratio-v3";
+const CACHE = "vorratio-v4";
 const SHELL = [
   "./",
   "./index.html",
@@ -7,11 +7,13 @@ const SHELL = [
   "./js/app.js",
   "./js/storage.js",
   "./js/engine.js",
+  "./js/angebote.js",
   "./js/ai.js",
   "./js/scan.js",
   "./js/substitution.js",
   "./js/data/kerndb.js",
   "./js/data/profil.js",
+  "./js/data/angebote-demo.js",
   "./js/data/substitutionen.js",
   "./manifest.webmanifest",
   "./icons/icon.svg",
