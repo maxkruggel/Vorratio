@@ -30,6 +30,10 @@ Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
   vorrätig/leer für Pauschales. Anzeige immer als Näherung („~500 g“), nie Scheinpräzision.
 - **Rezeptvorschläge** (Kap. 4.3): 3 Vorschläge je Slot (8:00/11:30/17:30), gefiltert nach
   Profil, gescort nach Bestandsdeckung, mit „Das fehlt dir“-Hinweis und Neu-würfeln.
+  Web-Push braucht einen Push-Server – bis dahin greift der dokumentierte Fallback
+  (Kap. 7.1): Die Vorschläge werden beim Öffnen (App-Start und Rückkehr in den
+  Vordergrund) für den aktuellen Slot erzeugt, lokal gespeichert und bleiben innerhalb
+  des Slots stabil – pro Tag neue Ideen, Neu-würfeln überlebt den App-Neustart.
 - **Fokussierter Einkauf** (Kap. 4.4): rezeptbezogene Liste nur mit fehlenden Zutaten;
   Bestätigung füllt den Bestand über Packungsgrößen auf (Vorstufe zum Bon-Scan).
 - **Kochmodus** (Kap. 4.5): durchklickbare Schrittkarten, benannte Timer

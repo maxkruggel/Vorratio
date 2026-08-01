@@ -7,15 +7,14 @@ import { load, save, getState, exportJson, importJson, resetAll } from "./storag
 import { ZUTATEN, REZEPTE, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN } from "./data/kerndb.js";
 import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, hinweiseFuerForm, FORM_HINWEISE } from "./data/profil.js";
 import {
-  ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, vorschlaege, bestandsAbgleich,
-  abbuchen, mengeAnzeige, wochenKandidaten,
+  ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, vorschlaege, tagesSeed,
+  bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
 } from "./engine.js";
 
 const app = document.getElementById("app");
 const tabbar = document.getElementById("tabbar");
 let view = "heute";
 let cook = null;            // { rezept, portionen, step, timer }
-let wurf = 0;               // Neu-würfeln-Zähler
 let detailRezept = null;
 
 const KATEGORIE_NAMEN = {
@@ -153,10 +152,43 @@ function toggle(arr, val) {
 }
 
 /* ------------------------------------------------------------------ Heute */
+
+/* Push-Fallback (Kap. 7.1): Web Push braucht einen Push-Server – ohne ihn
+   greift der dokumentierte Fallback: die Vorschläge für den aktuellen Slot
+   werden beim Öffnen erzeugt und persistiert, liegen also sofort bereit und
+   bleiben innerhalb eines Slots stabil. Neu erzeugt wird bei Tages- oder
+   Slot-Wechsel, bei "Neu würfeln", nach der Bestands-Ersteinrichtung und
+   wenn ein gemerktes Rezept nicht mehr zum Profil passt. */
+function stelleVorschlaegeBereit(neuWuerfeln = false) {
+  const s = getState();
+  if (!s.profil.onboarded) return null;
+  const datum = heuteStr();
+  const slot = aktuellerSlot();
+  const bestandLeer = s.bestand.length === 0;
+  const v = s.vorschlaege;
+  const gueltig = v && v.datum === datum && v.slot === slot
+    && !(v.bestandLeer && !bestandLeer)
+    && (v.rezeptIds || []).every((id) => {
+      const r = REZEPTE.find((x) => x.id === id);
+      return r && rezeptErlaubt(r, s.profil);
+    });
+  if (gueltig && !neuWuerfeln) return v;
+
+  const gewuerfelt = gueltig ? (v.gewuerfelt || 0) + 1 : 0;
+  const vs = vorschlaege(s.profil, s.bestand, slot, tagesSeed(datum, gewuerfelt));
+  s.vorschlaege = { datum, slot, rezeptIds: vs.map((x) => x.rezept.id), gewuerfelt, bestandLeer };
+  save();
+  return s.vorschlaege;
+}
+
 function renderHeute() {
   const s = getState();
-  const slot = aktuellerSlot();
-  const vs = vorschlaege(s.profil, s.bestand, slot, wurf);
+  const bereit = stelleVorschlaegeBereit();
+  const slot = bereit.slot;
+  const vs = bereit.rezeptIds
+    .map((id) => REZEPTE.find((r) => r.id === id))
+    .filter(Boolean)
+    .map((rezept) => ({ rezept, abgleich: bestandsAbgleich(rezept, s.bestand) }));
   const gruss = s.profil.name ? `Moin, ${esc(s.profil.name)}` : "Moin";
   const leererBestand = s.bestand.length === 0;
 
@@ -182,14 +214,14 @@ function renderHeute() {
             : `<p class="small" style="margin-top:8px;color:var(--warn)">Das fehlt dir: ${v.abgleich.fehlt.map((z) => esc(z.zutat_name)).join(", ")}</p>`}
         </div>`).join("")}
       <button class="btn secondary" id="wuerfeln">↻ Neu würfeln</button>
-      <p class="subtle small" style="text-align:center;margin-top:14px">Feste Zeiten: 8:00 Frühstück · 11:30 Mittag · 17:30 Abend</p>
+      <p class="subtle small" style="text-align:center;margin-top:14px">Feste Zeiten: 8:00 Frühstück · 11:30 Mittag · 17:30 Abend<br>Ohne Push-Einrichtung liegen die Vorschläge beim Öffnen bereit.</p>
     </div>`));
 
   app.querySelectorAll("[data-rezept]").forEach((c) => c.addEventListener("click", () => {
     detailRezept = REZEPTE.find((r) => r.id === c.dataset.rezept);
     render();
   }));
-  app.querySelector("#wuerfeln").addEventListener("click", () => { wurf++; render(); });
+  app.querySelector("#wuerfeln").addEventListener("click", () => { stelleVorschlaegeBereit(true); render(); });
   app.querySelector('[data-go="vorrat"]')?.addEventListener("click", (e) => { e.stopPropagation(); view = "vorrat"; render(); });
 }
 
@@ -733,7 +765,17 @@ function renderProfil() {
 
 /* ------------------------------------------------------------------- Start */
 load();
+stelleVorschlaegeBereit();   // Push-Fallback: beim Öffnen liegen die Slot-Vorschläge bereit
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 render();
+
+/* iOS-PWAs werden meist fortgesetzt statt neu geladen – beim Zurückkehren in
+   den Vordergrund zählt das als "Öffnen": Slot prüfen, Vorschläge bereitlegen. */
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  const vorher = getState().vorschlaege;
+  const nachher = stelleVorschlaegeBereit();
+  if (view === "heute" && !cook && !detailRezept && nachher !== vorher) render();
+});
