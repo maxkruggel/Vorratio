@@ -39,6 +39,10 @@ Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
   Toleranzband; Kleinmengen (EL/TL/Prise) laufen unter Toleranz.
 - **Wocheneinkauf** (Kap. 4.7): leere/fast leere Vorräte (≤ 1/5 Packung) landen automatisch
   auf der Liste.
+- **Angebots-Crawl** (Kap. 4.7/7.4): einmal wöchentlich Liste × Standort-Angebote →
+  Markt-Empfehlung mit Abdeckung und Konditionen, bewusst kein Markt-Hopping (max.
+  1 Empfehlung + 2 Alternativen). Quelle Marktguru (PLZ + Keys in den Einstellungen),
+  ohne Keys Demo-Modus; Details in [docs/angebots-crawl.md](docs/angebots-crawl.md).
 - **Wissen**: 18 Grundtechniken, 15 Produktzubereitungen, 9 Grundrezepte, Tipps & Ideen aus
   der Kern-Rezept-DB (Schema `kruggel-recipe-db/v1`, 25 Vollrezepte strukturiert).
 - **Persistenz** (Kap. 6.4): Auto-Save je Aktion (localStorage), JSON-Export/-Import als
@@ -53,17 +57,20 @@ sw.js                 Service Worker (Offline-Shell)
 css/style.css         Neutrales Design (Branding wird später übergelegt)
 js/app.js             Views & Steuerung
 js/engine.js          Rezept-Engine: Profilfilter, Bestandsabgleich, Abbuchung
+js/angebote.js        Angebots-Crawl: Marktguru-Client, Suchprofile, Matching, Markt-Ranking
 js/storage.js         Auto-Save, JSON-Export/-Import
 js/data/kerndb.js     Kern-DB nach kruggel-recipe-db/v1 (Rezepte, Preps, Techniken …)
 js/data/profil.js     Ernährungsprofil-Achsen + DGE/BfR-Hinweise
-docs/                 Projektdoku + die drei Daten-Recherchen
+js/data/angebote-demo.js  Demo-Angebote für den Crawl (offline testbar)
+docs/                 Projektdoku, die drei Daten-Recherchen + Angebots-Crawl-Doku
 ```
 
 ## Nächste Ausbaustufen (siehe Doku Kap. 9)
 
 AI-Rezeptgenerierung · Bon-Scan (Vision) · Barcode-Scan + OFF/BLS-Produkt-DB ·
-Picnic-Anbindung (nach Rechtsrecherche) · Angebots-Crawl · Web-Push für feste
-Vorschlagszeiten · Diktat/Chatbot- und Foto-Erfassung · Icon-Palette & finales Branding.
+Picnic-Anbindung (nach Rechtsrecherche) · Web-Push für feste Vorschlagszeiten
+(schaltet auch den automatischen Freitags-Crawl frei) · Diktat/Chatbot- und
+Foto-Erfassung · Icon-Palette & finales Branding.
 
 ---
 

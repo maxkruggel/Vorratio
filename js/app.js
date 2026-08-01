@@ -10,6 +10,7 @@ import {
   ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, vorschlaege, bestandsAbgleich,
   abbuchen, mengeAnzeige, wochenKandidaten,
 } from "./engine.js";
+import { angebotsCrawl, isoWoche, liveKonfiguriert } from "./angebote.js";
 
 const app = document.getElementById("app");
 const tabbar = document.getElementById("tabbar");
@@ -577,8 +578,10 @@ function renderEinkauf() {
         </div>
         <button class="btn secondary" id="woche-fertig">Erledigtes in den Bestand buchen</button>` : `
         <div class="empty-state"><p class="small">Gerade nichts auf der Liste – dein Vorrat sieht gut aus.</p></div>`}
-      <p class="subtle small" style="margin-top:14px;text-align:center">Der wöchentliche Angebots-Crawl (bester Markt für deine Liste) ist als Ausbaustufe geplant.</p>
+      ${angebotsSektion(s)}
     </div>`));
+
+  bindAngebote(s);
 
   app.querySelectorAll("[data-r-check]").forEach((b) => b.addEventListener("click", () => {
     s.einkauf.rezept[b.dataset.rCheck].erledigt = !s.einkauf.rezept[b.dataset.rCheck].erledigt;
@@ -627,6 +630,174 @@ function buchZugang(s, zutatId) {
   else if (item.art === "zaehlbar") item.menge = (item.menge ?? 0) + (kat?.einheit === "Stk" && !kat?.inhalt_g ? 6 : 1); // Eier & Co. kommen im Karton
   else item.menge = (item.menge ?? 0) + (item.packung || kat?.packung || 500);
   item.updated = new Date().toISOString();
+}
+
+/* ------------------------------------------------------- Angebots-Crawl
+   Kap. 4.7/7.4: einmal wöchentlich Wocheneinkaufsliste × Standort-Angebote →
+   Markt-Empfehlung mit Abdeckung und Konditionen. Ergebnis gilt eine
+   Kalenderwoche; bewusst kein Markt-Hopping (1 Empfehlung + max. 2 Alternativen). */
+let crawlLaeuft = null;        // { done, total } während eines Laufs
+let crawlFehler = null;
+let crawlSetupOffen = false;
+
+/* Alle offenen Einkaufspunkte (Wochenliste + rezeptbezogene Liste), dedupliziert. */
+function crawlListe(s) {
+  const punkte = [...s.einkauf.woche, ...s.einkauf.rezept].filter((e) => !e.erledigt && e.zutat_id);
+  const gesehen = new Set();
+  return punkte.filter((e) => !gesehen.has(e.zutat_id) && gesehen.add(e.zutat_id))
+    .map((e) => ({ zutat_id: e.zutat_id, name: e.name }));
+}
+
+const preisFmt = (n) => n == null ? "–" : `${n.toFixed(2).replace(".", ",")} €`;
+
+function angebotsSektion(s) {
+  const a = s.angebote;
+  const liste = crawlListe(s);
+  const live = liveKonfiguriert(a) && !a.demo;
+  const erg = a.letzter;
+  const aktuell = erg && erg.kw === isoWoche();
+
+  let inhalt;
+  if (crawlLaeuft) {
+    inhalt = `
+      <div class="card" style="text-align:center">
+        <p><b>Crawl läuft …</b></p>
+        <p class="subtle small" id="crawl-progress">${crawlLaeuft.done}/${crawlLaeuft.total}</p>
+      </div>`;
+  } else if (erg) {
+    inhalt = `
+      ${aktuell ? "" : `<div class="card hint-card"><b>Ergebnis aus KW ${esc(erg.kw.slice(-2))}</b>Die Angebote sind wahrscheinlich abgelaufen – einmal neu checken.</div>`}
+      ${angebotsErgebnisHtml(erg)}
+      <button class="btn secondary" id="crawl-start" ${liste.length ? "" : "disabled"}>Angebote neu checken</button>`;
+  } else {
+    inhalt = `
+      <button class="btn" id="crawl-start" ${liste.length ? "" : "disabled"}>Besten Markt für ${liste.length || "deine"} Punkte finden</button>
+      ${liste.length ? "" : '<p class="subtle small" style="text-align:center;margin-top:6px">Sobald etwas auf der Liste steht, kann der Crawl loslegen.</p>'}`;
+  }
+
+  return `
+    <hr class="divider">
+    <div class="card-row" style="align-items:center">
+      <h2 style="margin-bottom:0">Angebots-Crawl</h2>
+      <button class="btn ghost small-btn" id="crawl-setup">${crawlSetupOffen ? "Schließen" : "Einstellungen"}</button>
+    </div>
+    <p class="subtle small" style="margin:2px 0 10px">Einmal wöchentlich, z. B. freitags: Welcher Markt deckt deine Liste am besten ab? Quelle: ${live ? `Marktguru (PLZ ${esc(a.plz)})` : "Demo-Daten"}</p>
+    ${crawlSetupOffen ? angebotsSetupHtml(a) : ""}
+    ${crawlFehler ? `<div class="card" style="border-color:var(--warn)"><p class="small" style="color:var(--warn)"><b>Crawl fehlgeschlagen:</b> ${esc(crawlFehler)}</p><p class="subtle small" style="margin-top:6px">Typische Ursachen: Keys abgelaufen, CORS blockiert (dann Proxy eintragen) oder offline. Der Demo-Modus geht immer.</p></div>` : ""}
+    ${inhalt}`;
+}
+
+function angebotsSetupHtml(a) {
+  return `
+    <div class="card">
+      <label class="field">Postleitzahl (Standort für die Angebote)
+        <input type="text" id="crawl-plz" inputmode="numeric" maxlength="5" placeholder="z. B. 20095" value="${esc(a.plz)}"></label>
+      <label class="field">Marktguru x-apikey
+        <input type="text" id="crawl-apikey" autocomplete="off" placeholder="aus marktguru.de kopieren" value="${esc(a.apikey)}"></label>
+      <label class="field">Marktguru x-clientkey
+        <input type="text" id="crawl-clientkey" autocomplete="off" value="${esc(a.clientkey)}"></label>
+      <label class="field">CORS-Proxy (optional, Präfix vor der API-URL)
+        <input type="text" id="crawl-proxy" autocomplete="off" placeholder="leer = direkt" value="${esc(a.proxy)}"></label>
+      <button class="chip ${a.demo ? "selected" : ""}" id="crawl-demo">Demo-Modus erzwingen</button>
+      <p class="subtle small" style="margin-top:10px">Keys holen: marktguru.de im Desktop-Browser öffnen → Entwicklertools → Netzwerk → eine Anfrage an api.marktguru.de anklicken → Request-Header <code>x-apikey</code> und <code>x-clientkey</code> kopieren. Ohne Keys läuft der Crawl mit Demo-Daten. Details: docs/angebots-crawl.md.</p>
+      <button class="btn small-btn" id="crawl-speichern" style="margin-top:8px">Speichern</button>
+    </div>`;
+}
+
+function angebotsErgebnisHtml(erg) {
+  const datum = new Date(erg.datum).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" });
+  const quelle = erg.quelle === "demo" ? "Demo-Daten" : `Marktguru, PLZ ${esc(erg.plz)}`;
+  const fuss = `<p class="subtle small" style="text-align:center;margin-top:4px">Stand ${datum} (KW ${esc(erg.kw.slice(-2))}) · Quelle: ${quelle}</p>`;
+
+  if (!erg.maerkte.length) {
+    return `<div class="card"><p class="small">Für deine Liste gibt es diese Woche keine passenden Angebote.</p></div>${fuss}`;
+  }
+
+  const [best, ...alternativen] = erg.empfehlung;
+  const bestHtml = `
+    <div class="card">
+      <div class="card-row">
+        <h3>Dein Markt der Woche: ${esc(best.name)}</h3>
+        <span class="badge">deckt ${best.deckung} von ${erg.listeGroesse}</span>
+      </div>
+      <p class="subtle small">${best.angebote} passende Angebote${best.ersparnisPct != null ? ` · Ø −${best.ersparnisPct} %` : ""}</p>
+      ${best.positionen.map((p) => `
+        <div class="list-item">
+          <div class="grow">
+            <span class="name">${esc(p.name)}</span>
+            <span class="subtle small" style="display:block">${esc(p.angebot.produkt)}${p.angebot.marke ? ` · ${esc(p.angebot.marke)}` : ""}${p.angebot.mengeText ? ` · ${esc(p.angebot.mengeText)}` : ""}</span>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <b>${preisFmt(p.angebot.preis)}</b>
+            ${p.angebot.altpreis != null ? `<span class="subtle small" style="display:block"><s>${preisFmt(p.angebot.altpreis)}</s></span>` : ""}
+          </div>
+        </div>`).join("")}
+    </div>`;
+
+  const altHtml = alternativen.length ? `
+    <div class="card">
+      ${alternativen.map((m) => `
+        <div class="list-item">
+          <div class="grow">
+            <span class="name">${esc(m.name)}</span>
+            <span class="subtle small" style="display:block">deckt ${m.deckung} von ${erg.listeGroesse}${m.ersparnisPct != null ? ` · Ø −${m.ersparnisPct} %` : ""} · ${m.angebote} Angebote</span>
+          </div>
+        </div>`).join("")}
+      <p class="subtle small" style="margin-top:8px">Bewusst kein Markt-Hopping – mehr als zwei, drei Märkte zeigt Vorratio nicht.</p>
+    </div>` : "";
+
+  const ohne = erg.ohneAngebot.length
+    ? `<p class="subtle small" style="margin:2px 0 6px">Ohne Angebot diese Woche: ${erg.ohneAngebot.map(esc).join(", ")}</p>` : "";
+
+  return bestHtml + altHtml + ohne + fuss;
+}
+
+function bindAngebote(s) {
+  app.querySelector("#crawl-setup")?.addEventListener("click", () => { crawlSetupOffen = !crawlSetupOffen; renderEinkauf(); });
+  app.querySelector("#crawl-demo")?.addEventListener("click", (e) => {
+    s.angebote.demo = !s.angebote.demo;
+    save();
+    e.target.classList.toggle("selected", s.angebote.demo);
+  });
+  app.querySelector("#crawl-speichern")?.addEventListener("click", () => {
+    s.angebote.plz = (app.querySelector("#crawl-plz").value.match(/\d{5}/) || [""])[0];
+    s.angebote.apikey = app.querySelector("#crawl-apikey").value.trim();
+    s.angebote.clientkey = app.querySelector("#crawl-clientkey").value.trim();
+    s.angebote.proxy = app.querySelector("#crawl-proxy").value.trim();
+    save();
+    crawlSetupOffen = false;
+    renderEinkauf();
+  });
+  app.querySelector("#crawl-start")?.addEventListener("click", () => starteCrawl(s));
+}
+
+async function starteCrawl(s) {
+  const liste = crawlListe(s);
+  if (!liste.length || crawlLaeuft) return;
+  crawlLaeuft = { done: 0, total: liste.length };
+  crawlFehler = null;
+  renderEinkauf();
+  try {
+    const ergebnis = await angebotsCrawl(liste, s.angebote, {
+      onProgress: (done, total, name) => {
+        crawlLaeuft = { done, total };
+        const el = document.getElementById("crawl-progress");
+        if (el) el.textContent = `${done}/${total} · ${name}`;
+      },
+    });
+    const s2 = getState();
+    s2.angebote.letzter = ergebnis;
+    if (ergebnis.fehler.length && !ergebnis.maerkte.length) {
+      // Alle Anfragen gescheitert (z. B. CORS/Keys) → Fehler zeigen statt leerem Ergebnis
+      crawlFehler = ergebnis.fehler[0];
+      s2.angebote.letzter = null;
+    }
+    save();
+  } catch (e) {
+    crawlFehler = e?.message || String(e);
+  }
+  crawlLaeuft = null;
+  if (view === "einkauf" && !cook && !detailRezept) renderEinkauf();
 }
 
 /* ------------------------------------------------------------------ Wissen */

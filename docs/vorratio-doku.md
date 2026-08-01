@@ -160,8 +160,9 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 - Picnic-Quittungen kommen strukturiert über die API und brauchen keinen Scan.
 
 ### 7.4 Angebots-Crawl (Kapitel 4.7)
-- Kandidaten-Quellen: **Marktguru** (inoffizielle, zugängliche API; PLZ-basiert, viele Ketten) als pragmatischer Einstieg; REWE-Daten reichhaltiger, aber seit 2024 durch mTLS erschwert (nicht umgehen); Bonial/kaufDA ohne offene API.
-- Logik: Wocheneinkaufsliste × Standort-Angebote → Markt-Empfehlung mit Abdeckung und Konditionen. **To-do: Quelle final festlegen und Matching (Textabgleich) prototypen.**
+- **Quelle festgelegt: Marktguru** (inoffizielle, zugängliche API; PLZ-basiert, viele Ketten). REWE verworfen (seit 2024 mTLS – wird nicht umgangen); Bonial/kaufDA ohne offene API. Die öffentlichen Web-App-Keys werden nicht eingebrannt, sondern einmalig aus marktguru.de kopiert und in der App hinterlegt; ohne Keys läuft ein Demo-Modus mit Beispieldatensatz (gleicher Codepfad).
+- Logik: Wocheneinkaufsliste × Standort-Angebote → Markt-Empfehlung mit Abdeckung und Konditionen. **Prototypisch umgesetzt** (`js/angebote.js`, UI im Einkauf-Tab): Suchprofile + Textabgleich je Zutat, Ranking Abdeckung → Ø-Rabatt → Angebotszahl, 1 Empfehlung + max. 2 Alternativen (kein Markt-Hopping), Ergebnis gilt eine Kalenderwoche. Details, Grenzen und Key-Beschaffung: `docs/angebots-crawl.md`.
+- Automatischer Freitags-Lauf hängt an Web Push/Background Sync (offener Punkt 6); bis dahin manueller Ein-Tap-Start.
 
 ## 8. Design & UI
 
@@ -180,7 +181,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 | 2 | Auto-Save + JSON-Export/-Import implementieren (Kap. 6.4) | mit dem Aufbau |
 | 3 | Bon-Scan-Prototyp – Testdaten: allgemeine Grundzutaten (kein echtes Bon-Material nötig) | mit dem Aufbau |
 | 4 | Picnic: Rechtsrecherche abwarten, dann Funktionsvalidierung mit vorhandenem Zugang | läuft |
-| 5 | Angebots-Crawl: Quelle + Matching prototypen | To-do |
+| 5 | Angebots-Crawl: Quelle + Matching prototypen (7.4, `docs/angebots-crawl.md`) | erledigt |
 | 6 | Web-Push für feste Vorschlagszeiten einrichten (Muster aus Flora AI übernehmen) | To-do |
 | 7 | Icon-Palette erstellen | To-do |
 | 8 | Kern-Rezept-DB von 60 auf 300–500 Datensätze ausbauen | geplant |
