@@ -1,19 +1,93 @@
-/* Vorratio – bewusst neutrales Branding (Kap. 8): ruhige Fläche, klare Karten,
-   System-Typografie. Die visuelle Identität wird später übergelegt. */
+/* Vorratio – visuelle Identität aus der Claude-Design-Übergabe
+   („Vorratio App", Variante 2A: Speisekammer-Farbwelt „Papier & Tanne").
+   Display: Bricolage Grotesque 600/700, Tracking −0,03 em, klein gesetzt.
+   Text: Figtree 400/500/600. Beide lokal als WOFF2 – kein CDN, die PWA
+   bleibt offlinefähig. Icons: 24er-Raster, Strich 1,6 px, Duotone-Fläche
+   = --duo (kontextabhängig umgeschaltet, siehe unten). */
 
+@font-face {
+  font-family: "Bricolage Grotesque";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../fonts/bricolage-grotesque-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Bricolage Grotesque";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../fonts/bricolage-grotesque-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../fonts/figtree-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../fonts/figtree-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* --------------------------------------------------------- Design-Tokens */
 :root {
-  --bg: #f7f6f2;
-  --surface: #ffffff;
-  --ink: #1f2421;
-  --ink-soft: #5c6660;
-  --line: #e4e2da;
-  --accent: #2f6b4f;
-  --accent-soft: #e3efe8;
-  --warn: #b4552d;
-  --warn-soft: #f7e8df;
-  --radius: 14px;
-  --shadow: 0 1px 3px rgba(31, 36, 33, 0.07);
+  --bg: #f3efe5;            /* Papier */
+  --surface: #fffdf8;       /* Fläche */
+  --ink: #1c231e;           /* Tinte */
+  --ink-soft: #5f6a62;
+  --ink-mute: #78837a;
+  --line: #e2ddd0;
+  --line-soft: #eeeade;
+  --line-strong: #c9c3b2;   /* leere Check-Kreise */
+  --accent: #2c5b43;        /* Tanne */
+  --accent-deep: #1d4030;
+  --accent-soft: #dfe9e0;
+  --accent-light: #9dc0a8;
+  --on-accent: #fffdf8;     /* Text/Formen auf Akzentfläche */
+  --warn: #b4552d;          /* Terrakotta */
+  --warn-ink: #8a3f1f;
+  --warn-soft: #f6e6da;
+  --on-warn: #fffdf8;       /* Text auf gefüllter Warnfläche */
+  --radius: 16px;           /* Buttons, Panels */
+  --radius-card: 18px;      /* Karten */
+  --radius-input: 14px;
+  --shadow: 0 1px 3px rgba(28, 35, 30, 0.05);
+  --shadow-lift: 0 4px 16px rgba(28, 35, 30, 0.08);
+  --duo: var(--accent-soft); /* Duotone-Fläche der Icons */
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101410;
+    --surface: #171d18;
+    --ink: #eef1ec;
+    --ink-soft: #a6b0a7;
+    --ink-mute: #7d8a81;
+    --line: #26302a;
+    --line-soft: #232c26;
+    --line-strong: #3c473f;
+    --accent: #8fc6a4;
+    --accent-deep: #8fc6a4;
+    --accent-soft: rgba(143, 198, 164, 0.16);
+    --accent-light: #173125;
+    --on-accent: #101410;
+    --warn: #e0956e;
+    --warn-ink: #e0956e;
+    --warn-soft: rgba(214, 124, 80, 0.18);
+    --on-warn: #101410;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    --shadow-lift: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -21,10 +95,11 @@
 html { -webkit-text-size-adjust: 100%; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: "Figtree", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
   background: var(--bg);
   color: var(--ink);
-  line-height: 1.5;
+  line-height: 1.55;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
@@ -32,218 +107,772 @@ body {
 #app {
   max-width: 640px;
   margin: 0 auto;
-  padding: 20px 16px calc(84px + var(--safe-bottom));
+  padding: 20px 20px calc(104px + var(--safe-bottom));
 }
 
-h1 { font-size: 1.5rem; letter-spacing: -0.01em; }
-h2 { font-size: 1.15rem; margin-bottom: 10px; }
-h3 { font-size: 1rem; }
+/* ---------------------------------------------------------- Typografie */
+h1, h2, h3, .display {
+  font-family: "Bricolage Grotesque", "Figtree", sans-serif;
+  font-optical-sizing: auto;
+}
 
-.subtle { color: var(--ink-soft); font-size: 0.88rem; }
-.small { font-size: 0.8rem; }
+h1 {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+/* h2 ist die kleine Rubrik-Zeile über einem Abschnitt (Design: „TROCKENWARE"). */
+h2 {
+  font-family: "Figtree", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+h3 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+p + p { margin-top: 8px; }
+
+.subtle { color: var(--ink-soft); font-size: 15px; }
+.small { font-size: 13px; line-height: 1.5; }
+.subtle.small { color: var(--ink-mute); }
+.mute { color: var(--ink-mute); }
+.warn-text { color: var(--warn); }
+.tabular { font-variant-numeric: tabular-nums; }
 
 .screen-header { margin-bottom: 18px; }
-.screen-header .subtle { margin-top: 2px; }
+.screen-header .subtle { margin-top: 4px; }
+.screen-header h1 + .subtle { margin-top: 4px; }
 
-/* --- Karten --- */
+/* Zurück-/Abbrechen-Zeile über einem Detail-Screen */
+.backlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 4px 4px 4px 0;
+  min-height: 44px;
+}
+
+/* ------------------------------------------------------------- Icons
+   Flächen laufen über Klassen statt fester Farben, damit jeder Kontext sie
+   über --duo / --on-accent umschalten kann (Tabbar, Akzentkarte, Dark). */
+.ic { flex: none; display: block; }
+.ic-inline { display: inline-block; vertical-align: -0.18em; }
+.ic .duo { fill: var(--duo); }
+.ic .ink { fill: currentColor; }
+.ic .ring { fill: none; stroke: var(--line-strong); }
+.ic .on { stroke: var(--on-accent); }
+.ic .warnfill { fill: var(--warn-soft); }
+.ic-accent { color: var(--accent); }
+.ic-warn { color: var(--warn); }
+
+.logo-svg .lm-bg { fill: var(--accent); }
+.logo-svg .lm-v { stroke: var(--on-accent); }
+.logo-svg .lm-leaf { fill: var(--accent-light); }
+
+/* ------------------------------------------------------------- Karten */
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow);
   padding: 16px;
   margin-bottom: 12px;
 }
+/* Reine Listenkarten sitzen enger am Rand (Design: 4 px 16 px). */
+.card:has(> .list-item:first-child) { padding-top: 5px; }
+.card:has(> .list-item:last-child) { padding-bottom: 5px; }
+
 .card.tappable { cursor: pointer; transition: transform 0.06s ease; }
 .card.tappable:active { transform: scale(0.985); }
 
-.card-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.card-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.card-row h3 { flex: 1; min-width: 0; }
 
-.badge {
-  display: inline-block;
-  font-size: 0.72rem;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  white-space: nowrap;
-}
-.badge.warn { background: var(--warn-soft); color: var(--warn); }
-.badge.neutral { background: #efeee9; color: var(--ink-soft); }
-
+/* Hinweiskarte – Soft-Fläche in Tanne, Icons darin duotone auf Fläche */
 .hint-card {
+  --duo: var(--surface);
   background: var(--accent-soft);
   border: none;
-  font-size: 0.86rem;
-  color: #274a3a;
+  box-shadow: none;
+  color: var(--accent-deep);
+  font-size: 14px;
+  line-height: 1.55;
+  display: flex;
+  gap: 11px;
+  padding: 15px 17px;
 }
-.hint-card b { display: block; margin-bottom: 4px; }
+.hint-card > .ic { color: var(--accent-deep); margin-top: 1px; }
+.hint-card b { display: block; margin-bottom: 4px; font-size: 14px; font-weight: 700; }
+.hint-card .hint-body { flex: 1; min-width: 0; }
 
-/* --- Buttons --- */
+/* Warnvariante (fehlender API-Key, Evidenz-Hinweise) */
+.hint-card.warn {
+  --duo: var(--surface);
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+}
+.hint-card.warn > .ic { color: var(--warn-ink); }
+
+/* Vollflächige Akzentkarte (leerer Vorrat, Timer) */
+.accent-card {
+  --duo: rgba(255, 253, 248, 0.16);
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: 20px;
+  padding: 22px;
+  margin-bottom: 12px;
+}
+.accent-card h3 { color: var(--on-accent); font-size: 22px; line-height: 1.2; }
+.accent-card p { color: var(--on-accent); opacity: 0.82; font-size: 15px; margin-top: 8px; }
+.accent-card > .ic { color: var(--on-accent); margin-bottom: 14px; }
+
+/* --------------------------------------------------------- Badges/Pills */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  white-space: nowrap;
+  line-height: 1.3;
+}
+.badge .ic { margin-left: -3px; color: var(--accent); }
+.badge.warn { background: var(--warn-soft); color: var(--warn-ink); font-weight: 600; font-size: 13px; }
+.badge.neutral { background: var(--bg); color: var(--ink-soft); font-weight: 600; }
+
+@media (prefers-color-scheme: dark) {
+  .badge.neutral { background: #212a23; color: var(--ink-soft); }
+}
+
+/* ------------------------------------------------------------ Buttons */
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
 
 .btn {
-  display: block;
+  --duo: rgba(255, 253, 248, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
+  min-height: 44px;
   text-align: center;
-  padding: 13px 16px;
+  padding: 17px 16px;
   border-radius: var(--radius);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
+  font-size: 16px;
   font-weight: 600;
+  line-height: 1.2;
   margin-top: 10px;
+  transition: transform 0.06s ease;
 }
-.btn:disabled { opacity: 0.4; }
-.btn.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
-.btn.ghost { background: none; color: var(--accent); font-weight: 600; }
-.btn.small-btn { width: auto; display: inline-block; padding: 8px 14px; font-size: 0.85rem; margin-top: 0; }
-.btn.danger { background: none; color: var(--warn); border: 1px solid var(--line); }
+.btn:active { transform: scale(0.985); }
+.btn:disabled { opacity: 0.4; transform: none; }
 
-.btn-row { display: flex; gap: 8px; }
+.btn.secondary {
+  --duo: var(--accent-soft);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.btn.secondary .ic { color: var(--accent); }
+
+.btn.ghost {
+  --duo: var(--accent-soft);
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+  border: none;
+  padding: 10px 4px;
+  min-height: 44px;
+}
+
+.btn.danger {
+  --duo: var(--warn-soft);
+  background: var(--surface);
+  color: var(--warn);
+  border: 1px solid var(--line);
+}
+
+/* Gefüllte Warn-Aktion: zerstörende Bestätigung, Key-Hinweis im Einkauf */
+.btn.danger-solid {
+  --duo: rgba(255, 253, 248, 0.2);
+  background: var(--warn);
+  color: var(--on-warn);
+  border: none;
+}
+
+.btn.small-btn {
+  width: auto;
+  display: inline-flex;
+  padding: 10px 15px;
+  font-size: 15px;
+  border-radius: 999px;
+  margin-top: 0;
+  min-height: 40px;
+}
+.btn.ghost.small-btn { padding: 8px 6px; border-radius: 12px; }
+
+.btn-row { display: flex; gap: 10px; }
 .btn-row .btn { flex: 1; }
+.btn-row .btn.icon-only { flex: 0 0 62px; padding: 17px 0; }
 
-/* --- Auswahl-Chips (Radio & Mehrfach) --- */
-.choice-list { display: flex; flex-direction: column; gap: 8px; }
+/* ------------------------------------------ Auswahl-Karten & Chips */
+.choice-list { display: flex; flex-direction: column; gap: 9px; }
 .choice {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 12px 14px;
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius);
+  padding: 13px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-input);
   background: var(--surface);
+  font-size: 16px;
 }
-.choice.selected { border-color: var(--accent); background: var(--accent-soft); }
-.choice .subtle { display: block; }
+.choice b { font-weight: 600; }
+.choice .subtle { display: block; font-size: 13px; margin-top: 1px; }
+.choice.selected {
+  border: 1.5px solid var(--accent);
+  padding: 12.5px 15.5px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+.choice.selected .subtle { color: var(--accent-deep); opacity: 0.78; }
 
 .chip-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
-  padding: 7px 13px;
-  border: 1.5px solid var(--line);
+  padding: 9px 15px;
+  border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
-  font-size: 0.87rem;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.3;
+  min-height: 38px;
 }
-.chip.selected { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.chip.selected {
+  border: 1.5px solid var(--accent);
+  padding: 8.5px 14.5px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-weight: 600;
+}
+/* Sub-Navigation (Wissen): aktiver Chip vollflächig in Tanne */
+.chip-nav .chip.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
 
-/* --- Formulare --- */
-input[type="text"], input[type="number"], select {
+/* ---------------------------------------------------------- Formulare */
+input[type="text"], input[type="number"], input[type="password"], select {
   font: inherit;
+  font-size: 17px;
   width: 100%;
-  padding: 11px 12px;
+  padding: 15px 16px;
   border: 1.5px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-input);
   background: var(--surface);
   color: var(--ink);
 }
+input::placeholder { color: var(--ink-mute); opacity: 0.75; }
 input:focus, select:focus { outline: none; border-color: var(--accent); }
-label.field { display: block; margin-bottom: 12px; font-size: 0.88rem; color: var(--ink-soft); }
-label.field > * { margin-top: 4px; }
 
-/* --- Slider (Silhouetten-Schätzer) --- */
-input[type="range"] { width: 100%; accent-color: var(--accent); }
-.fill-meter {
-  height: 10px;
-  border-radius: 999px;
-  background: var(--line);
-  overflow: hidden;
-  margin: 6px 0;
+/* Chevron aus dem Icon-Set statt System-Pfeil (Design 18). */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 9.5l6 6 6-6' stroke='%235f6a62' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: calc(100% - 15px) 50%;
+  background-size: 18px 18px;
+  background-repeat: no-repeat;
+  padding-right: 44px;
 }
-.fill-meter > div { height: 100%; background: var(--accent); border-radius: 999px; }
+@media (prefers-color-scheme: dark) {
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 9.5l6 6 6-6' stroke='%23a6b0a7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+}
 
-/* --- Stepper (Zählbares) --- */
-.stepper { display: flex; align-items: center; gap: 14px; }
+label.field { display: block; margin-bottom: 14px; font-size: 13px; color: var(--ink-mute); }
+label.field > * { margin-top: 6px; }
+
+/* Trenner „oder Nummer eintippen" */
+.or-line { display: flex; align-items: center; gap: 12px; margin: 4px 0 12px; }
+.or-line::before, .or-line::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.or-line span { font-size: 13px; color: var(--ink-mute); }
+
+/* -------------------------------------------- Füllstand (Schüttgut) */
+.pack-row { display: flex; align-items: flex-end; justify-content: center; gap: 16px; }
+.pack-silhouette {
+  width: 88px;
+  height: 132px;
+  border-radius: 14px;
+  border: 2px solid var(--accent);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  flex: none;
+}
+.pack-silhouette > div {
+  border-radius: 9px;
+  background: var(--accent);
+  transition: height 0.12s ease;
+  min-height: 0;
+}
+.pack-value {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.fill-meter {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--line-soft);
+  overflow: hidden;
+  width: 54px;
+  flex: none;
+}
+.fill-meter > div { height: 100%; background: var(--accent); border-radius: 4px; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 26px;
+  background: none;
+  margin: 4px 0;
+}
+/* Gefüllte Spur bis zum Griff – --pct wird beim Ziehen mitgeschrieben. */
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, var(--accent) 0 var(--pct, 50%), var(--line-soft) var(--pct, 50%) 100%);
+}
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, var(--accent) 0 var(--pct, 50%), var(--line-soft) var(--pct, 50%) 100%);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  box-shadow: 0 1px 3px rgba(28, 35, 30, 0.18);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 26px; height: 26px; border-radius: 999px;
+  background: var(--surface); border: 2px solid var(--accent);
+}
+
+/* Schnellwahl unter dem Regler (leer · ¼ · ½ · ¾ · voll) */
+.quick-row { display: flex; gap: 8px; }
+.quick-row .chip { flex: 1; justify-content: center; text-align: center; padding: 9px 0; background: var(--bg); font-weight: 600; color: var(--ink-soft); }
+.quick-row .chip.selected { background: var(--accent-soft); color: var(--accent-deep); font-weight: 700; }
+
+/* ------------------------------------------------------------ Stepper */
+.stepper { display: flex; align-items: center; justify-content: center; gap: 28px; }
 .stepper button {
-  width: 40px; height: 40px;
-  border-radius: 50%;
+  width: 52px; height: 52px;
+  border-radius: 999px;
   border: 1.5px solid var(--line);
   background: var(--surface);
-  font-size: 1.2rem;
-  font-weight: 600;
+  color: var(--ink);
+  display: grid;
+  place-items: center;
 }
-.stepper .count { font-size: 1.2rem; font-weight: 700; min-width: 2.2em; text-align: center; }
+.stepper button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.stepper .count {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 1.6em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
 
-/* --- Tabbar --- */
+/* ------------------------------------------------------------- Tabbar */
+/* Im Onboarding und im Kochmodus wird die Tabbar per [hidden] abgeschaltet –
+   die Klassenregel muss das respektieren, sonst gewinnt display:flex. */
+.tabbar[hidden] { display: none; }
+
 .tabbar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
   display: flex;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(10px);
+  align-items: flex-start;
+  background: var(--surface);
   border-top: 1px solid var(--line);
-  padding: 6px 4px calc(6px + var(--safe-bottom));
+  padding: 10px 14px calc(22px + var(--safe-bottom));
   max-width: 640px;
   margin: 0 auto;
+  z-index: 10;
 }
 .tab {
+  --duo: transparent;
   flex: 1;
-  text-align: center;
-  font-size: 0.68rem;
-  color: var(--ink-soft);
-  padding: 4px 0;
-  border-radius: 10px;
-}
-.tab .tab-icon { display: block; font-size: 1.25rem; line-height: 1.2; }
-.tab.active { color: var(--accent); font-weight: 700; }
-
-/* --- Kochmodus --- */
-.cook-step {
-  min-height: 40vh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  text-align: center;
-  padding: 24px 18px;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-mute);
+  padding: 2px 0;
+  min-height: 44px;
 }
-.cook-step .step-nr { color: var(--ink-soft); font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; }
-.cook-step .step-text { font-size: 1.15rem; margin: 14px 0; }
-.timer-display { font-size: 2.4rem; font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: 0.02em; }
-.timer-name { color: var(--ink-soft); font-size: 0.85rem; margin-bottom: 4px; }
-.timer-box { margin: 10px auto 0; padding: 14px 22px; border-radius: var(--radius); background: var(--accent-soft); display: inline-block; }
-.timer-box.done { background: var(--warn-soft); }
-.progress-dots { display: flex; gap: 6px; justify-content: center; margin-top: 16px; }
-.progress-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
-.progress-dots span.done { background: var(--accent); }
+.tab.active { --duo: var(--accent-soft); color: var(--accent); font-weight: 700; }
 
-/* --- Listen --- */
+/* Rubrik-Zeile mit rechtsbündiger Zusatzinfo („1 von 2", „automatisch gesammelt") */
+.section-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+.section-head h2 { margin-bottom: 0; }
+.section-head .btn.ghost.small-btn { margin: -8px 0; }
+
+/* Status-Pills unter einer Rezeptkarte */
+.card-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.card-tags .small { min-width: 0; }
+
+/* Gedimmte Karten (Klassiker bei leerem Vorrat) */
+.card.dim { opacity: 0.75; }
+
+.list-item.tappable { cursor: pointer; }
+.list-item.tappable:active { opacity: 0.6; }
+
+/* --------------------------------------------------------- Kochmodus */
+.cook-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+.cook-step-count { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-mute); }
+
+/* Fortschrittsbalken – Onboarding wie Kochschritte */
+.progress-bar { display: flex; gap: 6px; margin-bottom: 18px; }
+.progress-bar span { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
+.progress-bar span.done { background: var(--accent); }
+
+/* Kochschritt füllt den Screen, Weiter sitzt unten (Design 12). */
+.cook-screen { min-height: calc(100dvh - 60px - var(--safe-bottom)); display: flex; flex-direction: column; }
+.cook-screen > .btn-row { margin-top: auto; }
+
+.cook-step {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  text-wrap: pretty;
+  margin-bottom: 18px;
+}
+.cook-meta { font-size: 13px; color: var(--ink-mute); margin-bottom: 8px; }
+
+.timer-box {
+  --duo: rgba(255, 253, 248, 0.16);
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: 20px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.timer-name { font-size: 14px; font-weight: 600; color: var(--accent-light); }
+.timer-display {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 60px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--on-accent);
+}
+.timer-track { width: 100%; height: 6px; border-radius: 3px; background: rgba(255, 253, 248, 0.2); overflow: hidden; }
+.timer-track > div { height: 100%; background: var(--accent-light); border-radius: 3px; transition: width 0.25s linear; }
+.timer-actions { display: flex; gap: 10px; width: 100%; }
+.timer-actions button {
+  flex: 1;
+  background: rgba(255, 253, 248, 0.14);
+  border-radius: 12px;
+  padding: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--on-accent);
+  min-height: 44px;
+}
+
+/* Abgelaufen: Terrakotta-Fläche, Ziffern in Tinte */
+.timer-box.done {
+  background: var(--warn-soft);
+  border: 1px solid color-mix(in srgb, var(--warn) 32%, transparent);
+  color: var(--ink);
+}
+.timer-box.done .timer-name { color: var(--warn-ink); }
+.timer-box.done .timer-display { font-size: 52px; color: var(--ink); }
+.timer-box.done .timer-actions button { background: var(--accent); color: var(--on-accent); }
+
+@media (prefers-color-scheme: dark) {
+  .timer-name { color: var(--accent-light); }
+  .accent-card p { opacity: 0.7; }
+}
+
+/* ------------------------------------------------------------- Listen */
 .list-item {
   display: flex; align-items: center; gap: 12px;
-  padding: 12px 4px;
-  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
+  min-height: 44px;
 }
 .list-item:last-child { border-bottom: none; }
-.list-item .grow { flex: 1; min-width: 0; }
+.list-item .grow { flex: 1; min-width: 0; font-size: 16px; }
 .list-item .name { font-weight: 600; }
+.list-item .value { font-size: 15px; color: var(--ink-soft); flex: none; }
+
+/* Check-Kreis: gefüllt = erledigt/vorhanden, leer = offen/fehlt */
 .check {
-  width: 26px; height: 26px;
-  border: 1.5px solid var(--line);
-  border-radius: 50%;
-  flex-shrink: 0;
+  width: 24px; height: 24px;
+  flex: none;
   display: grid; place-items: center;
-  color: transparent;
-  font-size: 0.9rem;
+  color: var(--accent);
+  min-height: 24px;
+  padding: 0;
 }
-.check.done { background: var(--accent); border-color: var(--accent); color: #fff; }
-.done-text { text-decoration: line-through; color: var(--ink-soft); }
+button.check { width: 44px; height: 44px; margin: -10px; }
+.done-text { text-decoration: line-through; color: var(--ink-mute); }
 
-.section-gap { margin-top: 22px; }
-.divider { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
-
-/* --- Onboarding --- */
-.onboard-hero {
-  text-align: center;
-  padding: 48px 0 28px;
+.icon-btn {
+  display: grid; place-items: center;
+  width: 44px; height: 44px;
+  color: var(--warn);
+  flex: none;
+  margin: -10px -12px -10px 0;
 }
-.onboard-hero .logo-mark {
-  width: 72px; height: 72px;
-  margin: 0 auto 16px;
-  border-radius: 22px;
+
+.section-gap { margin-top: 24px; }
+.divider { border: none; border-top: 1px solid var(--line); margin: 20px 0; }
+
+/* Kopfzeile mit Aktionen (Vorrat) */
+.head-actions { display: flex; gap: 8px; flex: none; }
+.head-actions .square-btn {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-input);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: grid; place-items: center;
+  color: var(--ink);
+}
+.head-actions .pill-btn {
+  height: 44px;
+  padding: 0 15px;
+  border-radius: var(--radius-input);
   background: var(--accent);
-  display: grid; place-items: center;
-  color: #fff; font-size: 2rem; font-weight: 800;
+  color: var(--on-accent);
+  display: flex; align-items: center; gap: 7px;
+  font-size: 15px; font-weight: 600;
 }
+
+/* Zwei-Kachel-Umschalter (pauschal geführte Artikel) */
+.toggle-row { display: flex; gap: 10px; }
+.toggle-tile {
+  flex: 1;
+  border-radius: var(--radius-input);
+  padding: 18px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  font-size: 16px; font-weight: 600;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  min-height: 44px;
+}
+.toggle-tile.active {
+  --duo: rgba(255, 253, 248, 0.18);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+/* Haken auf der aktiven Kachel: Kreis nur angedeutet, Haken in Gegenfarbe */
+.toggle-tile.active .ic .ink { fill: rgba(255, 253, 248, 0.18); }
+.toggle-tile.active .ic .on { stroke: var(--on-accent); }
+
+/* Kamera-Live-View / Scanfeld */
+.scan-view {
+  background: #1c231e;
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px;
+  min-height: 230px;
+  color: #c9d2ca;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+.scan-view video { width: 100%; border-radius: 20px; background: #000; }
+button.scan-view { border: none; padding: 0; }
+
+/* ---------------------------------------------------------- Onboarding
+   Wie in der Übergabe füllt jeder Schritt den Screen: Inhalt oben,
+   Weiter-Button am unteren Rand; der Willkommens-Screen ist zentriert. */
+.onboard-step {
+  min-height: calc(100dvh - 60px - var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+}
+.onboard-step > .btn:last-child { margin-top: auto; }
+.onboard-welcome { min-height: calc(100dvh - 60px - var(--safe-bottom)); display: flex; flex-direction: column; text-align: center; }
+.onboard-welcome .spacer { flex: 1; }
+
+.onboard-hero { text-align: center; padding: 40px 0 24px; }
+.onboard-hero .logo-svg { margin: 0 auto 20px; border-radius: 24px; display: block; }
+.wordmark {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  color: var(--accent);
+}
+.onboard-hero p { margin-top: 12px; font-size: 16px; color: var(--ink-soft); text-wrap: pretty; }
+
+.foot-note {
+  display: flex; justify-content: center; gap: 9px;
+  margin-top: 20px;
+  font-size: 12px; line-height: 1.5; color: var(--ink-mute);
+  text-align: left;
+}
+.foot-note .ic { color: var(--accent); margin-top: 1px; }
+
+.centered-note { font-size: 12px; line-height: 1.5; color: var(--ink-mute); text-align: center; margin-top: 14px; }
+
 .fade-in { animation: fadeIn 0.35s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .fade-in { animation: none; }
+  * { transition: none !important; }
+}
 
-.empty-state { text-align: center; padding: 36px 12px; color: var(--ink-soft); }
-.empty-state .big { font-size: 2rem; margin-bottom: 8px; }
+/* --------------------------------------------------------- Leerzustand */
+.empty-state {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 28px 22px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  text-align: center;
+  margin-bottom: 12px;
+}
+.empty-state .ic { color: var(--accent); }
+.empty-state h3 { font-size: 21px; }
+.empty-state p { font-size: 15px; color: var(--ink-soft); text-wrap: pretty; }
+
+/* ------------------------------------------------ Dialoge & Bestätigungen
+   Bodenbündiges Sheet statt confirm(): Daumen erreicht die Buttons, der
+   Scrim legt sich über die Tabbar. Toast statt alert(): kurze Rückmeldung,
+   die von allein wieder geht. */
+dialog.sheet {
+  border: none;
+  padding: 0;
+  background: none;
+  width: 100%;
+  max-width: 640px;
+  max-height: 100dvh;
+  margin: auto auto 0;
+  color: var(--ink);
+}
+dialog.sheet::backdrop { background: rgba(28, 35, 30, 0.45); }
+
+.sheet-inner {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-radius: 24px 24px 0 0;
+  padding: 26px 22px calc(24px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  box-shadow: 0 -6px 28px rgba(28, 35, 30, 0.14);
+}
+.sheet-inner > .ic { margin-bottom: 4px; }
+.sheet-inner h3 { font-size: 22px; }
+.sheet-inner p { font-size: 15px; line-height: 1.55; color: var(--ink-soft); text-wrap: pretty; }
+.sheet-inner .btn-row { margin-top: 14px; }
+.sheet-inner .btn { margin-top: 0; }
+
+dialog.sheet[open] { animation: sheetUp 0.22s ease; }
+dialog.sheet[open]::backdrop { animation: sheetFade 0.22s ease; }
+@keyframes sheetUp { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sheetFade { from { opacity: 0; } to { opacity: 1; } }
+
+.toast {
+  --duo: rgba(255, 253, 248, 0.2);
+  position: fixed;
+  /* left/right + margin-inline zentriert, ohne die Breite auf die halbe
+     Viewport-Weite zu deckeln (das täte left:50% + transform). */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  bottom: calc(112px + var(--safe-bottom));
+  width: max-content;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: min(560px, calc(100% - 40px));
+  padding: 13px 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(28, 35, 30, 0.2);
+  animation: toastIn 0.22s ease;
+}
+.toast.warn { background: var(--warn); color: var(--on-warn); }
+/* Der gefüllte Haken braucht auf farbiger Fläche einen eigenen Kreis */
+.toast .ic .ink { fill: rgba(255, 253, 248, 0.26); }
+.toast.weg { opacity: 0; transform: translateY(8px); transition: opacity 0.3s ease, transform 0.3s ease; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.sheet[open], dialog.sheet[open]::backdrop, .toast { animation: none; }
+}
+
+/* Profil-Kopf */
+.profile-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.avatar {
+  width: 56px; height: 56px;
+  border-radius: 18px;
+  background: var(--accent-soft);
+  display: grid; place-items: center;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 24px; font-weight: 700;
+  color: var(--accent);
+  flex: none;
+}

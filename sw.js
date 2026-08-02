@@ -1,10 +1,15 @@
 /* Vorratio Service Worker – App-Shell offline verfügbar halten. */
-const CACHE = "vorratio-v4";
+const CACHE = "vorratio-v5";
 const SHELL = [
   "./",
   "./index.html",
   "./css/style.css",
+  "./fonts/bricolage-grotesque-latin.woff2",
+  "./fonts/bricolage-grotesque-latin-ext.woff2",
+  "./fonts/figtree-latin.woff2",
+  "./fonts/figtree-latin-ext.woff2",
   "./js/app.js",
+  "./js/icons.js",
   "./js/storage.js",
   "./js/engine.js",
   "./js/angebote.js",
@@ -19,6 +24,7 @@ const SHELL = [
   "./icons/icon.svg",
   "./icons/icon-180.png",
   "./icons/icon-512.png",
+  "./icons/icon-maskable-512.png",
 ];
 
 self.addEventListener("install", (e) => {

@@ -187,26 +187,43 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 
 ## 8. Design & UI
 
-- **Branding:** zunächst **neutral** bauen; das finale Branding wird später entwickelt und übergelegt (Name Vorratio steht).
-- **Umsetzung:** Design und Bau über **Claude Design**; diese Doku ist die Übergabe dafür.
+- **Branding:** **umgesetzt** – Variante 2A „Papier & Tanne" aus der
+  Claude-Design-Übergabe liegt seit 08/2026 über der App. Farbwelt, Typografie,
+  Icon-Set, App-Icon und Dark Mode: siehe
+  `docs/design-handoff/UEBERGABE-CLAUDE-DESIGN.md` (Auftrag) und `css/style.css`
+  (`:root` = Token-Übergabepunkt).
+- **Farbwelt:** Papier `#f3efe5` · Fläche `#fffdf8` · Tanne `#2c5b43` ·
+  Tanne soft `#dfe9e0` · Terrakotta `#b4552d` · Tinte `#1c231e`.
+  Dark Mode über `@media (prefers-color-scheme: dark)`.
+- **Typografie:** Bricolage Grotesque 600/700 (Display, Tracking −0,03 em,
+  Überschriften klein gesetzt) + Figtree 400–600 (Text). Beide lokal als
+  variable WOFF2 in `fonts/` – kein CDN, die PWA bleibt offlinefähig.
+- **Umsetzung:** Design über **Claude Design**, Einbau über Claude Code.
 - **Chatbot:** startet mit **Platzhalter-Namen**; Benennung später.
-- **Icon-Palette:** eigene, stilistisch coole Produkt-Icons für die Übersichten (Mehl, Zucker, …) statt Produktfotos.
+- **Icon-Set:** eigenes Duotone-Set auf 24er-Raster, Strich 1,6 px, Duotone-Fläche
+  `--duo` (`js/icons.js`, Tabbar zusätzlich inline in `index.html`). Ersetzt die
+  Unicode-Platzhalter. Produkt-Icons für einzelne Zutaten (Mehl, Zucker, …)
+  stehen weiterhin aus.
 - **Kochmodus-UX:** durchklickbare Schrittkarten mit Icons/Bildern, benannte Timer, Tipps eingestreut.
+- **Dialoge:** keine nativen `confirm`/`alert` mehr – Rückfragen laufen über ein
+  bodenbündiges Sheet (`dialog()`/`bestaetige()` in `js/app.js`), reine
+  Rückmeldungen über einen Toast (`toast()`). Zerstörende Aktionen bekommen die
+  gefüllte Terrakotta-Aktion, der Abbrechen-Button hat den Fokus.
 - **Erfassungs-UX:** Slider/Push für Zählbares, Silhouetten-Slider für Schüttgut, Auswahlfenster für Varianten (Mehl-Typen), Chat-/Diktatfläche für alles Übrige.
 
 ## 9. Offene Punkte & nächste Schritte
 
 | # | Punkt | Status |
 |---|---|---|
-| 1 | App-Aufbau über Claude Design (neutral), Basis: diese Doku | nächster Schritt |
+| 1 | App-Aufbau über Claude Design (neutral), Basis: diese Doku | erledigt |
 | 2 | Auto-Save + JSON-Export/-Import implementieren (Kap. 6.4) | mit dem Aufbau |
 | 3 | Bon-Scan-Prototyp – Testdaten: allgemeine Grundzutaten (kein echtes Bon-Material nötig) | mit dem Aufbau |
 | 4 | Picnic: Rechtsrecherche liegt vor (Freigabe privat, Kap. 7.2) → Funktionsvalidierung mit vorhandenem Zugang | To-do |
 | 5 | Angebots-Crawl: Quelle + Matching prototypen (7.4, `docs/angebots-crawl.md`) | erledigt |
 | 6 | Web-Push für feste Vorschlagszeiten einrichten (Muster aus Flora AI übernehmen; braucht Push-Server) | To-do – Fallback aktiv: Vorschläge liegen beim Öffnen bereit |
-| 7 | Icon-Palette erstellen | To-do |
+| 7 | Icon-Palette erstellen | UI-Icon-Set erledigt (Duotone, `js/icons.js`); Produkt-Icons je Zutat offen |
 | 8 | Kern-Rezept-DB von 60 auf 300–500 Datensätze ausbauen | geplant |
-| 9 | Finales Branding + Chatbot-Name | später |
+| 9 | Finales Branding + Chatbot-Name | Branding erledigt (Claude Design 2A, 08/2026); Chatbot-Name offen |
 | 10 | Lizenz-Check vor einem etwaigen Marktgang (ODbL Share-Alike, TheMealDB-Attribution) | vor Release |
 
 ## Anhang: Quelldokumente

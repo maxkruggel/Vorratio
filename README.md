@@ -99,8 +99,10 @@ Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
 index.html            App-Shell (PWA)
 manifest.webmanifest  Web-App-Manifest
 sw.js                 Service Worker (Offline-Shell)
-css/style.css         Neutrales Design (Branding wird später übergelegt)
+css/style.css         Design-Tokens (:root) + alle Komponenten – Claude-Design-Variante 2A
+fonts/                Bricolage Grotesque + Figtree als lokale WOFF2 (kein CDN, OFL)
 js/app.js             Views & Steuerung
+js/icons.js           Duotone-Icon-Set (24er-Raster, Strich 1,6 px)
 js/engine.js          Rezept-Engine: Profilfilter, Bestandsabgleich, Abbuchung
 js/angebote.js        Angebots-Crawl: Marktguru-Client, Suchprofile, Matching, Markt-Ranking
 js/ai.js              Claude API: Rezeptgenerierung + Bon-Scan (strukturierte Ausgaben)
@@ -112,13 +114,36 @@ js/data/angebote-demo.js  Demo-Angebote für den Crawl (offline testbar)
 docs/                 Projektdoku, fünf Recherchen (Daten, Snacks, Picnic-Recht) + Angebots-Crawl-Doku
 ```
 
+## Design
+
+Seit 08/2026 liegt die visuelle Identität aus der Claude-Design-Übergabe über der
+App (Variante 2A „Papier & Tanne"; Auftrag und Ist-Zustand davor:
+[docs/design-handoff/UEBERGABE-CLAUDE-DESIGN.md](docs/design-handoff/UEBERGABE-CLAUDE-DESIGN.md)).
+
+- **Farbwelt:** Papier `#f3efe5`, Fläche `#fffdf8`, Tanne `#2c5b43`,
+  Tanne soft `#dfe9e0`, Terrakotta `#b4552d`, Tinte `#1c231e` – alle als
+  Custom Properties in `css/style.css` → `:root`, inklusive **Dark Mode**
+  über `@media (prefers-color-scheme: dark)`.
+- **Typografie:** Bricolage Grotesque 600/700 für Display (Tracking −0,03 em,
+  Überschriften klein gesetzt), Figtree 400–600 für Text. Beide als variable
+  WOFF2 in `fonts/` – kein CDN, damit die PWA offlinefähig bleibt (SIL OFL 1.1,
+  siehe `fonts/README.md`).
+- **Icons:** eigenes Duotone-Set auf 24er-Raster mit 1,6 px Strich
+  (`js/icons.js`, Tabbar inline in `index.html`). Die Duotone-Fläche hängt an
+  `--duo` und schaltet je Kontext um (Tabbar aktiv, Akzentkarte, Hinweiskarte).
+- **App-Icon:** „Keimling-V" auf Tanne – `icons/icon.svg` plus PNG 180
+  (apple-touch-icon), 512 (any) und 512 maskable.
+- **Dialoge:** statt nativer `confirm`/`alert` ein bodenbündiges Sheet
+  (`<dialog>`, Scrim-Tap und ESC brechen ab) für Rückfragen und ein Toast für
+  kurze Rückmeldungen – beide in der Design-Sprache, beide in `js/app.js`.
+
 ## Nächste Ausbaustufen (siehe Doku Kap. 9)
 
 Lokale OFF/BLS-Produkt-DB (statt Live-Lookup) · Picnic-Anbindung (Rechtsrecherche liegt
 vor: [docs/recherche-5-picnic-recht.md](docs/recherche-5-picnic-recht.md)) ·
 Web-Push für feste Vorschlagszeiten (braucht Push-Server; bis dahin gilt der Fallback:
 Vorschläge liegen beim Öffnen bereit – schaltet auch den automatischen Freitags-Crawl
-frei) · Diktat/Chatbot- und Schrankfoto-Erfassung · Icon-Palette & finales Branding.
+frei) · Diktat/Chatbot- und Schrankfoto-Erfassung · Produkt-Icons je Zutat.
 
 ---
 
