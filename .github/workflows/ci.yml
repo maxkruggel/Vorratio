@@ -22,3 +22,6 @@ jobs:
 
       - name: Engine-Tests
         run: node tools/test-engine.mjs
+
+      - name: Diktat-Tests
+        run: node tools/test-diktat.mjs
