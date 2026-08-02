@@ -68,6 +68,8 @@ tools/browsertest.mjs      Browser-Rauchtest (Onboarding→Tabs→Kochmodus→Ne
                            braucht einmalig `npm install --no-save playwright-core`
 tools/pr-aktuell.mjs       PR-Aktualitätsprüfung gegen main (node tools/pr-aktuell.mjs)
 docs/                      Projektdoku (vorratio-doku.md), 5 Recherchen, angebots-crawl.md, design-handoff/
+docs/rezepte/              Eingangsordner für Rezept-MDs (Cowork legt ab, Konvertierung → js/data/;
+                           App liest hier NICHT, Repo ist öffentlich – s. README dort)
 ```
 
 ## Architektur & Datenfluss
