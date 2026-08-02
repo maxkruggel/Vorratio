@@ -38,8 +38,12 @@ const SHELL = [
   "./icons/icon-maskable-512.png",
 ];
 
+/* `cache: "reload"` erzwingt echte Netz-Antworten: Ohne das darf der Browser
+   die Shell-Dateien aus seinem HTTP-Cache legen (GitHub Pages erlaubt zehn
+   Minuten) – eine neue Version läge dann im Cache und wäre trotzdem alt. */
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  const frischeShell = SHELL.map((pfad) => new Request(pfad, { cache: "reload" }));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(frischeShell)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
@@ -67,10 +71,20 @@ function ausCache(request) {
   return caches.match(request, { ignoreSearch: true });
 }
 
+/* Beim Netz-Zugriff immer beim Server rückfragen statt blind aus dem
+   HTTP-Cache zu antworten. Kostet eine Konditional-Anfrage (304, wenige
+   Bytes) und ist der Unterschied zwischen "die App aktualisiert sich" und
+   "sie zeigt zehn Minuten lang den alten Stand". Navigationen lassen sich
+   nicht umbauen – die revalidiert der Browser beim Laden ohnehin. */
+function mitRueckfrage(request) {
+  try { return new Request(request, { cache: "no-cache" }); }
+  catch { return request; }
+}
+
 async function netzZuerst(request) {
   const cacheTreffer = ausCache(request);
 
-  const netz = fetch(request).then((res) => {
+  const netz = fetch(mitRueckfrage(request)).then((res) => {
     if (res && res.ok && res.status === 200) {
       const copy = res.clone();
       caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
@@ -89,6 +103,12 @@ async function netzZuerst(request) {
     return (await cacheTreffer) || Response.error();
   }
 }
+
+/* Die App fragt nach, welcher Stand hier tatsächlich liegt (Profil-Screen).
+   Ohne diese Auskunft bliebe "aktualisiert sich das Ding?" eine Glaubensfrage. */
+self.addEventListener("message", (e) => {
+  if (e.data === "version") e.source?.postMessage?.({ typ: "version", cache: CACHE });
+});
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
