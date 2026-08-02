@@ -16,6 +16,7 @@ const DEFAULT_STATE = {
     vorlieben: [],           // Achse 3 (optional, je Ernährungsform eigene Auswahl)
     stile: [],               // Achse 4 (optional)
     ziele: [],               // Achse 5 (optional, wissenschaftlich rückgekoppelt)
+    personen: 2,             // Für wie viele Personen gekocht wird – Startwert im Kochmodus
     onboarded: false,
   },
   bestand: [],               // [{ id, zutat_id, name, kategorie, art, einheit, menge, fuellstand, updated }]
@@ -85,6 +86,9 @@ function migriere(s) {
   s.profil.stile = liste(s.profil.stile).filter((id) => STILE.some((st) => st.id === id));
   s.profil.ziele = liste(s.profil.ziele);
   s.profil.vorlieben = liste(s.profil.vorlieben);
+  // Personenzahl: alles außer einer ganzen Zahl ≥ 1 fällt auf den Standard 2 zurück.
+  const personen = Number(s.profil.personen);
+  s.profil.personen = Number.isFinite(personen) && personen >= 1 ? Math.round(personen) : 2;
   s.einkauf.rezept = liste(s.einkauf.rezept);
   s.einkauf.woche = liste(s.einkauf.woche);
   s.tipps.gesehen = liste(s.tipps.gesehen);
