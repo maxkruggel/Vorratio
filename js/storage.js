@@ -11,8 +11,9 @@ const DEFAULT_STATE = {
     ernaehrungsform: null,   // Achse 1 (genau eine)
     ausschluesse: [],        // Achse 2 (Allergien/Intoleranzen + halal/koscher)
     eigeneAusschluesse: [],  // Achse 2, frei eingetragen ("Rosenkohl", "Koriander")
-    stile: [],               // Achse 3 (optional)
-    ziele: [],               // Achse 4 (optional, wissenschaftlich rückgekoppelt)
+    vorlieben: [],           // Achse 3 (optional, je Ernährungsform eigene Auswahl)
+    stile: [],               // Achse 4 (optional)
+    ziele: [],               // Achse 5 (optional, wissenschaftlich rückgekoppelt)
     onboarded: false,
   },
   bestand: [],               // [{ id, zutat_id, name, kategorie, art, einheit, menge, fuellstand, updated }]
@@ -45,6 +46,7 @@ const DEFAULT_STATE = {
 function migriere(s) {
   s.profil.ziele ||= [];
   s.profil.eigeneAusschluesse ||= [];
+  s.profil.vorlieben ||= [];
   s.tipps ||= { klicks: 0, gesehen: [] };
   s.tipps.gesehen ||= [];
   s.aiRezepte ||= [];

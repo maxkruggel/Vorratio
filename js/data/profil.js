@@ -1,6 +1,7 @@
-/* Vorratio Ernährungsprofil – vier unabhängige Achsen (Recherche 1, DGE/BfR-basiert)
+/* Vorratio Ernährungsprofil – fünf unabhängige Achsen (Recherche 1, DGE/BfR-basiert)
    Achse 1: Ernährungsform (genau eine) · Achse 2: Ausschlüsse (mehrfach) ·
-   Achse 3: Stil (optional, mehrfach) · Achse 4: Ziele (optional, mehrfach) */
+   Achse 3: Vorlieben je Form (optional, mehrfach) · Achse 4: Stil (optional,
+   mehrfach) · Achse 5: Ziele (optional, mehrfach) */
 
 /* Reihenfolge bewusst von rein pflanzlich nach oben: vegan → vegetarisch →
    überwiegend pflanzlich → die übrigen vegetarischen Spielarten → flexitarisch
@@ -50,6 +51,192 @@ const AUSSCHLUESSE = [
   { id: "halal",           name: "Halal",                 gruppe: "religioes" },
   { id: "koscher",         name: "Koscher",               gruppe: "religioes" },
 ];
+
+/* Achse 3: Vorlieben – „Was magst du besonders?"
+   Bewusst KEINE gemeinsame Liste und kein gemeinsamer Text für alle Formen:
+   Wer vegan isst, wird nach der Proteinquelle gefragt, Pescetarier nach dem
+   Fisch, Mischköstler nach dem, was am häufigsten auf dem Teller landet. Die
+   IDs sind formübergreifend identisch, damit eine Vorliebe beim Formwechsel
+   erhalten bleibt, solange sie zur neuen Form passt (Tofu bleibt Tofu).
+   `allergene` blendet Optionen aus, die zu den Ausschlüssen (Achse 2) im
+   Widerspruch stehen; `verbergen_bei` deckt halal/koscher ab.
+   Rückkopplung: weicher Bonus im Vorschlags-Score (engine.js) und Systemprompt
+   der AI-Rezeptgenerierung (ai.js) – nichts wird verboten oder ausgefiltert. */
+const VORLIEBEN_KATALOG = {
+  tofu: {
+    name: "Tofu", kurz: "Natur, geräuchert, mariniert – nimmt jede Würze an",
+    zutaten: ["ing_tofu_natur", "ing_tofu_fest", "ing_tofu_seiden", "ing_raeuchertofu"],
+    muster: ["tofu"], allergene: ["soja"],
+  },
+  tempeh: {
+    name: "Tempeh", kurz: "Fermentiert, nussig, bissfest – proteinreicher als Tofu",
+    zutaten: ["ing_tempeh"], muster: ["tempeh"], allergene: ["soja"],
+  },
+  seitan: {
+    name: "Seitan", kurz: "Weizeneiweiß, faserig – die fleischnahe Textur",
+    zutaten: ["ing_seitan", "ing_seitan_gluten"], muster: ["seitan"], allergene: ["gluten"],
+  },
+  huelsenfruechte: {
+    name: "Hülsenfrüchte", kurz: "Linsen, Kichererbsen, Bohnen – Protein und Ballaststoffe",
+    zutaten: ["ing_linsen_rot", "ing_linsen_braun", "ing_belugalinsen", "ing_kichererbsen_trocken",
+      "ing_kichererbsen_dose", "ing_kidneybohnen_dose", "ing_bohnen_schwarz_dose", "ing_kidney_trocken",
+      "ing_bohnen_weiss_trocken", "ing_erbsen_getrocknet", "ing_erbsen_tk", "ing_edamame", "ing_hummus"],
+    muster: ["linsen", "kichererbsen", "bohnen", "erbsen", "edamame", "hummus"], allergene: [],
+  },
+  nuesse_kerne: {
+    name: "Nüsse, Kerne & Mus", kurz: "Walnüsse, Mandeln, Tahin, Erdnussmus – Fett mit Aroma",
+    zutaten: ["ing_walnuesse", "ing_mandeln", "ing_cashewkerne", "ing_erdnuesse", "ing_erdnussmus",
+      "ing_mandelmus", "ing_tahin", "ing_sonnenblumenkerne", "ing_leinsamen", "ing_chiasamen"],
+    muster: ["nuss", "nüsse", "mandel", "cashew", "tahin", "kerne", "leinsamen", "chia"],
+    allergene: ["schalenfruechte", "erdnuss"],
+  },
+  pflanzendrink: {
+    name: "Pflanzendrink & Pflanzenjoghurt", kurz: "Hafer, Soja & Co. – für Müsli, Sauce, Backteig",
+    zutaten: ["ing_haferdrink", "ing_sojadrink", "ing_sojajoghurt"],
+    muster: ["haferdrink", "pflanzenjoghurt", "sojadrink"], allergene: [],
+  },
+  ei: {
+    name: "Eier", kurz: "Rührei, pochiert, im Teig – schnelles Protein",
+    zutaten: ["ing_ei"], muster: ["eier", "rührei", "omelett"], allergene: ["ei"],
+  },
+  kaese: {
+    name: "Käse", kurz: "Feta, Mozzarella, Hartkäse – Würze und Bindung",
+    zutaten: ["ing_feta", "ing_mozzarella", "ing_parmesan", "ing_schnittkaese", "ing_reibekaese",
+      "ing_frischkaese", "ing_halloumi", "ing_ziegenkaese", "ing_ricotta", "ing_mascarpone"],
+    muster: ["käse", "feta", "mozzarella", "parmesan", "halloumi", "ricotta", "mascarpone"], allergene: ["laktose"],
+  },
+  joghurt_quark: {
+    name: "Joghurt & Quark", kurz: "Für Dips, Dressings und Frühstück",
+    zutaten: ["ing_joghurt_natur", "ing_quark", "ing_schmand"],
+    muster: ["joghurt", "quark", "schmand", "crème fraîche"], allergene: ["laktose"],
+  },
+  fisch_fett: {
+    name: "Fetter Seefisch", kurz: "Lachs, Makrele, Hering – die Omega-3-Quelle",
+    zutaten: ["ing_lachs", "ing_forelle"], muster: ["lachs", "makrele", "hering", "forelle"], allergene: ["fisch"],
+  },
+  fisch_mager: {
+    name: "Magerer Fisch & Dosenfisch", kurz: "Kabeljau, Seelachs, Thunfisch aus der Dose",
+    zutaten: ["ing_kabeljau", "ing_thunfisch_dose", "ing_sardellen"],
+    muster: ["kabeljau", "seelachs", "thunfisch", "dorsch", "sardelle"], allergene: ["fisch"],
+  },
+  meeresfruechte: {
+    name: "Meeresfrüchte", kurz: "Garnelen und Miesmuscheln – schnell gegart, wenig Aufwand",
+    zutaten: ["ing_garnelen", "ing_miesmuscheln"], muster: ["garnele", "muschel"],
+    allergene: ["krebstiere", "weichtiere"],
+  },
+  gefluegel: {
+    name: "Geflügel", kurz: "Hähnchenbrust und Geflügelhack – mager und schnell",
+    zutaten: ["ing_haehnchenbrust", "ing_haehnchenkeule", "ing_haehnchen_ganz", "ing_entenbrust", "ing_gefluegel_hack"],
+    muster: ["hähnchen", "geflügel", "pute", "ente"], allergene: [],
+  },
+  rind: {
+    name: "Rind & Hackfleisch", kurz: "Bolognese, Chili, Gulasch, Steak",
+    zutaten: ["ing_hackfleisch_rind", "ing_rindergulasch", "ing_rindersteak"],
+    muster: ["hackfleisch", "rind", "gulasch"], allergene: [],
+  },
+  schwein_wurst: {
+    name: "Schwein, Speck & Wurst", kurz: "Speck, Schinken, Würstchen – als Würze eingesetzt",
+    zutaten: ["ing_speck", "ing_schinken", "ing_wuerstchen", "ing_schweineschulter", "ing_hackfleisch_gemischt"],
+    muster: ["speck", "schinken", "würstchen", "bacon", "schwein"],
+    allergene: [], verbergen_bei: ["halal", "koscher"],
+  },
+  pilze: {
+    name: "Pilze", kurz: "Champignons & Co. – herzhafte Tiefe ohne Fleisch",
+    zutaten: ["ing_champignons", "ing_shiitake"], muster: ["champignon", "pilz", "shiitake"], allergene: [],
+  },
+  ofengemuese: {
+    name: "Ofen- & Wurzelgemüse", kurz: "Kürbis, Süßkartoffel, Blumenkohl, Rote Bete – ein Blech, fertig",
+    zutaten: ["ing_kuerbis", "ing_suesskartoffel", "ing_blumenkohl", "ing_rote_bete", "ing_pastinake", "ing_moehre"],
+    muster: ["kürbis", "süßkartoffel", "blumenkohl", "rote bete", "pastinake", "ofen"], allergene: [],
+  },
+  vollkorn: {
+    name: "Vollkorn & Körner", kurz: "Naturreis, Bulgur, Quinoa, Couscous, Hafer",
+    zutaten: ["ing_reis_vollkorn", "ing_bulgur", "ing_quinoa", "ing_couscous", "ing_haferflocken", "ing_mehl_1050", "ing_dinkelmehl"],
+    muster: ["vollkorn", "bulgur", "quinoa", "couscous", "hafer", "naturreis"], allergene: [],
+  },
+  pasta_kartoffel: {
+    name: "Pasta & Kartoffeln", kurz: "Der sättigende Klassiker – Nudeln, Gnocchi, Kartoffeln",
+    zutaten: ["ing_nudeln", "ing_lasagneplatten", "ing_kartoffel", "ing_gnocchi", "ing_spaetzle"],
+    muster: ["nudel", "pasta", "kartoffel", "gnocchi", "spätzle", "lasagne"], allergene: [],
+  },
+};
+
+/* Je Form: eigene Frage, eigener Einstiegstext, eigene Auswahl, eigener
+   Abschluss-Hinweis. Tofu steht bewusst in jeder Liste – er funktioniert
+   in jeder Ernährungsform als Proteinquelle. */
+const VORLIEBEN_JE_FORM = {
+  vegan: {
+    frage: "was ist dein protein?",
+    intro: "Rein pflanzlich steht und fällt eine Mahlzeit mit der Proteinquelle. Sag uns, womit du am liebsten kochst – das kommt dann öfter dran.",
+    optionen: ["tofu", "tempeh", "seitan", "huelsenfruechte", "nuesse_kerne", "pflanzendrink", "ofengemuese", "vollkorn"],
+    hinweis: "Getreide und Hülsenfrüchte in einer Mahlzeit ergänzen sich in den Aminosäuren – vorratio kombiniert das in den Vorschlägen automatisch.",
+  },
+  ovo_lacto: {
+    frage: "was macht bei dir satt?",
+    intro: "Ohne Fleisch und Fisch tragen andere Zutaten die Mahlzeit. Was davon magst du wirklich gern?",
+    optionen: ["ei", "kaese", "joghurt_quark", "tofu", "huelsenfruechte", "pilze", "ofengemuese", "vollkorn"],
+    hinweis: "Milch und Ei decken B12 und Calcium meist ab – Eisen aus Hülsenfrüchten wird mit Vitamin C (Paprika, Zitrone) deutlich besser aufgenommen.",
+  },
+  pflanzenbasiert: {
+    frage: "was steht bei dir im mittelpunkt?",
+    intro: "Pflanzen sind die Basis, Tierisches bleibt die Ausnahme. Wähle, was den Teller bei dir trägt – und was du dir bewusst gönnst.",
+    optionen: ["tofu", "tempeh", "huelsenfruechte", "ofengemuese", "vollkorn", "nuesse_kerne", "kaese", "ei"],
+    hinweis: "Je pflanzlicher die Basis, desto wichtiger sind ein paar verlässliche Proteinquellen – deshalb steht Tofu hier gleich an erster Stelle.",
+  },
+  lacto: {
+    frage: "was darf oft auf den teller?",
+    intro: "Milchprodukte sind gesetzt, Ei ist raus. Was davon magst du besonders?",
+    optionen: ["kaese", "joghurt_quark", "tofu", "huelsenfruechte", "pilze", "ofengemuese", "vollkorn"],
+    hinweis: "Ohne Ei übernehmen Hülsenfrüchte, Tofu und Milchprodukte den Proteinpart – Rezepte mit Ei blendet vorratio ohnehin aus.",
+  },
+  ovo: {
+    frage: "was magst du besonders?",
+    intro: "Ei ja, Milchprodukte nein. Sag uns, worauf du am liebsten zurückgreifst.",
+    optionen: ["ei", "tofu", "huelsenfruechte", "nuesse_kerne", "pflanzendrink", "pilze", "ofengemuese"],
+    hinweis: "Ohne Milchprodukte lohnt der Blick aufs Calcium: angereicherte Pflanzendrinks, Calcium-Tofu, Grünkohl und Brokkoli sind die verlässlichen Quellen.",
+  },
+  pescetarier: {
+    frage: "was kommt bei dir aus dem wasser?",
+    intro: "Fisch ist deine Ausnahme vom Pflanzlichen – und nicht jeder Fisch ist gemeint. Wähle, was dir schmeckt.",
+    optionen: ["fisch_fett", "fisch_mager", "meeresfruechte", "tofu", "huelsenfruechte", "ei", "kaese", "ofengemuese"],
+    hinweis: "1–2 Portionen Fisch pro Woche, davon einmal fettreicher Seefisch (DGE). Große Raubfische wie Thunfisch, Schwertfisch oder Heilbutt besser selten – Methylquecksilber (BfR 17/2024).",
+  },
+  flexitarier: {
+    frage: "wovon gern etwas mehr?",
+    intro: "Fleisch bewusst und selten – umso mehr zählt, was an den anderen Tagen läuft. Was davon magst du?",
+    optionen: ["gefluegel", "fisch_fett", "tofu", "huelsenfruechte", "kaese", "ei", "ofengemuese", "vollkorn"],
+    hinweis: "An fleischfreien Tagen tragen Hülsenfrüchte und Tofu die Mahlzeit – vorratio schlägt sie dir dann bevorzugt vor.",
+  },
+  mischkost: {
+    frage: "was landet am häufigsten auf deinem teller?",
+    intro: "Bei dir ist alles erlaubt – deshalb ist umso interessanter, was du wirklich gern isst.",
+    optionen: ["gefluegel", "rind", "schwein_wurst", "fisch_fett", "meeresfruechte", "kaese", "ei", "tofu", "huelsenfruechte", "pasta_kartoffel"],
+    hinweis: "DGE 2024: max. 300 g Fleisch und Wurst pro Woche, über 75 % pflanzlich. vorratio gewichtet deine Vorlieben, hält die Vorschläge aber in dieser Balance.",
+  },
+};
+
+/* Optionen einer Form, gefiltert gegen die Ausschlüsse (Achse 2) – wer Soja
+   ausschließt, bekommt Tofu gar nicht erst angeboten. Freitext-Ausschlüsse
+   ("Rosenkohl", "Pilze") werden gegen Name und Suchmuster geprüft. */
+function vorliebenFuerForm(formId, ausschluesse = [], eigeneAusschluesse = []) {
+  const konfig = VORLIEBEN_JE_FORM[formId] || VORLIEBEN_JE_FORM.mischkost;
+  const eigene = eigeneAusschluesse
+    .map((t) => String(t).trim().toLowerCase())
+    .filter((t) => t.length >= 3);
+  const optionen = konfig.optionen
+    .map((id) => ({ id, ...VORLIEBEN_KATALOG[id] }))
+    .filter((v) => v.name)
+    .filter((v) => !(v.allergene || []).some((a) => ausschluesse.includes(a)))
+    .filter((v) => !(v.verbergen_bei || []).some((a) => ausschluesse.includes(a)))
+    .filter((v) => !eigene.some((t) => v.name.toLowerCase().includes(t) || (v.muster || []).some((m) => m.includes(t))));
+  return { ...konfig, optionen };
+}
+
+/* Gewählte Vorlieben als Katalogeinträge – Reihenfolge wie in der Form. */
+function gewaehlteVorlieben(formId, ids = []) {
+  const konfig = VORLIEBEN_JE_FORM[formId] || VORLIEBEN_JE_FORM.mischkost;
+  return konfig.optionen.filter((id) => ids.includes(id)).map((id) => ({ id, ...VORLIEBEN_KATALOG[id] }));
+}
 
 const STILE = [
   { id: "mediterran",   name: "Mediterran",   hinweis: null },
@@ -169,4 +356,7 @@ function hinweiseFuerForm(formId) {
   }
 }
 
-export { ERNAEHRUNGSFORMEN, FORM_ERLAUBT, AUSSCHLUESSE, STILE, ZIELE, FORM_HINWEISE, hinweiseFuerForm };
+export {
+  ERNAEHRUNGSFORMEN, FORM_ERLAUBT, AUSSCHLUESSE, STILE, ZIELE, FORM_HINWEISE, hinweiseFuerForm,
+  VORLIEBEN_KATALOG, VORLIEBEN_JE_FORM, vorliebenFuerForm, gewaehlteVorlieben,
+};

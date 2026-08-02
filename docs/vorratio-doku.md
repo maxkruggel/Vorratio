@@ -31,8 +31,8 @@ Vorratio verspricht: Überblick ohne Buchhaltung, täglich passende Rezeptideen 
 
 ### 4.1 Onboarding
 1. App öffnen → Start-Animation.
-2. Geführte Einrichtung: **Name** anlegen, **Nutzerprofil**, **Ernährungsprofil** – Ernährungsform, Vorlieben und Spezifikationen, Allergien und Unverträglichkeiten (Datenmodell siehe 6.1).
-   - **Pflicht sind nur Name und Ernährungsform** – ohne sie bleibt „Weiter" gesperrt, mit Hinweis, woran es hängt. Ausschlüsse, Stile und Ziele sind ausdrücklich optional und lassen sich überspringen.
+2. Geführte Einrichtung: **Name** anlegen, **Nutzerprofil**, **Ernährungsprofil** – Ernährungsform, Allergien und Unverträglichkeiten, **Vorlieben** (Frage und Auswahl je Ernährungsform verschieden), Stil und Ziele (Datenmodell siehe 6.1).
+   - **Pflicht sind nur Name und Ernährungsform** – ohne sie bleibt „Weiter" gesperrt, mit Hinweis, woran es hängt. Vorlieben, Ausschlüsse, Stile und Ziele sind ausdrücklich optional und lassen sich überspringen.
 3. Kurzer Hinweis auf das Toleranzprinzip (±10–15 % beim Verbrauch).
 
 ### 4.2 Ersteinrichtung Bestand (~15 Minuten)
@@ -99,10 +99,12 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 
 ### 6.1 DB Ernährungsprofil (Recherche 1 – DGE/BfR-basiert)
 
-**Datenmodell: drei unabhängige Achsen** (verhindert widersprüchliche Kombinationen):
+**Datenmodell: unabhängige Achsen** (verhindert widersprüchliche Kombinationen):
 1. **Ernährungsform** (Radio, genau eine): Mischkost/omnivor · Flexitarier · Pescetarier · Ovo-Lacto-Vegetarier · Lacto-Vegetarier · Ovo-Vegetarier · Veganer · optional „überwiegend pflanzenbasiert".
 2. **Ausschlüsse** (Mehrfachauswahl): Allergien/Intoleranzen (EU-14-orientiert: Gluten, Laktose, Nüsse, Soja …) sowie religiös-kulturelle Regeln (halal, koscher) – harte Filter, quer zu allen Formen.
-3. **Stil-Präferenz** (optional, Mehrfachauswahl): priorisiert **mediterran, High-Protein, Low-Carb**; Keto/Paleo nur mit Evidenz-Hinweis; Intervallfasten als Timing-Thema, nicht als Rezeptfilter.
+3. **Vorlieben** (optional, Mehrfachauswahl, **je Ernährungsform eine eigene Frage und eine eigene Liste**): Wer vegan isst, wird nach der Proteinquelle gefragt (Tofu, Tempeh, Seitan, Hülsenfrüchte, Nüsse/Kerne, Pflanzendrink, Ofengemüse, Vollkorn), Pescetarier nach dem Fisch, Mischköstler nach dem, was am häufigsten auf dem Teller landet – bewusst nicht für alle Formen derselbe Text und dieselbe Auswahl. **Tofu steht in jeder Form zur Wahl** (funktioniert als Proteinquelle in allen Ernährungsformen); als Vorratsartikel gibt es zusätzlich Räuchertofu, Tempeh und Seitan. Ausgeschlossenes wird gar nicht erst angeboten (Soja-Ausschluss → kein Tofu, halal/koscher → kein Schwein), und beim Formwechsel bleibt erhalten, was zur neuen Form passt. Rückkopplung: **weicher Bonus im Vorschlags-Score** (max. +14, unter dem Gewicht der Bestandsdeckung), Systemprompt der AI-Rezeptgenerierung und „Trifft deine Vorlieben"-Hinweis im Rezept-Detail – keine Filter.
+4. **Stil-Präferenz** (optional, Mehrfachauswahl): priorisiert **mediterran, High-Protein, Low-Carb**; Keto/Paleo nur mit Evidenz-Hinweis; Intervallfasten als Timing-Thema, nicht als Rezeptfilter.
+5. **Ziele** (optional, Mehrfachauswahl): nur über Ernährung beeinflussbare Ziele, jeweils mit ehrlicher Evidenzeinordnung; weiche Präferenz im Score und im AI-Prompt.
 
 **AI-Rezeptregeln je Form (Auszug, quellenbelegt):**
 - **Vegan:** keine Tierprodukte inkl. Honig; Proteinziel je Hauptmahlzeit (Hülsenfrüchte/Tofu/Tempeh/Seitan), Getreide + Hülsenfrüchte kombinieren; eisenreiche Gerichte immer mit Vitamin-C-Komponente, Kaffee/Schwarztee nicht als Mahlzeitgetränk; Jodsalz als Default, Algen nicht als Jod-/B12-Quelle; Leinöl/Walnüsse (ALA), Mikroalgenöl als Einkaufshinweis. **B12 ist App-Hinweis, keine Rezeptregel** – nur per Präparat lösbar (DGE-Position 13.06.2024).
