@@ -40,7 +40,7 @@ Einmalige vollständige Aufnahme des Haushalts: **Trockenware, Frischware, Konse
 
 Vier gleichwertige Erfassungswege, frei kombinierbar:
 - **Diktat / Chatbot-Interaktion** (Chatbot-Name noch offen) – Nutzer spricht, die App parst in Buchungen. **Diktat umgesetzt** (Vorrat-Tab, Details in 7.5); die Chatbot-Fläche bleibt offen.
-- **Fotos in der App** – insbesondere Schrank-/Schubladen-Analyse: Foto vom geöffneten Vorratsschrank, die App erkennt sichtbare Produkte (Glas Gurken = eindeutig); wo der Füllstand nicht sichtbar ist (Mehltüte), wählt der Nutzer per Tap nach, wie voll es ist. So sind die meisten Informationen erfasst, ohne sie eintippen zu müssen.
+- **Fotos in der App** – insbesondere Schrank-/Schubladen-Analyse: Foto vom geöffneten Vorratsschrank, die App erkennt sichtbare Produkte (Glas Gurken = eindeutig); wo der Füllstand nicht sichtbar ist (Mehltüte), wählt der Nutzer per Tap nach, wie voll es ist. So sind die meisten Informationen erfasst, ohne sie eintippen zu müssen. **Umgesetzt** (Vorrat-Tab, Details in 7.6).
 - **Schriftlich** – klassische Eingabe.
 - **Auswahlfenster** – vorstrukturierte Optionen, z. B. Mehl Type 405 / Type 1050.
 
@@ -233,6 +233,15 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 - **Bewusst auf die Bestandsaufnahme beschränkt:** Ein Diktat **setzt** den Stand (Ist-Aufnahme) – für die Ersterfassung und fürs spätere Nachzählen. Eine additive Variante („zwei Dosen dazu") gibt es absichtlich nicht; Zukauf läuft über Bon-Scan und Barcode, die über `buchZugang()` addieren. Ein Diktat, das mal addiert und mal ersetzt, wäre am Schrank nicht mehr vorhersagbar. Ein Umschalter bleibt möglich, wenn sich in der Praxis Bedarf zeigt (Entscheidung 08/2026).
 - Vor dem Buchen steht immer die Bestätigungsliste mit Zutatenwahl je Zeile.
 
+### 7.6 Schrankfoto (Kapitel 4.2, zweiter der vier Erfassungswege)
+- **Umgesetzt** (`js/vorratsfoto.js` + `leseSchrankfoto()` in `js/ai.js`, UI im Vorrat-Tab): Schublade auf, ein Foto, Liste prüfen. Gedacht für die Ersterfassung – ein Fach je Foto, bis zu drei Fotos in einem Durchgang, danach die nächste Runde.
+- **Arbeitsteilung als Gestaltungsprinzip:** Das Modell liefert, **was** dasteht; **wie viel** drin ist, kommt vom Menschen. Ein Foto sieht keine Mehltüte von innen. Der Systemprompt verbietet deshalb ausdrücklich das Raten: Füllstände nur bei sichtbarem Inhalt (Glas, Flasche, offene Schale), Stückzahlen nur bei wirklich zählbaren Dingen, alles andere `null`. Lieber wenige sichere Zeilen als viele geratene.
+- **Die Bestätigungsliste ist der eigentliche Erfassungsschritt.** Jede Zeile nennt, was das Modell gesehen hat („drei Dosen hinten links"), zeigt die bisherige Menge und bringt gleich das Bedienelement der Führungsart mit: Stepper für Zählbares, Viertel-Raster für Schüttgut, vorrätig/leer für Pauschales. Offene Mengen zeigen „?" und den Hinweis „Menge nicht zu sehen – bitte antippen"; ein Tap beantwortet die Frage. Wer nichts antippt, bucht den Vorgabewert (halbe Packung bzw. ein Stück) – das steht auch so in der Warnkarte über dem Buchen-Button.
+- Zutat-IDs werden gegen den Katalog geprüft; was nicht zugeordnet werden kann, wird als eigener Artikel angelegt (Führungsart aus dem Namen abgeleitet). Wird die Zutat in der Liste geändert, zieht die Führungsart mit – aus „3 Dosen" darf kein „3 g" werden. Dieselbe Sache auf zwei Fotos wird zusammengelegt (Zählbares addiert, beim Füllstand gewinnt der bessere Blick).
+- **Bestandsaufnahme wie das Diktat:** Bestätigtes **setzt** den Stand, es addiert nicht (Begründung siehe 7.5).
+- **Braucht einen Claude-Key** – ein Bild lässt sich, anders als ein Diktat, nicht lokal auswerten. Ohne Key nennt das Panel den Weg ins Profil und verweist auf das Diktat, das ganz ohne Netz läuft.
+- Fotos werden vor dem Senden auf 1568 px verkleinert (dieselbe Kante, auf die die API ohnehin herunterrechnet) – schneller, weniger Daten, und HEIC/PNG wird dabei zu JPEG. Die Bilder liegen nur im Arbeitsspeicher, nichts davon geht in den State oder in den Export.
+
 ## 8. Design & UI
 
 - **Branding:** **umgesetzt** – Variante 2A „Papier & Tanne" aus der
@@ -261,7 +270,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
   bodenbündiges Sheet (`dialog()`/`bestaetige()` in `js/app.js`), reine
   Rückmeldungen über einen Toast (`toast()`). Zerstörende Aktionen bekommen die
   gefüllte Terrakotta-Aktion, der Abbrechen-Button hat den Fokus.
-- **Erfassungs-UX:** Slider/Push für Zählbares, Silhouetten-Slider für Schüttgut, Auswahlfenster für Varianten (Mehl-Typen), Chat-/Diktatfläche für alles Übrige.
+- **Erfassungs-UX:** Slider/Push für Zählbares, Silhouetten-Slider für Schüttgut, Auswahlfenster für Varianten (Mehl-Typen), Chat-/Diktatfläche für alles Übrige. Im Schrankfoto stehen dieselben drei Bedienelemente kompakt in der Ergebniszeile – die Erfassung passiert dort, wo geprüft wird, nicht in einem zweiten Screen danach.
 
 ## 9. Offene Punkte & nächste Schritte
 
