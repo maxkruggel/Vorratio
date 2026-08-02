@@ -259,7 +259,9 @@ wird gegen die Wanduhr nachgezogen und der Tick neu gestartet.
 Tipp-Pop-up (alle 9 Taps) · `render(zielView?)` + Tabbar · Onboarding
 (8 Schritte `OB_STEPS` inkl. Personen-Standard, Zustand `ob`) · Heute (`stelleVorschlaegeBereit`,
 `stelleSnacksBereit`, `rezeptKarte`, `quellenBadge`, `slotHinweis`,
-`baueAusVorrat`, `starteAiGenerierung` inkl. Gegenprüfung der gelieferten
+`baueAusVorrat` = „Neu würfeln": erst `bauVersuch` (Offline-Generator), dann
+Wurf – gewürfelt wird immer, auch wenn nichts zu bauen war;
+`starteAiGenerierung` inkl. Gegenprüfung der gelieferten
 Rezepte) · Rezept-Detail (`ersatzIdeenHtml` = Substitutions-Teaser,
 Merken-Schalter, Notiz) · Kochbuch (`renderKochbuch` mit zwei Schienen über
 `kochbuchModus`: „gemerkt" = `kochbuchTrefferHtml`, „alle Rezepte" =
