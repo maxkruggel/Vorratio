@@ -15,6 +15,7 @@ import { generiereRezepte, scanBon } from "./ai.js";
 import { lookupBarcode, vorschlagZutat, kameraVerfuegbar, starteKameraScan } from "./scan.js";
 import { SUB_KATEGORIEN, SUB_ANWENDUNGEN } from "./data/substitutionen.js";
 import { subsFiltern, ersatzVorschlaege, produkteSortiert } from "./substitution.js";
+import { icon, logoMark } from "./icons.js";
 
 /* Kern-DB + AI-generierte Rezepte als gemeinsamer Pool. */
 const alleRezepte = () => [...REZEPTE, ...(getState().aiRezepte || [])];
@@ -31,6 +32,11 @@ const KATEGORIE_NAMEN = {
   trocken: "Trockenware & Vorrat", frisch: "Frischware", konserve: "Konserven",
   gewuerz: "Gewürze", kuehl: "Kühlschrank", tk: "Tiefkühl",
 };
+
+/* Feste Essenszeiten – als Pill im Heute-Kopf (Design 07). */
+const SLOT_ZEIT = { fruehstueck: "8:00", mittag: "11:30", abend: "17:30" };
+
+const portionenText = (n) => `${n} ${n === 1 ? "Portion" : "Portionen"}`;
 
 /* ------------------------------------------------------------------ Helpers */
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -67,32 +73,45 @@ tabbar.addEventListener("click", (e) => {
 /* ------------------------------------------------------------ Onboarding */
 let ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [], ziele: [] };
 
+const OB_STEPS = [obWelcome, obName, obForm, obAusschluesse, obStile, obZiele, obToleranz];
+
+/* Fortschrittsbalken der Übergabe: Willkommen zählt als Schritt 1 mit. */
+function progressBar(done, total) {
+  return `<div class="progress-bar">${Array.from({ length: total }, (_, i) => `<span class="${i < done ? "done" : ""}"></span>`).join("")}</div>`;
+}
+
 function renderOnboarding() {
-  const steps = [obWelcome, obName, obForm, obAusschluesse, obStile, obZiele, obToleranz];
-  app.replaceChildren(h(`<div class="fade-in">${steps[ob.step]()}</div>`));
+  const welcome = ob.step === 0;
+  const bar = welcome ? "" : progressBar(ob.step + 1, OB_STEPS.length);
+  app.replaceChildren(h(`
+    <div class="fade-in ${welcome ? "onboard-welcome" : "onboard-step"}">${bar}${OB_STEPS[ob.step]()}</div>`));
   bindOnboarding();
 }
 
 function obWelcome() {
   return `
+    <div class="spacer"></div>
     <div class="onboard-hero">
-      <div class="logo-mark">V</div>
-      <h1>Vorratio</h1>
-      <p class="subtle" style="margin-top:8px">Kennt deinen Vorrat. Schlägt dir vor, was du daraus kochst.<br>Bucht ab, was du verbrauchst.</p>
+      ${logoMark(88)}
+      <div class="wordmark">vorratio</div>
+      <p>Kennt deinen Vorrat. Schlägt vor, was du daraus kochst. Bucht ab, was du verbrauchst.</p>
     </div>
-    <button class="btn" data-ob="next">Los geht's</button>`;
+    <button class="btn" data-ob="next">Los geht's</button>
+    <p class="centered-note">Sechs kurze Schritte · ca. 2 Minuten</p>
+    <div class="spacer"></div>
+    <div class="foot-note">${icon("lokal", 18)}<span>Alles bleibt lokal auf deinem iPhone.<br>Kein Konto, kein Server.</span></div>`;
 }
 
 function obName() {
   return `
-    <div class="screen-header"><h1>Wie heißt du?</h1><p class="subtle">Damit Vorratio dich ansprechen kann.</p></div>
+    <div class="screen-header"><h1>wie heißt du?</h1><p class="subtle">Nur für die Begrüßung. Der Name bleibt auf dem Gerät.</p></div>
     <label class="field"><input type="text" id="ob-name" placeholder="Dein Name" value="${esc(ob.name)}" autocomplete="given-name"></label>
     <button class="btn" data-ob="name">Weiter</button>`;
 }
 
 function obForm() {
   return `
-    <div class="screen-header"><h1>Deine Ernährungsform</h1><p class="subtle">Genau eine – Allergien und Stile kommen gleich separat.</p></div>
+    <div class="screen-header"><h1>wie isst du?</h1><p class="subtle">Genau eine Form. Allergien kommen im nächsten Schritt.</p></div>
     <div class="choice-list">
       ${ERNAEHRUNGSFORMEN.map((f) => `
         <button class="choice ${ob.form === f.id ? "selected" : ""}" data-form="${f.id}">
@@ -104,26 +123,30 @@ function obForm() {
 
 function obAusschluesse() {
   const gruppe = (g, titel) => `
-    <h3 style="margin:14px 0 8px">${titel}</h3>
-    <div class="chip-wrap">
-      ${AUSSCHLUESSE.filter((a) => a.gruppe === g).map((a) => `
-        <button class="chip ${ob.ausschluesse.includes(a.id) ? "selected" : ""}" data-aus="${a.id}">${esc(a.name)}</button>`).join("")}
+    <div class="section-gap">
+      <h2>${titel}</h2>
+      <div class="chip-wrap">
+        ${AUSSCHLUESSE.filter((a) => a.gruppe === g).map((a) => `
+          <button class="chip ${ob.ausschluesse.includes(a.id) ? "selected" : ""}" data-aus="${a.id}">${esc(a.name)}</button>`).join("")}
+      </div>
     </div>`;
   return `
-    <div class="screen-header"><h1>Ausschlüsse</h1><p class="subtle">Harte Filter – Rezepte damit siehst du nie. Mehrfachauswahl, alles optional.</p></div>
-    ${gruppe("allergie", "Allergien & Intoleranzen")}
+    <div class="screen-header"><h1>was fliegt raus?</h1><p class="subtle">Harte Filter – Rezepte damit siehst du nie. Alles optional, mehrere möglich.</p></div>
+    ${gruppe("allergie", "Allergien &amp; Intoleranzen")}
     ${gruppe("religioes", "Religiös-kulturell")}
     <button class="btn" data-ob="next">Weiter</button>`;
 }
 
 function obStile() {
   return `
-    <div class="screen-header"><h1>Stil-Präferenzen</h1><p class="subtle">Optional – passende Rezepte werden bevorzugt, nichts wird verboten.</p></div>
+    <div class="screen-header"><h1>worauf hast du lust?</h1><p class="subtle">Weiche Vorlieben – passende Rezepte kommen weiter nach oben, verboten wird nichts.</p></div>
     <div class="chip-wrap">
       ${STILE.map((s) => `<button class="chip ${ob.stile.includes(s.id) ? "selected" : ""}" data-stil="${s.id}">${esc(s.name)}</button>`).join("")}
     </div>
-    ${ob.stile.map((id) => STILE.find((s) => s.id === id)?.hinweis).filter(Boolean).map((t) => `
-      <div class="card hint-card" style="margin-top:12px"><b>Hinweis</b>${esc(t)}</div>`).join("")}
+    ${ob.stile.map((id) => STILE.find((s) => s.id === id)).filter((s) => s?.hinweis).map((s) => `
+      <div class="card hint-card warn" style="margin-top:12px">${icon("achtung", 22)}
+        <div class="hint-body"><b>${esc(s.name)}</b>${esc(s.hinweis)}</div>
+      </div>`).join("")}
     <button class="btn" data-ob="next">Weiter</button>`;
 }
 
@@ -132,7 +155,7 @@ function obStile() {
    NICHT belegt ist). Rückkopplung: Vorschlags-Score + AI-Rezeptgenerierung. */
 function obZiele() {
   return `
-    <div class="screen-header"><h1>Deine Ziele</h1><p class="subtle">Optional, Mehrfachauswahl – passende Rezepte werden bevorzugt, nichts wird verboten. Nur Ziele, die nachweislich über Ernährung beeinflussbar sind.</p></div>
+    <div class="screen-header"><h1>was willst du erreichen?</h1><p class="subtle">Optional, mehrere möglich – passende Rezepte kommen nach oben, verboten wird nichts. Nur Ziele, die nachweislich über Ernährung beeinflussbar sind.</p></div>
     <div class="choice-list">
       ${ZIELE.map((z) => `
         <button class="choice ${ob.ziele.includes(z.id) ? "selected" : ""}" data-ziel="${z.id}">
@@ -141,16 +164,31 @@ function obZiele() {
         </button>`).join("")}
     </div>
     ${ob.ziele.map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean).map((z) => `
-      <div class="card hint-card" style="margin-top:12px"><b>${esc(z.name)} – was die Wissenschaft sagt</b>${esc(z.hinweis)}</div>`).join("")}
+      <div class="card hint-card" style="margin-top:12px">${icon("ziel", 22)}
+        <div class="hint-body"><b>${esc(z.name)} – was die Wissenschaft sagt</b>${esc(z.hinweis)}</div>
+      </div>`).join("")}
     <button class="btn" data-ob="next">${ob.ziele.length ? "Weiter" : "Ohne Ziele weiter"}</button>`;
 }
 
 function obToleranz() {
+  const punkte = [
+    "Du musst nie etwas abwiegen.",
+    "Prisen, EL und TL laufen unter Toleranz.",
+    "Stimmt mal was nicht, korrigierst du es in zwei Taps.",
+  ];
   return `
-    <div class="screen-header"><h1>Eine Sache noch</h1></div>
+    <div class="screen-header"><h1>eine sache noch</h1><p class="subtle">Damit du weißt, warum hier nirgends krumme Zahlen stehen.</p></div>
+    <div class="card hint-card" style="flex-direction:column;padding:22px;border-radius:18px">
+      <h3 style="color:var(--accent-deep)">Toleranz statt Scheinpräzision</h3>
+      <p style="font-size:15px;line-height:1.6">Beim Kochen bucht vorratio den Verbrauch mit ±10–15 % Spielraum ab. Du kochst aus der Hüfte, die App rechnet mit.</p>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
+        <span class="badge" style="background:var(--surface);font-size:15px;padding:7px 13px">~350 g</span>
+        <span class="small">statt 347,5 g</span>
+      </div>
+    </div>
     <div class="card">
-      <p><b>Vorratio arbeitet mit Toleranz, nicht mit Scheinpräzision.</b></p>
-      <p class="subtle" style="margin-top:8px">Beim Kochen wird der Verbrauch mit ±10–15 % Spielraum pro Produkt abgebucht – du kochst aus der Hüfte, die App rechnet mit. Du musst nie etwas abwiegen. Mengen siehst du immer als Näherung („~500 g“).</p>
+      ${punkte.map((t) => `
+        <div class="list-item"><span class="check">${icon("check", 22)}</span><span class="grow">${t}</span></div>`).join("")}
     </div>
     <button class="btn" data-ob="fertig">Verstanden – Bestand einrichten</button>`;
 }
@@ -235,6 +273,29 @@ function stelleSnacksBereit(neuWuerfeln = false) {
   return s.snackVorschlaege;
 }
 
+/* Rezeptkarte (Design 07): Titel + Zeit-Pill, Meta-Zeile, darunter die
+   Status-Pills – „von claude", „alles da" bzw. „N fehlen" mit Namen. */
+function rezeptKarte(v, meta, gedimmt = false) {
+  const fehlt = v.abgleich.fehlt;
+  const tags = gedimmt ? "" : `
+    <div class="card-tags">
+      ${istAi(v.rezept) ? `<span class="badge">${icon("claude", 14)}von claude</span>` : ""}
+      ${fehlt.length === 0
+        ? `<span class="badge">${icon("check", 18)}alles da</span>`
+        : `<span class="badge warn">${fehlt.length === 1 ? "1 fehlt" : `${fehlt.length} fehlen`}</span>
+           <span class="small subtle">${fehlt.map((z) => esc(z.zutat_name)).join(" · ")}</span>`}
+    </div>`;
+  return `
+    <div class="card tappable${gedimmt ? " dim" : ""}" data-rezept="${v.rezept.id}">
+      <div class="card-row">
+        <h3>${esc(v.rezept.name)}</h3>
+        <span class="badge neutral">${v.rezept.gesamtzeit_min.gesamt} Min</span>
+      </div>
+      <p class="subtle small" style="margin-top:6px">${meta}</p>
+      ${tags}
+    </div>`;
+}
+
 function renderHeute() {
   const s = getState();
   const bereit = stelleVorschlaegeBereit();
@@ -248,54 +309,46 @@ function renderHeute() {
     .map((id) => findRezept(id))
     .filter(Boolean)
     .map((rezept) => ({ rezept, abgleich: bestandsAbgleich(rezept, s.bestand) }));
-  const gruss = s.profil.name ? `Moin, ${esc(s.profil.name)}` : "Moin";
+  const gruss = s.profil.name ? `moin, ${esc(s.profil.name)}` : "moin";
   const leererBestand = s.bestand.length === 0;
 
   app.replaceChildren(h(`
     <div class="fade-in">
-      <div class="screen-header">
-        <h1>${gruss}</h1>
-        <p class="subtle">Vorschläge fürs ${SLOT_NAMEN[slot]} – aus deinem Bestand.</p>
+      <div class="screen-header card-row">
+        <div>
+          <h1>${gruss}</h1>
+          <p class="subtle">Aus deinem Bestand, fürs ${SLOT_NAMEN[slot]}.</p>
+        </div>
+        <span class="badge" style="margin-top:4px">${SLOT_ZEIT[slot]}</span>
       </div>
       ${leererBestand ? `
-        <div class="card hint-card"><b>Dein Vorrat ist noch leer</b>
-        Richte einmal deinen Bestand ein (ca. 15 Minuten) – danach passen die Vorschläge zu dem, was wirklich da ist.
-        <button class="btn small-btn" style="margin-top:10px" data-go="vorrat">Zum Vorrat</button></div>` : ""}
-      ${vs.map((v, i) => `
-        <div class="card tappable" data-rezept="${v.rezept.id}">
-          <div class="card-row">
-            <h3>${esc(v.rezept.name)}${istAi(v.rezept) ? ' <span class="badge">✨ AI</span>' : ""}</h3>
-            <span class="badge neutral">${v.rezept.gesamtzeit_min.gesamt} Min</span>
-          </div>
-          <p class="subtle">${esc(v.rezept.cuisine)} · ${esc(v.rezept.schwierigkeit)} · ${v.rezept.portionen} Portionen</p>
-          ${v.abgleich.fehlt.length === 0
-            ? `<span class="badge" style="margin-top:8px">Alles da ✓</span>`
-            : `<p class="small" style="margin-top:8px;color:var(--warn)">Das fehlt dir: ${v.abgleich.fehlt.map((z) => esc(z.zutat_name)).join(", ")}</p>`}
-        </div>`).join("")}
-      <button class="btn secondary" id="wuerfeln">↻ Neu würfeln</button>
-      <button class="btn" id="ai-generieren" ${aiLaeuft ? "disabled" : ""}>${aiLaeuft ? "✨ Claude kocht Ideen …" : "✨ Neue Ideen von Claude"}</button>
-      ${aiFehler ? `<p class="small" style="color:var(--warn);text-align:center;margin-top:8px">${esc(aiFehler)}</p>` : ""}
+        <div class="accent-card">
+          ${icon("vorrat", 40)}
+          <h3>Dein Vorrat ist noch leer</h3>
+          <p>Erfass einmal, was da ist – Trockenware, Frisches, Konserven, Gewürze. Das dauert rund 15 Minuten. Danach passen alle Vorschläge zu dem, was wirklich im Schrank steht.</p>
+          <button class="btn" style="background:var(--surface);color:var(--accent-deep);margin-top:14px" data-go="vorrat">Bestand einrichten</button>
+        </div>
+        <h2 class="section-gap">Solange zeigen wir dir Klassiker</h2>` : ""}
+      ${vs.map((v) => rezeptKarte(v, `${esc(v.rezept.cuisine)} · ${esc(v.rezept.schwierigkeit)} · ${portionenText(v.rezept.portionen)}`, leererBestand)).join("")}
+      <div class="btn-row">
+        <button class="btn secondary" id="wuerfeln">${icon("wuerfeln", 19)}Neu würfeln</button>
+        <button class="btn" id="ai-generieren" ${aiLaeuft ? "disabled" : ""}>${icon("claude", 19)}${aiLaeuft ? "Claude kocht …" : "Claude fragen"}</button>
+      </div>
+      ${aiFehler ? `<p class="small warn-text" style="text-align:center;margin-top:8px">${esc(aiFehler)}</p>` : ""}
 
       <hr class="divider">
       <div class="section-gap">
         <h2>Snacks &amp; Süßes</h2>
         <p class="subtle small" style="margin-bottom:10px">Unabhängig von den Essenszeiten – Eis, Sorbet, Fruchtleder &amp; Co. aus deinem Vorrat.</p>
-        ${snacks.map((v) => `
-          <div class="card tappable" data-rezept="${v.rezept.id}">
-            <div class="card-row">
-              <h3>${esc(v.rezept.name)}${istAi(v.rezept) ? ' <span class="badge">✨ AI</span>' : ""}</h3>
-              <span class="badge neutral">${v.rezept.gesamtzeit_min.gesamt} Min</span>
-            </div>
-            <p class="subtle">${esc(v.rezept.kategorie)} · ${esc(v.rezept.schwierigkeit)} · ${v.rezept.portionen} Portionen</p>
-            ${v.abgleich.fehlt.length === 0
-              ? `<span class="badge" style="margin-top:8px">Alles da ✓</span>`
-              : `<p class="small" style="margin-top:8px;color:var(--warn)">Das fehlt dir: ${v.abgleich.fehlt.map((z) => esc(z.zutat_name)).join(", ")}</p>`}
-          </div>`).join("") || '<div class="empty-state"><p class="small">Kein Snack passt gerade zu deinem Profil.</p></div>'}
-        <button class="btn secondary" id="snack-wuerfeln">↻ Andere Snacks</button>
-        <button class="btn secondary" id="ai-snacks" ${aiLaeuft ? "disabled" : ""}>${aiLaeuft ? "✨ Claude denkt nach …" : "✨ Snack-Ideen von Claude"}</button>
+        ${snacks.map((v) => rezeptKarte(v, `${esc(v.rezept.kategorie)} · ${esc(v.rezept.schwierigkeit)} · ${portionenText(v.rezept.portionen)}`)).join("")
+          || '<div class="empty-state"><p>Kein Snack passt gerade zu deinem Profil.</p></div>'}
+        <div class="btn-row">
+          <button class="btn secondary" id="snack-wuerfeln">${icon("wuerfeln", 19)}Andere Snacks</button>
+          <button class="btn secondary" id="ai-snacks" ${aiLaeuft ? "disabled" : ""}>${icon("claude", 19)}${aiLaeuft ? "Claude denkt …" : "Snack-Ideen"}</button>
+        </div>
       </div>
 
-      <p class="subtle small" style="text-align:center;margin-top:14px">Feste Zeiten: 8:00 Frühstück · 11:30 Mittag · 17:30 Abend<br>Snacks laufen außerhalb der Zeiten. Ohne Push-Einrichtung liegen die Vorschläge beim Öffnen bereit.</p>
+      <p class="centered-note">Vorschläge um 8:00, 11:30 und 17:30 – liegen beim Öffnen bereit.<br>Snacks laufen außerhalb der Zeiten.</p>
     </div>`));
 
   app.querySelectorAll("[data-rezept]").forEach((c) => c.addEventListener("click", () => {
@@ -344,32 +397,35 @@ function renderRezeptDetail(rezept) {
 
   app.replaceChildren(h(`
     <div class="fade-in">
-      <button class="btn ghost small-btn" id="zurueck">‹ Zurück</button>
+      <button class="backlink" id="zurueck">${icon("zurueck", 20)}Heute</button>
       <div class="screen-header" style="margin-top:10px">
         <h1>${esc(rezept.name)}</h1>
-        <p class="subtle">${esc(rezept.cuisine)} · ${rezept.gesamtzeit_min.gesamt} Min · ${esc(rezept.schwierigkeit)} · ${rezept.portionen} Portionen</p>
+        <p class="subtle small">${esc(rezept.cuisine)} · ${rezept.gesamtzeit_min.gesamt} Min · ${esc(rezept.schwierigkeit)} · ${portionenText(rezept.portionen)}</p>
       </div>
       <div class="card">
-        <h2>Zutaten</h2>
         ${rezept.zutaten.map((z) => {
           const fehlt = ab.fehlt.includes(z);
           return `<div class="list-item">
-            <span class="check ${fehlt ? "" : "done"}">✓</span>
-            <div class="grow">${esc(zutatText(z))}${z.optional ? ' <span class="subtle small">(optional)</span>' : ""}</div>
-            ${fehlt ? '<span class="badge warn">fehlt</span>' : ""}
+            <span class="check">${icon(fehlt ? "checkLeer" : "check", 24)}</span>
+            <div class="grow${fehlt ? " mute" : ""}">${esc(zutatText(z))}${z.optional ? ' <span class="subtle small">(optional)</span>' : ""}</div>
+            ${fehlt ? '<span class="badge warn">fehlt</span>' : `<span class="value small">${esc(bestandsText(z, s.bestand))}</span>`}
           </div>`;
         }).join("")}
       </div>
       ${zielePassend.length ? `
-        <div class="card hint-card"><b>🎯 Zahlt auf deine Ziele ein</b>${esc(zielePassend.join(" · "))}</div>` : ""}
+        <div class="card hint-card">${icon("ziel", 20)}
+          <div class="hint-body"><b>Zahlt auf deine Ziele ein</b>${esc(zielePassend.join(" · "))}</div>
+        </div>` : ""}
       ${rezept.naehrwert_einordnung?.makro_hinweis ? `
-        <div class="card hint-card"><b>Gut zu wissen</b>${esc(rezept.naehrwert_einordnung.makro_hinweis)}</div>` : ""}
+        <div class="card hint-card">${icon("tipp", 20)}
+          <div class="hint-body"><b>Gut zu wissen</b>${esc(rezept.naehrwert_einordnung.makro_hinweis)}</div>
+        </div>` : ""}
       ${ersatzIdeenHtml(ab.fehlt, s.profil)}
+      <div class="card hint-card">${icon("tipp", 20)}<span class="hint-body">${esc(tip.text)}</span></div>
       ${ab.fehlt.length > 0 ? `
-        <button class="btn" id="einkauf-starten">Einkaufsliste erstellen (${ab.fehlt.length} fehlt)</button>
+        <button class="btn" id="einkauf-starten">${ab.fehlt.length === 1 ? "1 Sache" : `${ab.fehlt.length} Sachen`} auf die Einkaufsliste</button>
         <button class="btn secondary" id="kochen-trotzdem">Trotzdem kochen</button>`
         : `<button class="btn" id="kochen">Jetzt kochen</button>`}
-      <div class="card" style="margin-top:16px"><p class="small subtle">💡 ${esc(tip.text)}</p></div>
     </div>`));
 
   app.querySelector("#zurueck").addEventListener("click", () => { detailRezept = null; render(); });
@@ -384,6 +440,14 @@ function renderRezeptDetail(rezept) {
     view = "einkauf";
     render();
   });
+}
+
+/* Rechte Spalte der Zutaten-Checkliste (Design 09): „~350 g da" / „6 da". */
+function bestandsText(z, bestand) {
+  const item = z.zutat_id && bestand.find((b) => b.zutat_id === z.zutat_id);
+  if (!item) return "";
+  const m = mengeAnzeige(item);
+  return m === "vorrätig" || m === "leer" ? m : `${m} da`;
 }
 
 function zutatText(z) {
@@ -436,17 +500,27 @@ function renderKochmodus() {
   clearTimerTick();
 
   if (step === -1) {
+    const faktor = cook.portionen / (rezept.portionen || cook.portionen);
+    const vorschau = rezept.zutaten.filter((z) => z.menge != null).slice(0, 3)
+      .map((z) => `${Math.round(z.menge * faktor * 10) / 10} ${z.einheit === "Stk" ? "×" : z.einheit} ${z.zutat_name}`)
+      .join(" · ");
     app.replaceChildren(h(`
       <div class="fade-in">
-        <button class="btn ghost small-btn" id="abbrechen">‹ Abbrechen</button>
-        <div class="screen-header" style="margin-top:10px"><h1>${esc(rezept.name)}</h1><p class="subtle">Für wie viele Portionen kochst du?</p></div>
-        <div class="card" style="text-align:center">
-          <div class="stepper" style="justify-content:center">
-            <button id="p-minus">−</button>
+        <button class="backlink" id="abbrechen">${icon("zurueck", 20)}Abbrechen</button>
+        <div class="screen-header" style="margin-top:10px"><h1>${esc(rezept.name)}</h1><p class="subtle">Für wie viele kochst du?</p></div>
+        <div class="card" style="padding:26px 20px;border-radius:20px">
+          <div class="stepper">
+            <button id="p-minus" aria-label="Weniger Portionen">${icon("minus", 22)}</button>
             <span class="count">${cook.portionen}</span>
-            <button id="p-plus">+</button>
+            <button id="p-plus" class="primary" aria-label="Mehr Portionen">${icon("plus", 22)}</button>
           </div>
+          <p class="subtle small" style="text-align:center;margin-top:16px">Portionen · Mengen rechnen sich mit</p>
         </div>
+        ${vorschau ? `
+          <div class="card hint-card" style="flex-direction:column">
+            <b>Für ${cook.portionen} ${cook.portionen === 1 ? "Portion" : "Portionen"} brauchst du</b>
+            <span>${esc(vorschau)}</span>
+          </div>` : ""}
         <button class="btn" id="los">Los kochen</button>
       </div>`));
     app.querySelector("#abbrechen").addEventListener("click", () => { cook = null; render(); });
@@ -460,24 +534,24 @@ function renderKochmodus() {
 
   const s = rezept.schritte[step];
   const hatTimer = s.dauer_sekunden != null && s.dauer_sekunden > 0;
+  cook.timer = hatTimer
+    ? { name: s.timer_name || "Timer", typ: s.timer_typ || "", total: s.dauer_sekunden, rest: s.dauer_sekunden, laeuft: false, gestartet: false, fertig: false, ende: null }
+    : null;
 
   app.replaceChildren(h(`
-    <div class="fade-in">
-      <button class="btn ghost small-btn" id="abbrechen">‹ Abbrechen</button>
-      <div class="card cook-step">
-        <span class="step-nr">Schritt ${step + 1} von ${rezept.schritte.length}${s.temperatur_c ? ` · ${s.temperatur_c} °C` : ""}</span>
-        <p class="step-text">${esc(s.text)}</p>
-        ${hatTimer ? `
-          <div class="timer-box" id="timer-box">
-            <div class="timer-name">${esc(s.timer_name || "Timer")} · ${esc(s.timer_typ || "")}</div>
-            <div class="timer-display" id="timer-display">${fmtZeit(s.dauer_sekunden)}</div>
-            <button class="btn small-btn" id="timer-start" style="margin-top:8px">Timer starten</button>
-          </div>` : ""}
-        <div class="progress-dots">${rezept.schritte.map((_, i) => `<span class="${i <= step ? "done" : ""}"></span>`).join("")}</div>
+    <div class="fade-in cook-screen">
+      <div class="cook-head">
+        <button class="backlink" id="abbrechen">${icon("zurueck", 20)}Abbrechen</button>
+        <span class="cook-step-count">Schritt ${step + 1} von ${rezept.schritte.length}</span>
       </div>
-      <div class="btn-row">
-        ${step > 0 ? '<button class="btn secondary" id="prev">‹ Zurück</button>' : ""}
-        <button class="btn" id="next">${step === rezept.schritte.length - 1 ? "Fertig ✓" : "Weiter ›"}</button>
+      ${progressBar(step + 1, rezept.schritte.length)}
+      ${s.temperatur_c ? `<p class="cook-meta">${s.temperatur_c} °C</p>` : ""}
+      <p class="cook-step">${esc(s.text)}</p>
+      <div id="timer-slot">${timerBoxHtml()}</div>
+      ${hatTimer ? '<p class="centered-note">Der Timer läuft weiter, solange die App offen bleibt.</p>' : ""}
+      <div class="btn-row" style="margin-top:20px">
+        ${step > 0 ? `<button class="btn secondary icon-only" id="prev" aria-label="Zurück">${icon("zurueck", 20)}</button>` : ""}
+        <button class="btn" id="next">${step === rezept.schritte.length - 1 ? "Fertig" : "Weiter"}</button>
       </div>
     </div>`));
 
@@ -486,31 +560,94 @@ function renderKochmodus() {
   });
   app.querySelector("#prev")?.addEventListener("click", () => { cook.step--; renderKochmodus(); });
   app.querySelector("#next").addEventListener("click", () => { cook.step++; renderKochmodus(); });
-  app.querySelector("#timer-start")?.addEventListener("click", (e) => startTimer(s, e.target));
+  bindTimer();
+}
+
+/* --------------------------------------------------------------- Timer
+   Design 12/30: benannter Timer auf Tannenfläche, Fortschrittsbalken,
+   Pause / +1 Min; abgelaufen wechselt die Kachel auf Terrakotta. */
+function timerBoxHtml() {
+  const t = cook?.timer;
+  if (!t) return "";
+  if (t.fertig) {
+    return `
+      <div class="timer-box done">
+        <span class="timer-name">${esc(t.name)} · fertig</span>
+        <span class="timer-display">Fertig!</span>
+        <div class="timer-actions"><button id="timer-aus">Timer aus</button></div>
+      </div>`;
+  }
+  const pct = t.total ? Math.max(0, Math.min(100, ((t.total - t.rest) / t.total) * 100)) : 0;
+  const status = t.laeuft ? "läuft" : t.gestartet ? "pausiert" : (t.typ || "bereit");
+  return `
+    <div class="timer-box">
+      <span class="timer-name">${esc(t.name)} · ${esc(status)}</span>
+      <span class="timer-display" id="timer-display">${fmtZeit(t.rest)}</span>
+      <div class="timer-track"><div id="timer-track-fill" style="width:${pct}%"></div></div>
+      <div class="timer-actions">
+        <button id="timer-toggle">${t.laeuft ? "Pause" : t.gestartet ? "Weiter" : "Timer starten"}</button>
+        <button id="timer-plus">+1 Min</button>
+      </div>
+    </div>`;
+}
+
+function renderTimerBox() {
+  const slot = app.querySelector("#timer-slot");
+  if (!slot) return;
+  slot.innerHTML = timerBoxHtml();
+  bindTimer();
+}
+
+function bindTimer() {
+  app.querySelector("#timer-toggle")?.addEventListener("click", () => {
+    const t = cook.timer;
+    if (t.laeuft) { t.laeuft = false; clearTimerTick(); }
+    else {
+      if (!t.gestartet && "Notification" in window && Notification.permission === "default") Notification.requestPermission();
+      t.gestartet = true;
+      t.laeuft = true;
+      t.ende = Date.now() + t.rest * 1000;
+      startTimerTick();
+    }
+    renderTimerBox();
+  });
+  app.querySelector("#timer-plus")?.addEventListener("click", () => {
+    const t = cook.timer;
+    t.rest += 60;
+    t.total += 60;
+    if (t.laeuft) t.ende += 60000;
+    renderTimerBox();
+  });
+  app.querySelector("#timer-aus")?.addEventListener("click", () => {
+    cook.timer = { ...cook.timer, fertig: false, laeuft: false, gestartet: false, rest: cook.timer.total };
+    renderTimerBox();
+  });
 }
 
 let timerInterval = null;
 function clearTimerTick() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } }
 
-function startTimer(schritt, btn) {
-  btn.hidden = true;
-  const display = document.getElementById("timer-display");
-  const box = document.getElementById("timer-box");
-  const ende = Date.now() + schritt.dauer_sekunden * 1000;
-  if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+function startTimerTick() {
+  clearTimerTick();
   timerInterval = setInterval(() => {
-    const rest = Math.round((ende - Date.now()) / 1000);
-    if (rest <= 0) {
+    const t = cook?.timer;
+    if (!t || !t.laeuft) { clearTimerTick(); return; }
+    t.rest = Math.max(0, Math.round((t.ende - Date.now()) / 1000));
+    if (t.rest <= 0) {
       clearTimerTick();
-      display.textContent = "Fertig!";
-      box.classList.add("done");
+      t.laeuft = false;
+      t.fertig = true;
       if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
       if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("Vorratio", { body: `${schritt.timer_name || "Timer"}: fertig!` });
+        new Notification("Vorratio", { body: `${t.name}: fertig!` });
       }
+      renderTimerBox();
       return;
     }
-    display.textContent = fmtZeit(rest);
+    const d = document.getElementById("timer-display");
+    const f = document.getElementById("timer-track-fill");
+    if (d) d.textContent = fmtZeit(t.rest);
+    if (f) f.style.width = `${((t.total - t.rest) / t.total) * 100}%`;
   }, 250);
 }
 
@@ -525,12 +662,19 @@ function renderValidierung() {
   const { rezept, portionen } = cook;
   app.replaceChildren(h(`
     <div class="fade-in">
-      <div class="screen-header"><h1>Fertig gekocht 🎉</h1><p class="subtle">Kurz bestätigen, dann bucht Vorratio den Verbrauch ab (mit Toleranzband).</p></div>
-      <div class="card">
-        <p><b>${esc(rezept.name)}</b> · ${portionen} Portionen</p>
-        <p class="subtle small" style="margin-top:6px">Abgebucht werden die Rezeptmengen × Portionsfaktor. Kleinmengen (EL, TL, Prisen) laufen unter Toleranz.</p>
+      <div style="margin-bottom:20px">
+        ${icon("geschafft", 44, "ic-accent")}
+        <h1 style="margin-top:14px">fertig gekocht</h1>
+        <p class="subtle" style="margin-top:8px">Kurz bestätigen, dann bucht vorratio den Verbrauch ab – mit Toleranzband.</p>
       </div>
-      <button class="btn" id="buchen">Abhaken & abbuchen</button>
+      <div class="card">
+        <div class="card-row">
+          <h3 style="font-size:18px">${esc(rezept.name)}</h3>
+          <span class="badge neutral">${portionen} ${portionen === 1 ? "Portion" : "Portionen"}</span>
+        </div>
+        <p class="subtle small" style="margin-top:10px">Abgebucht werden die Rezeptmengen × Portionsfaktor. Kleinmengen (EL, TL, Prisen) laufen unter Toleranz.</p>
+      </div>
+      <button class="btn" id="buchen">Abhaken &amp; abbuchen</button>
       <button class="btn secondary" id="ohne">Fertig ohne Abbuchung</button>
     </div>`));
   app.querySelector("#buchen").addEventListener("click", () => {
@@ -558,34 +702,27 @@ function renderVorrat() {
 
   app.replaceChildren(h(`
     <div class="fade-in">
-      <div class="screen-header card-row">
-        <div><h1>Vorrat</h1><p class="subtle">${s.bestand.length} Artikel · Mengen sind Näherungen</p></div>
-        <div>
-          <button class="btn small-btn secondary" id="scan-toggle" style="width:auto;display:inline-block">▮▮ Barcode</button>
-          <button class="btn small-btn" id="add-toggle">${vorratAddOffen ? "Schließen" : "+ Erfassen"}</button>
+      <div class="screen-header">
+        <div class="card-row" style="align-items:center">
+          <h1>vorrat</h1>
+          <div class="head-actions">
+            <button class="square-btn" id="scan-toggle" aria-label="Barcode scannen">${icon("barcode", 21)}</button>
+            <button class="pill-btn" id="add-toggle">${vorratAddOffen ? icon("x", 19) : icon("plus", 19)}${vorratAddOffen ? "Schließen" : "Erfassen"}</button>
+          </div>
         </div>
+        <p class="subtle small">${s.bestand.length} Artikel · Mengen sind Näherungen</p>
       </div>
       ${scanPanel ? barcodeUi() : ""}
       ${vorratAddOffen ? vorratAddForm() : ""}
-      ${s.bestand.length === 0 && !vorratAddOffen ? `
-        <div class="empty-state"><div class="big">▤</div>
-          <p><b>Noch nichts erfasst.</b></p>
-          <p class="small">Einmalige Aufnahme: Trockenware, Frischware, Konserven, Gewürze – danach hält Vorratio den Stand automatisch aktuell.</p>
-        </div>` : ""}
+      ${s.bestand.length === 0 && !vorratAddOffen ? vorratLeerHtml() : ""}
       ${Object.entries(KATEGORIE_NAMEN).filter(([k]) => gruppen[k]?.length).map(([k, titel]) => `
         <div class="section-gap">
           <h2>${titel}</h2>
           <div class="card">
-            ${gruppen[k].map((item) => `
-              <div class="list-item" data-item="${item.id}">
-                <div class="grow">
-                  <span class="name">${esc(item.name)}</span>
-                  <span class="subtle small" style="display:block">${mengeAnzeige(item)}</span>
-                </div>
-                <button class="btn ghost small-btn" data-edit="${item.id}">Ändern</button>
-              </div>`).join("")}
+            ${gruppen[k].map((item) => vorratZeile(item)).join("")}
           </div>
         </div>`).join("")}
+      ${s.bestand.length ? '<p class="centered-note">Tippe einen Artikel an, um die Menge zu korrigieren.</p>' : ""}
     </div>`));
 
   app.querySelector("#add-toggle").addEventListener("click", () => { vorratAddOffen = !vorratAddOffen; renderVorrat(); });
@@ -596,7 +733,48 @@ function renderVorrat() {
   });
   bindVorratAdd();
   bindBarcode();
+  app.querySelector("#vorrat-leer-cta")?.addEventListener("click", () => { vorratAddOffen = true; renderVorrat(); });
   app.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => renderVorratEdit(b.dataset.edit)));
+}
+
+/* Bestandszeile: Schüttgut bekommt den Füllstandsbalken der Übergabe (Design 14),
+   zählbare und pauschale Artikel die Mengenangabe rechts. */
+function vorratZeile(item) {
+  const voll = item.packung || ZUTAT_INDEX[item.zutat_id]?.packung || null;
+  const meter = item.art === "schuettgut" && voll && item.menge != null
+    ? `<div class="fill-meter"><div style="width:${Math.round(Math.min(1, item.menge / voll) * 100)}%"></div></div>`
+    : `<span class="value">${mengeAnzeige(item)}</span>`;
+  const zweitzeile = item.art === "schuettgut"
+    ? `<span class="subtle small" style="display:block">${mengeAnzeige(item)}</span>` : "";
+  return `
+    <div class="list-item tappable" data-edit="${item.id}" role="button" tabindex="0">
+      <div class="grow"><span class="name">${esc(item.name)}</span>${zweitzeile}</div>
+      ${meter}
+    </div>`;
+}
+
+/* Leerer Vorrat (Design 15): Erklärkarte + die drei Wege hinein. */
+function vorratLeerHtml() {
+  const wege = [
+    ["erfassen", "Aus der Liste tippen", "Über 200 gängige Zutaten vorbereitet"],
+    ["barcode", "Barcode scannen", "Produktdaten von Open Food Facts"],
+    ["kamera", "Kassenbon fotografieren", "Claude liest ihn aus"],
+  ];
+  return `
+    <div class="empty-state">
+      ${icon("vorrat", 52)}
+      <h3>Noch nichts erfasst</h3>
+      <p>Einmalige Aufnahme: Trockenware, Frisches, Konserven, Gewürze. Danach hält vorratio den Stand von allein aktuell.</p>
+    </div>
+    <div class="section-gap">
+      <h2>Drei Wege hinein</h2>
+      ${wege.map(([ic, titel, text]) => `
+        <div class="card" style="display:flex;align-items:center;gap:13px;padding:15px">
+          ${icon(ic, 24)}
+          <div class="grow"><span class="name">${titel}</span><span class="subtle small" style="display:block">${text}</span></div>
+        </div>`).join("")}
+    </div>
+    <button class="btn" id="vorrat-leer-cta">Ersten Artikel erfassen</button>`;
 }
 
 /* -------------------------------------------- Barcode-Scan (Kap. 6.3)
@@ -610,52 +788,63 @@ function barcodeUi() {
   const p = scanPanel;
   if (p.status === "start") {
     return `
-      <div class="card">
-        <label class="field">EAN-Barcode (8 oder 13 Ziffern)
-          <input type="text" id="ean-input" inputmode="numeric" placeholder="z. B. 4311501659286">
-        </label>
-        <div class="btn-row">
-          ${kameraVerfuegbar() ? '<button class="btn secondary" id="ean-kamera">📷 Mit Kamera scannen</button>' : ""}
-          <button class="btn" id="ean-suchen">Nachschlagen</button>
-        </div>
-        ${kameraVerfuegbar() ? "" : '<p class="subtle small" style="margin-top:8px">Kamera-Scan ist auf diesem Browser nicht verfügbar (iOS Safari) – die Nummer steht unter dem Strichcode.</p>'}
-        <p class="subtle small" style="margin-top:8px">Produktdaten: Open Food Facts (ODbL).</p>
+      <div class="section-gap">
+        <div class="section-head"><h2>Barcode</h2><button class="backlink" id="ean-abbrechen">Abbrechen</button></div>
+        ${kameraVerfuegbar() ? `
+          <button class="scan-view" id="ean-kamera" style="width:100%">
+            <span style="width:210px;height:110px;border-radius:12px;border:2px solid rgba(255,253,248,.85)"></span>
+            <span>Strichcode ins Feld halten</span>
+          </button>
+          <div class="or-line"><span>oder Nummer eintippen</span></div>` : ""}
+        <input type="text" id="ean-input" inputmode="numeric" placeholder="z. B. 4311501659286">
+        <button class="btn" id="ean-suchen">Nachschlagen</button>
+        <p class="centered-note">Produktdaten von Open Food Facts (ODbL). Die Nummer steht unter dem Strichcode.${kameraVerfuegbar() ? "" : "<br>Kamera-Scan ist auf diesem Browser nicht verfügbar (iOS Safari)."}</p>
       </div>`;
   }
   if (p.status === "kamera") return `
-    <div class="card" style="text-align:center">
-      <video id="scan-video" playsinline muted style="width:100%;border-radius:10px;background:#000"></video>
-      <button class="btn secondary" id="ean-kamera-stopp" style="margin-top:10px">Abbrechen</button>
+    <div class="section-gap">
+      <div class="scan-view"><video id="scan-video" playsinline muted></video></div>
+      <button class="btn secondary" id="ean-kamera-stopp">Abbrechen</button>
     </div>`;
-  if (p.status === "laden") return `<div class="card"><p class="small subtle">Suche ${esc(p.ean)} bei Open Food Facts …</p></div>`;
+  if (p.status === "laden") return `<div class="card"><p class="subtle small">Suche ${esc(p.ean)} bei Open Food Facts …</p></div>`;
   if (p.status === "fehler") return `
-    <div class="card"><p class="small" style="color:var(--warn)">${esc(p.msg)}</p>
-    <button class="btn small-btn secondary" id="ean-zurueck" style="margin-top:10px">Zurück</button></div>`;
+    <div class="card hint-card warn">${icon("achtung", 20)}<span class="hint-body">${esc(p.msg)}</span></div>
+    <button class="btn secondary" id="ean-zurueck">Zurück</button>`;
   if (p.status === "kein_treffer") return `
-    <div class="card">
-      <p class="small">Barcode ${esc(p.ean)} ist nicht in Open Food Facts. Produkt bitte über „+ Erfassen“ anlegen.</p>
-      <button class="btn small-btn secondary" id="ean-zurueck" style="margin-top:10px">Zurück</button>
-    </div>`;
+    <div class="card hint-card warn">${icon("achtung", 20)}
+      <span class="hint-body">Barcode ${esc(p.ean)} ist nicht in Open Food Facts. Produkt bitte über „Erfassen“ anlegen.</span>
+    </div>
+    <button class="btn secondary" id="ean-zurueck">Zurück</button>`;
   // Treffer: Produkt + Zuordnungsvorschlag
   const produkt = p.produkt;
   return `
-    <div class="card">
-      <div class="card-row">
-        <div>
-          <h3>${esc(produkt.name)}</h3>
-          <p class="subtle small">${produkt.marke ? esc(produkt.marke) + " · " : ""}${produkt.menge_text ? esc(produkt.menge_text) + " · " : ""}EAN ${esc(produkt.gtin)}</p>
+    <div class="section-gap">
+      <div class="section-head"><h2>Gefunden</h2><button class="backlink" id="ean-zurueck">Abbrechen</button></div>
+      <div class="card">
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          ${produkt.bild
+            ? `<img src="${esc(produkt.bild)}" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:12px;background:var(--accent-soft);flex:none">`
+            : `<span style="width:56px;height:56px;border-radius:12px;background:var(--accent-soft);display:grid;place-items:center;flex:none;color:var(--accent)">${icon("vorrat", 26)}</span>`}
+          <div>
+            <h3 style="font-size:19px">${esc(produkt.name)}</h3>
+            <p class="subtle small" style="margin-top:3px">${produkt.marke ? esc(produkt.marke) + " · " : ""}${produkt.menge_text ? esc(produkt.menge_text) : ""}</p>
+            <p class="small mute" style="letter-spacing:.03em">EAN ${esc(produkt.gtin)}</p>
+          </div>
         </div>
-        ${produkt.bild ? `<img src="${esc(produkt.bild)}" alt="" style="width:48px;height:48px;object-fit:contain;border-radius:8px">` : ""}
+        <hr class="divider" style="margin:14px 0">
+        <p class="small mute" style="margin-bottom:8px">Als welche Zutat buchen?</p>
+        <select id="ean-zutat">
+          ${ZUTATEN.map((z) => `<option value="${z.id}" ${p.vorschlag?.id === z.id ? "selected" : ""}>${esc(z.name)}</option>`).join("")}
+        </select>
+        ${p.vorschlag ? "" : '<p class="subtle small" style="margin-top:6px">Kein automatischer Treffer – bitte auswählen.</p>'}
       </div>
-      <hr class="divider">
-      <p class="small" style="margin-bottom:8px">Als welche Zutat in den Bestand?</p>
-      <select id="ean-zutat">
-        ${ZUTATEN.map((z) => `<option value="${z.id}" ${p.vorschlag?.id === z.id ? "selected" : ""}>${esc(z.name)}</option>`).join("")}
-      </select>
-      ${p.vorschlag ? "" : '<p class="subtle small" style="margin-top:6px">Kein automatischer Treffer – bitte auswählen.</p>'}
-      <div class="btn-row" style="margin-top:10px">
-        <button class="btn secondary" id="ean-zurueck">Abbrechen</button>
-        <button class="btn" id="ean-buchen">In den Bestand</button>
+      <div class="card hint-card" style="flex-direction:column">
+        <b>Menge wird als Packungsgröße gebucht</b>
+        <span>Angebrochen? Danach einmal am Regler korrigieren.</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary" id="ean-verwerfen">Verwerfen</button>
+        <button class="btn" id="ean-buchen">In den Vorrat</button>
       </div>
     </div>`;
 }
@@ -691,7 +880,8 @@ function bindBarcode() {
       () => { kamera = null; scanPanel = { status: "fehler", msg: "Kamera nicht verfügbar oder Zugriff abgelehnt." }; renderVorrat(); });
   });
   app.querySelector("#ean-kamera-stopp")?.addEventListener("click", () => { stoppeKamera(); scanPanel = { status: "start" }; renderVorrat(); });
-  app.querySelector("#ean-zurueck")?.addEventListener("click", () => { scanPanel = { status: "start" }; renderVorrat(); });
+  app.querySelectorAll("#ean-zurueck, #ean-verwerfen").forEach((b) => b.addEventListener("click", () => { scanPanel = { status: "start" }; renderVorrat(); }));
+  app.querySelector("#ean-abbrechen")?.addEventListener("click", () => { stoppeKamera(); scanPanel = null; renderVorrat(); });
   app.querySelector("#ean-buchen")?.addEventListener("click", () => {
     const s = getState();
     const zutatId = app.querySelector("#ean-zutat").value;
@@ -714,14 +904,15 @@ function vorratAddForm() {
     .filter((z) => !vorratSuche || z.name.toLowerCase().includes(vorratSuche.toLowerCase()))
     .slice(0, 12);
   return `
-    <div class="card">
-      <label class="field">Produkt suchen oder auswählen
-        <input type="text" id="add-suche" placeholder="z. B. Mehl, Reis, Eier …" value="${esc(vorratSuche)}">
-      </label>
+    <div class="section-gap">
+      <input type="text" id="add-suche" placeholder="z. B. Mehl, Reis, Eier …" value="${esc(vorratSuche)}">
+      <h2 class="section-gap">${vorratSuche ? "Treffer" : "Häufig erfasst"}</h2>
       <div class="chip-wrap">
         ${treffer.map((z) => `<button class="chip" data-add="${z.id}">${esc(z.name)}</button>`).join("") || '<span class="subtle small">Kein Treffer in der Zutatenliste.</span>'}
       </div>
-      <p class="subtle small" style="margin-top:10px">Barcode-Scan, Schrankfoto-Analyse und Bon-Scan folgen als nächste Ausbaustufe – die Auswahl hier ist der schriftliche Weg + Auswahlfenster.</p>
+      <div class="card hint-card" style="margin-top:16px">${icon("tipp", 20)}
+        <span class="hint-body">Erst grob alles antippen, was da ist. Die Mengen kannst du danach in Ruhe schätzen.</span>
+      </div>
     </div>`;
 }
 
@@ -770,56 +961,119 @@ function renderVorratEdit(itemId) {
   const voll = item.packung || ZUTAT_INDEX[item.zutat_id]?.packung || null;
   const anteil = voll && item.menge != null ? Math.min(1, item.menge / voll) : 0.5;
 
+  const pct = Math.round(anteil * 100);
+  const untertitel = [KATEGORIE_NAMEN[item.kategorie]];
+  if (item.art === "schuettgut" && voll) untertitel.push(`Packung ${voll} ${item.einheit}`);
+  else if (item.art === "zaehlbar") untertitel.push("zählbar");
+  else if (item.art === "pauschal") untertitel.push("pauschal geführt");
+
   let mengenUi = "";
+  let fussnote = "";
   if (item.art === "zaehlbar") {
+    /* Runder Stepper mit Schnellwahl – Design 20. */
     mengenUi = `
-      <div class="stepper" style="justify-content:center">
-        <button id="minus">−</button>
-        <span class="count">${item.menge ?? 0}</span>
-        <button id="plus">+</button>
-      </div>
-      <p class="subtle small" style="text-align:center;margin-top:6px">${esc(item.einheit)} vorhanden</p>`;
+      <div class="card" style="padding:30px 20px;border-radius:20px">
+        <div class="stepper">
+          <button id="minus" aria-label="Weniger">${icon("minus", 22)}</button>
+          <span style="display:flex;flex-direction:column;align-items:center;gap:2px">
+            <span class="count">${item.menge ?? 0}</span>
+            <span class="subtle small">${esc(item.einheit)}</span>
+          </span>
+          <button id="plus" class="primary" aria-label="Mehr">${icon("plus", 22)}</button>
+        </div>
+        <div class="chip-wrap" style="justify-content:center;margin-top:16px">
+          <button class="chip" data-quick="6">+6</button>
+          <button class="chip" data-quick="10">+10</button>
+          <button class="chip" data-quick="0">aufgebraucht</button>
+        </div>
+      </div>`;
   } else if (item.art === "schuettgut") {
+    /* Silhouetten-Schätzer: Packung, Näherungswert, Regler, Viertel-Raster – Design 19. */
+    const stufen = [["leer", 0], ["¼", 25], ["½", 50], ["¾", 75], ["voll", 100]];
+    const naheStufe = stufen.reduce((a, b) => (Math.abs(b[1] - pct) < Math.abs(a[1] - pct) ? b : a))[1];
     mengenUi = `
-      <p class="subtle small">Wie voll ist die Packung${voll ? ` (${voll} ${item.einheit})` : ""}?</p>
-      <div class="fill-meter"><div id="meter" style="width:${Math.round(anteil * 100)}%"></div></div>
-      <input type="range" id="fuellstand" min="0" max="100" step="5" value="${Math.round(anteil * 100)}">
-      <p style="text-align:center;font-weight:700" id="menge-label">${mengeAnzeige(item)}</p>`;
+      <div class="card" style="padding:24px 20px;border-radius:20px">
+        <p class="subtle" style="text-align:center;margin-bottom:18px">Wie voll ist die Packung noch?</p>
+        <div class="pack-row">
+          <div class="pack-silhouette"><div id="pack-fill" style="height:${pct}%"></div></div>
+          <div style="padding-bottom:8px">
+            <div class="pack-value" id="menge-label">${mengeAnzeige(item)}</div>
+            <div class="subtle small" id="pack-pct">etwa ${pct} %</div>
+          </div>
+        </div>
+        <input type="range" id="fuellstand" min="0" max="100" step="5" value="${pct}" style="--pct:${pct}%" aria-label="Füllstand in Prozent">
+        <div class="quick-row">
+          ${stufen.map(([label, v]) => `<button class="chip ${naheStufe === v ? "selected" : ""}" data-stufe="${v}">${label}</button>`).join("")}
+        </div>
+      </div>`;
+    fussnote = '<p class="centered-note">Schätzen reicht – vorratio rechnet mit ±10–15 % Spielraum.</p>';
   } else {
+    /* Vorrätig / leer als Zwei-Kachel-Umschalter – Design 21. */
+    const leer = item.menge === 0;
     mengenUi = `
-      <div class="btn-row">
-        <button class="btn ${item.menge !== 0 ? "" : "secondary"}" id="da">Vorrätig</button>
-        <button class="btn ${item.menge === 0 ? "" : "secondary"}" id="leer">Leer</button>
+      <div class="card" style="padding:20px;border-radius:20px">
+        <div class="toggle-row">
+          <button class="toggle-tile ${leer ? "" : "active"}" id="da">${icon("check", 24)}vorrätig</button>
+          <button class="toggle-tile ${leer ? "active" : ""}" id="leer">${icon(leer ? "check" : "checkLeer", 24)}leer</button>
+        </div>
+        <p class="centered-note" style="margin-top:14px">Bei Salz, Pfeffer und Öl zählt nur: da oder nicht da. Sobald du „leer“ tippst, wandert es auf den Wocheneinkauf.</p>
       </div>`;
   }
 
   app.replaceChildren(h(`
     <div class="fade-in">
-      <button class="btn ghost small-btn" id="zurueck">‹ Vorrat</button>
-      <div class="screen-header" style="margin-top:10px"><h1>${esc(item.name)}</h1><p class="subtle">${KATEGORIE_NAMEN[item.kategorie]}</p></div>
-      <div class="card">${mengenUi}</div>
-      <button class="btn secondary" id="entfernen">Aus dem Vorrat entfernen</button>
+      <button class="backlink" id="zurueck">${icon("zurueck", 20)}Vorrat</button>
+      <div class="screen-header" style="margin-top:10px">
+        <h1>${esc(item.name)}</h1>
+        <p class="subtle small">${untertitel.join(" · ")}</p>
+      </div>
+      ${mengenUi}
+      ${fussnote}
+      <button class="btn" id="sichern">Sichern</button>
+      <button class="btn danger" id="entfernen">Aus dem Vorrat entfernen</button>
     </div>`));
 
+  const stempel = () => { item.updated = new Date().toISOString(); save(); };
+
   app.querySelector("#zurueck").addEventListener("click", () => renderVorrat());
+  app.querySelector("#sichern").addEventListener("click", () => { stempel(); renderVorrat(); });
   app.querySelector("#entfernen").addEventListener("click", () => {
     s.bestand = s.bestand.filter((b) => b.id !== item.id);
     save();
     renderVorrat();
   });
-  app.querySelector("#minus")?.addEventListener("click", () => { item.menge = Math.max(0, (item.menge ?? 0) - 1); item.updated = new Date().toISOString(); save(); renderVorratEdit(itemId); });
-  app.querySelector("#plus")?.addEventListener("click", () => { item.menge = (item.menge ?? 0) + 1; item.updated = new Date().toISOString(); save(); renderVorratEdit(itemId); });
-  app.querySelector("#da")?.addEventListener("click", () => { item.menge = null; save(); renderVorratEdit(itemId); });
-  app.querySelector("#leer")?.addEventListener("click", () => { item.menge = 0; save(); renderVorratEdit(itemId); });
+  app.querySelector("#minus")?.addEventListener("click", () => { item.menge = Math.max(0, (item.menge ?? 0) - 1); stempel(); renderVorratEdit(itemId); });
+  app.querySelector("#plus")?.addEventListener("click", () => { item.menge = (item.menge ?? 0) + 1; stempel(); renderVorratEdit(itemId); });
+  app.querySelectorAll("[data-quick]").forEach((b) => b.addEventListener("click", () => {
+    const n = Number(b.dataset.quick);
+    item.menge = n === 0 ? 0 : (item.menge ?? 0) + n;
+    stempel();
+    renderVorratEdit(itemId);
+  }));
+  app.querySelector("#da")?.addEventListener("click", () => { item.menge = null; stempel(); renderVorratEdit(itemId); });
+  app.querySelector("#leer")?.addEventListener("click", () => { item.menge = 0; stempel(); renderVorratEdit(itemId); });
+  app.querySelectorAll("[data-stufe]").forEach((b) => b.addEventListener("click", () => {
+    setzeFuellstand(item, Number(b.dataset.stufe), voll);
+    stempel();
+    renderVorratEdit(itemId);
+  }));
   const slider = app.querySelector("#fuellstand");
   slider?.addEventListener("input", () => {
-    const basis = voll || 500;
-    item.menge = Math.round((slider.value / 100) * basis / 10) * 10;
-    item.updated = new Date().toISOString();
-    app.querySelector("#meter").style.width = `${slider.value}%`;
+    const v = Number(slider.value);
+    setzeFuellstand(item, v, voll);
+    slider.style.setProperty("--pct", `${v}%`);
+    app.querySelector("#pack-fill").style.height = `${v}%`;
     app.querySelector("#menge-label").textContent = mengeAnzeige(item);
-    save();
+    app.querySelector("#pack-pct").textContent = `etwa ${v} %`;
+    const nahe = [0, 25, 50, 75, 100].reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
+    app.querySelectorAll("[data-stufe]").forEach((b) => b.classList.toggle("selected", Number(b.dataset.stufe) === nahe));
+    stempel();
   });
+}
+
+function setzeFuellstand(item, prozent, voll) {
+  const basis = voll || 500;
+  item.menge = Math.round((prozent / 100) * basis / 10) * 10;
 }
 
 /* ----------------------------------------------------------------- Einkauf */
@@ -838,40 +1092,53 @@ function renderEinkauf() {
   syncWochenliste(s);
   const rezept = s.einkauf.rezeptId ? findRezept(s.einkauf.rezeptId) : null;
 
+  const rezeptErledigt = s.einkauf.rezept.filter((e) => e.erledigt).length;
+
   app.replaceChildren(h(`
     <div class="fade-in">
-      <div class="screen-header"><h1>Einkauf</h1><p class="subtle">Kurz und fokussiert – nur was fehlt.</p></div>
+      <div class="screen-header"><h1>einkauf</h1><p class="subtle small">Kurz und fokussiert – nur was fehlt.</p></div>
 
       ${s.einkauf.rezept.length ? `
-        <h2>Für: ${esc(rezept?.name || "Rezept")}</h2>
+        <div class="section-head">
+          <h2>Für ${esc(rezept?.name || "Rezept")}</h2>
+          <span class="small mute">${rezeptErledigt} von ${s.einkauf.rezept.length}</span>
+        </div>
         <div class="card">
           ${s.einkauf.rezept.map((e, i) => `
             <div class="list-item">
-              <button class="check ${e.erledigt ? "done" : ""}" data-r-check="${i}">✓</button>
+              <button class="check" data-r-check="${i}" aria-label="Abhaken">${icon(e.erledigt ? "check" : "checkLeer", 24)}</button>
               <div class="grow ${e.erledigt ? "done-text" : ""}">${e.menge != null ? `${e.menge} ${e.einheit === "Stk" ? "×" : e.einheit}` : ""} ${esc(e.name)}</div>
             </div>`).join("")}
         </div>
-        <button class="btn" id="einkauf-fertig">Einkauf bestätigen → Bestand auffüllen</button>
-        <hr class="divider">` : ""}
+        <button class="btn" id="einkauf-fertig">Eingekauft → in den Vorrat buchen</button>` : ""}
 
-      <h2>Bon-Scan</h2>
-      <p class="subtle small" style="margin-bottom:8px">Kassenbon fotografieren – Claude liest ihn und füllt den Bestand auf (auch Zusatzkäufe).</p>
-      ${bonScanUi()}
-      <hr class="divider">
-
-      <h2>Wocheneinkauf</h2>
-      <p class="subtle small" style="margin-bottom:8px">Leere und fast leere Vorräte, automatisch gesammelt.</p>
-      ${s.einkauf.woche.length ? `
-        <div class="card">
-          ${s.einkauf.woche.map((e, i) => `
-            <div class="list-item">
-              <button class="check ${e.erledigt ? "done" : ""}" data-w-check="${i}">✓</button>
-              <div class="grow ${e.erledigt ? "done-text" : ""}">${esc(e.name)}${e.auto ? ' <span class="badge neutral">auto</span>' : ""}</div>
-              <button class="btn ghost small-btn" data-w-del="${i}">✕</button>
-            </div>`).join("")}
+      <div class="section-gap">
+        <div class="section-head">
+          <h2>Wocheneinkauf</h2>
+          <span class="small mute">automatisch gesammelt</span>
         </div>
-        <button class="btn secondary" id="woche-fertig">Erledigtes in den Bestand buchen</button>` : `
-        <div class="empty-state"><p class="small">Gerade nichts auf der Liste – dein Vorrat sieht gut aus.</p></div>`}
+        ${s.einkauf.woche.length ? `
+          <div class="card">
+            ${s.einkauf.woche.map((e, i) => `
+              <div class="list-item">
+                <button class="check" data-w-check="${i}" aria-label="Abhaken">${icon(e.erledigt ? "check" : "checkLeer", 24)}</button>
+                <div class="grow ${e.erledigt ? "done-text" : ""}">${esc(e.name)}</div>
+                ${e.auto ? '<span class="badge neutral">auto</span>' : ""}
+                <button class="icon-btn" data-w-del="${i}" aria-label="Von der Liste nehmen">${icon("x", 20)}</button>
+              </div>`).join("")}
+          </div>
+          <button class="btn secondary" id="woche-fertig">Erledigtes in den Vorrat buchen</button>` : `
+          <div class="empty-state">
+            ${icon("einkauf", 46)}
+            <h3>Nichts auf der Liste</h3>
+            <p>Dein Vorrat sieht gut aus. Was leer wird, landet hier automatisch.</p>
+          </div>`}
+      </div>
+
+      <div class="section-gap">
+        <h2>Bon-Scan</h2>
+        ${bonScanUi()}
+      </div>
       ${angebotsSektion(s)}
     </div>`));
 
@@ -914,37 +1181,56 @@ let bon = null;  // null | {status:'laden'|'fehler'|'ergebnis', ...}
 function bonScanUi() {
   const s = getState();
   if (!s.settings.apiKey) {
-    return `<div class="card"><p class="small subtle">Für den Bon-Scan einmalig den Claude-API-Key im Profil hinterlegen.</p></div>`;
+    /* Design 24: Key-Hinweis in Terrakotta mit direktem Weg ins Profil. */
+    return `
+      <div class="card hint-card warn" style="flex-direction:column">
+        <div style="display:flex;gap:11px">
+          ${icon("lokal", 21)}
+          <div class="hint-body">
+            <b>Bon-Scan braucht deinen Claude-Key</b>
+            Einmal im Profil hinterlegen. Der Key bleibt auf dem Gerät und geht nur an Anthropic.
+          </div>
+        </div>
+        <button class="btn" id="bon-key" style="background:var(--warn);color:#fffdf8;margin-top:2px">Key im Profil hinterlegen</button>
+      </div>`;
   }
   if (!bon) {
     return `
-      <button class="btn secondary" id="bon-start">📷 Bon fotografieren / hochladen</button>
-      <input type="file" id="bon-file" accept="image/*" capture="environment" hidden>`;
+      <button class="btn secondary" id="bon-start">${icon("kamera", 21)}Kassenbon fotografieren</button>
+      <input type="file" id="bon-file" accept="image/*" capture="environment" hidden>
+      <p class="centered-note">Claude liest den Bon und füllt den Bestand auf – auch Zusatzkäufe.</p>`;
   }
-  if (bon.status === "laden") return `<div class="card"><p class="small subtle">Claude liest den Bon …</p></div>`;
+  if (bon.status === "laden") return `<div class="card"><p class="subtle small">Claude liest den Bon …</p></div>`;
   if (bon.status === "fehler") return `
-    <div class="card"><p class="small" style="color:var(--warn)">${esc(bon.msg)}</p></div>
+    <div class="card hint-card warn">${icon("achtung", 20)}<span class="hint-body">${esc(bon.msg)}</span></div>
     <button class="btn secondary" id="bon-reset">Nochmal versuchen</button>`;
   // Ergebnis: Artikel bestätigen
+  const zuBuchen = bon.artikel.filter((a) => a.buchen && a.zutat_id).length;
   return `
+    <div class="section-head">
+      <h2>Bon gelesen</h2>
+      ${bon.haendler ? `<span class="badge">${esc(bon.haendler)}</span>` : ""}
+    </div>
+    <p class="subtle small" style="margin-bottom:10px">Claude hat ${bon.artikel.length} ${bon.artikel.length === 1 ? "Position" : "Positionen"} erkannt. Prüf kurz, was in den Vorrat soll.</p>
     <div class="card">
-      ${bon.haendler ? `<p class="small subtle" style="margin-bottom:8px">Erkannt: ${esc(bon.haendler)}</p>` : ""}
       ${bon.artikel.map((a, i) => `
-        <div class="list-item">
-          <button class="check ${a.buchen ? "done" : ""}" data-bon-check="${i}">✓</button>
+        <div class="list-item" style="align-items:flex-start">
+          <button class="check" data-bon-check="${i}" aria-label="Übernehmen" style="margin-top:0">${icon(a.buchen ? "check" : "checkLeer", 24)}</button>
           <div class="grow">
-            <span class="name">${esc(a.name)}</span>
-            <span class="subtle small" style="display:block">${esc(a.bon_text)}${a.menge ? ` · ~${a.menge} ${a.einheit}` : ""}${a.zutat_id ? "" : " · keine Zuordnung"}</span>
+            <span class="name${a.zutat_id ? "" : " mute"}">${esc(a.name)}</span>
+            <span class="small mute" style="display:block;letter-spacing:.02em">${esc(a.bon_text)}${a.menge ? ` · ~${a.menge} ${a.einheit}` : ""}</span>
+            ${a.zutat_id ? "" : '<span class="small warn-text" style="display:block">Keine Zutat zugeordnet – wird nicht gebucht</span>'}
           </div>
         </div>`).join("")}
     </div>
     <div class="btn-row">
       <button class="btn secondary" id="bon-reset">Verwerfen</button>
-      <button class="btn" id="bon-buchen">In den Bestand buchen</button>
+      <button class="btn" id="bon-buchen" ${zuBuchen ? "" : "disabled"}>${zuBuchen} buchen</button>
     </div>`;
 }
 
 function bindBonScan(s) {
+  app.querySelector("#bon-key")?.addEventListener("click", () => { view = "profil"; render(); });
   app.querySelector("#bon-start")?.addEventListener("click", () => app.querySelector("#bon-file").click());
   app.querySelector("#bon-file")?.addEventListener("change", async (e) => {
     const file = e.target.files[0];
@@ -1054,7 +1340,7 @@ function angebotsSektion(s) {
       </div>`;
   } else if (erg) {
     inhalt = `
-      ${aktuell ? "" : `<div class="card hint-card"><b>Ergebnis aus KW ${esc(erg.kw.slice(-2))}</b>Die Angebote sind wahrscheinlich abgelaufen – einmal neu checken.</div>`}
+      ${aktuell ? "" : `<div class="card hint-card">${icon("achtung", 20)}<div class="hint-body"><b>Ergebnis aus KW ${esc(erg.kw.slice(-2))}</b>Die Angebote sind wahrscheinlich abgelaufen – einmal neu checken.</div></div>`}
       ${angebotsErgebnisHtml(erg)}
       <button class="btn secondary" id="crawl-start" ${liste.length ? "" : "disabled"}>Angebote neu checken</button>`;
   } else {
@@ -1065,13 +1351,17 @@ function angebotsSektion(s) {
 
   return `
     <hr class="divider">
-    <div class="card-row" style="align-items:center">
-      <h2 style="margin-bottom:0">Angebots-Crawl</h2>
+    <div class="section-head">
+      <h2>Angebots-Crawl</h2>
       <button class="btn ghost small-btn" id="crawl-setup">${crawlSetupOffen ? "Schließen" : "Einstellungen"}</button>
     </div>
     <p class="subtle small" style="margin:2px 0 10px">Einmal wöchentlich, z. B. freitags: Welcher Markt deckt deine Liste am besten ab? Quelle: ${live ? `Marktguru (PLZ ${esc(a.plz)})` : "Demo-Daten"}</p>
     ${crawlSetupOffen ? angebotsSetupHtml(a) : ""}
-    ${crawlFehler ? `<div class="card" style="border-color:var(--warn)"><p class="small" style="color:var(--warn)"><b>Crawl fehlgeschlagen:</b> ${esc(crawlFehler)}</p><p class="subtle small" style="margin-top:6px">Typische Ursachen: Keys abgelaufen, CORS blockiert (dann Proxy eintragen) oder offline. Der Demo-Modus geht immer.</p></div>` : ""}
+    ${crawlFehler ? `
+      <div class="card hint-card warn">${icon("achtung", 20)}
+        <div class="hint-body"><b>Crawl fehlgeschlagen: ${esc(crawlFehler)}</b>
+        Typische Ursachen: Keys abgelaufen, CORS blockiert (dann Proxy eintragen) oder offline. Der Demo-Modus geht immer.</div>
+      </div>` : ""}
     ${inhalt}`;
 }
 
@@ -1238,31 +1528,54 @@ function ersatzTabHtml(s) {
     <p class="subtle small" style="text-align:center;margin-top:14px">Bei Fertigprodukten (v. a. Worcestersauce, Milchpulver, Brühe) immer Zutatenliste/V-Label prüfen – Rezepturen variieren.</p>`;
 }
 
+/* Tipps/Ideen liegen als „Titel: Fließtext" in der Kern-DB – für die
+   Karten-Optik der Übergabe wird die führende Kurzzeile abgetrennt. */
+function teileTitel(text) {
+  const i = text.indexOf(": ");
+  if (i > 0 && i < 60) return { titel: text.slice(0, i), body: text.slice(i + 2) };
+  return { titel: null, body: text };
+}
+
 function renderWissen() {
   const tabs = { tipps: "Tipps", ersatz: "Ersatz", preps: "Zubereitung", bases: "Grundrezepte", techniken: "Techniken" };
   const inhalt = {
     ersatz: () => ersatzTabHtml(getState()),
-    tipps: () => TIPPS.map((t) => `<div class="card"><p class="small">💡 ${esc(t.text)}</p></div>`).join("")
-      + IDEEN.map((i) => `<div class="card"><p class="small">✦ ${esc(i.text)}</p></div>`).join(""),
-    preps: () => PREPS.map((p) => `
-      <div class="card">
-        <div class="card-row"><h3>${esc(p.name)}</h3><span class="badge neutral">${p.dauer_min} Min</span></div>
-        <p class="small subtle" style="margin-top:6px">${esc(p.kurz)}</p>
-      </div>`).join(""),
+    /* Tipps als Karten mit Glühbirne, Ideen als Soft-Karten mit Stern (Design 25). */
+    tipps: () => TIPPS.map((t) => {
+      const { titel, body } = teileTitel(t.text);
+      return `
+        <div class="card" style="display:flex;gap:12px">${icon("tipp", 22)}
+          <div class="grow">${titel ? `<span class="name">${esc(titel)}</span>` : ""}
+          <span class="subtle small" style="display:block${titel ? ";margin-top:4px" : ""}">${esc(body)}</span></div>
+        </div>`;
+    }).join("")
+      + (IDEEN.length ? '<h2 class="section-gap">Ideen aus deinem Bestand</h2>' : "")
+      + IDEEN.map((i) => {
+        const { titel, body } = teileTitel(i.text);
+        return `
+          <div class="card hint-card">${icon("idee", 22)}
+            <div class="hint-body">${titel ? `<b>${esc(titel)}</b>` : ""}${esc(body)}</div>
+          </div>`;
+      }).join(""),
+    preps: () => `<div class="card">${PREPS.map((p) => `
+      <div class="list-item" style="flex-direction:column;align-items:stretch;gap:5px">
+        <div class="card-row" style="align-items:center"><span class="name">${esc(p.name)}</span><span class="badge neutral">${p.dauer_min} Min</span></div>
+        <span class="subtle small">${esc(p.kurz)}</span>
+      </div>`).join("")}</div>`,
     bases: () => BASES.map((b) => `
       <div class="card">
         <h3>${esc(b.name)}</h3>
-        <p class="small subtle" style="margin-top:6px">${esc(b.kurz)}</p>
+        <p class="subtle small" style="margin-top:6px">${esc(b.kurz)}</p>
         ${b.varianten ? `<p class="small" style="margin-top:6px;color:var(--accent)">Varianten: ${esc(b.varianten)}</p>` : ""}
       </div>`).join(""),
     techniken: () => TECHNIKEN.map((t) => `
-      <div class="card"><h3>${esc(t.name)}</h3><p class="small subtle" style="margin-top:6px">${esc(t.text)}</p></div>`).join(""),
+      <div class="card"><h3>${esc(t.name)}</h3><p class="subtle small" style="margin-top:6px">${esc(t.text)}</p></div>`).join(""),
   };
 
   app.replaceChildren(h(`
     <div class="fade-in">
-      <div class="screen-header"><h1>Wissen</h1><p class="subtle">Grundtechniken, Zubereitungen und Küchentipps – anfängertauglich.</p></div>
-      <div class="chip-wrap" style="margin-bottom:16px">
+      <div class="screen-header"><h1>wissen</h1><p class="subtle small">Grundtechniken und Küchentipps – anfängertauglich.</p></div>
+      <div class="chip-wrap chip-nav" style="margin-bottom:16px">
         ${Object.entries(tabs).map(([id, name]) => `<button class="chip ${wissenTab === id ? "selected" : ""}" data-wtab="${id}">${name}</button>`).join("")}
       </div>
       ${inhalt[wissenTab]()}
@@ -1279,9 +1592,18 @@ function renderProfil() {
   const form = ERNAEHRUNGSFORMEN.find((f) => f.id === s.profil.ernaehrungsform);
   const hinweise = hinweiseFuerForm(s.profil.ernaehrungsform);
 
+  const stilNamen = (s.profil.stile || []).map((id) => STILE.find((st) => st.id === id)?.name).filter(Boolean);
+  const initial = (s.profil.name || "?").trim().charAt(0).toUpperCase() || "?";
+
   app.replaceChildren(h(`
     <div class="fade-in">
-      <div class="screen-header"><h1>Profil</h1><p class="subtle">${esc(s.profil.name || "Ohne Namen")}</p></div>
+      <div class="profile-head">
+        <div class="avatar">${esc(initial)}</div>
+        <div>
+          <h1>${esc(s.profil.name || "ohne namen")}</h1>
+          <p class="subtle small">${esc([form?.name, ...stilNamen].filter(Boolean).join(" · ") || "Profil einrichten")}</p>
+        </div>
+      </div>
 
       <h2>Ernährungsform</h2>
       <div class="choice-list">
@@ -1307,10 +1629,12 @@ function renderProfil() {
         ${ZIELE.map((z) => `<button class="chip ${(s.profil.ziele || []).includes(z.id) ? "selected" : ""}" data-pziel="${z.id}">${esc(z.name)}</button>`).join("")}
       </div>
       ${(s.profil.ziele || []).map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean).map((z) => `
-        <div class="card hint-card" style="margin-top:12px"><b>${esc(z.name)} – was die Wissenschaft sagt</b>${esc(z.hinweis)}</div>`).join("")}
+        <div class="card hint-card" style="margin-top:12px">${icon("ziel", 20)}
+          <div class="hint-body"><b>${esc(z.name)} – was die Wissenschaft sagt</b>${esc(z.hinweis)}</div>
+        </div>`).join("")}
 
       <h2 class="section-gap">Hinweise zu deiner Ernährungsform</h2>
-      ${hinweise.map((t) => `<div class="card hint-card">${esc(t)}</div>`).join("")}
+      ${hinweise.map((t) => `<div class="card hint-card">${icon("tipp", 20)}<span class="hint-body">${esc(t)}</span></div>`).join("")}
       <p class="subtle small">${esc(FORM_HINWEISE.sonderfaelle)}</p>
 
       ${s.historie.length ? `
@@ -1318,31 +1642,33 @@ function renderProfil() {
         <div class="card">
           ${s.historie.slice(0, 8).map((e) => `
             <div class="list-item"><div class="grow"><span class="name">${esc(e.name)}</span>
-            <span class="subtle small" style="display:block">${new Date(e.datum).toLocaleDateString("de-DE")} · ${e.portionen} Portionen</span></div></div>`).join("")}
+            <span class="subtle small" style="display:block">${new Date(e.datum).toLocaleDateString("de-DE")} · ${portionenText(e.portionen)}</span></div></div>`).join("")}
         </div>` : ""}
 
-      <h2 class="section-gap">Claude API</h2>
+      <h2 class="section-gap">Claude-API-Key</h2>
       <div class="card">
-        <label class="field">API-Key (für AI-Rezepte & Bon-Scan)
-          <input type="password" id="api-key" placeholder="sk-ant-…" value="${esc(s.settings.apiKey || "")}" autocomplete="off">
-        </label>
-        <button class="btn small-btn" id="api-key-save">Speichern</button>
-        <p class="subtle small" style="margin-top:8px">Der Key bleibt ausschließlich lokal auf diesem Gerät und wird nur an api.anthropic.com gesendet. Key erstellen: console.anthropic.com.</p>
+        <div class="card-row" style="align-items:center;margin-bottom:12px">
+          <span class="name">Für AI-Rezepte &amp; Bon-Scan</span>
+          <span class="badge${s.settings.apiKey ? "" : " neutral"}">${s.settings.apiKey ? "hinterlegt" : "fehlt"}</span>
+        </div>
+        <input type="password" id="api-key" placeholder="sk-ant-…" value="${esc(s.settings.apiKey || "")}" autocomplete="off">
+        <button class="btn small-btn" id="api-key-save" style="margin-top:10px">Speichern</button>
+        <p class="subtle small" style="margin-top:10px">Bleibt lokal auf diesem Gerät und geht nur an api.anthropic.com. Key erstellen: console.anthropic.com.</p>
         ${(s.aiRezepte || []).length ? `
-          <hr class="divider">
-          <div class="card-row"><span class="small">${s.aiRezepte.length} AI-Rezepte gespeichert</span>
+          <hr class="divider" style="margin:14px 0">
+          <div class="card-row" style="align-items:center"><span class="small">${s.aiRezepte.length} AI-Rezepte gespeichert</span>
           <button class="btn ghost small-btn" id="ai-loeschen">Löschen</button></div>` : ""}
       </div>
 
       <h2 class="section-gap">Daten</h2>
       <div class="btn-row">
-        <button class="btn secondary" id="export">JSON-Export</button>
-        <button class="btn secondary" id="import">JSON-Import</button>
+        <button class="btn secondary" id="export">Export</button>
+        <button class="btn secondary" id="import">Import</button>
       </div>
       <input type="file" id="import-file" accept="application/json" hidden>
-      <p class="subtle small" style="margin-top:8px">Alles liegt lokal auf diesem Gerät. Der Export ist dein Backup (auch gegen iOS-Speicherbereinigung) – regelmäßig sichern.</p>
+      <p class="subtle small" style="margin-top:10px">Alles liegt lokal auf diesem Gerät. Der Export ist dein Backup (auch gegen iOS-Speicherbereinigung) – regelmäßig sichern.</p>
       <button class="btn danger" id="reset">Alle Daten zurücksetzen</button>
-      <p class="subtle small" style="text-align:center;margin-top:20px">Vorratio v1 · lokal & privat · ersetzt keine Ernährungs- oder ärztliche Beratung</p>
+      <p class="centered-note" style="margin-top:20px">vorratio v1 · lokal &amp; privat · ersetzt keine Ernährungs- oder ärztliche Beratung</p>
     </div>`));
 
   app.querySelectorAll("[data-pform]").forEach((b) => b.addEventListener("click", () => { s.profil.ernaehrungsform = b.dataset.pform; save(); renderProfil(); }));
