@@ -25,6 +25,17 @@ Rezeptdatenbank prüfen (vor jedem Commit an den Daten):
 node tools/validate-db.mjs
 ```
 
+Vor einem Pull Request zusätzlich prüfen, ob der Branch noch aktuell ist – an
+diesem Repo laufen mehrere Prozesse parallel, `main` zieht also unter offenen
+Branches weiter:
+
+```bash
+node tools/pr-aktuell.mjs
+```
+
+Meldet in einem Lauf: nicht committete Änderungen, nicht gepushte Commits,
+fehlende `main`-Commits und Merge-Konflikte. Exit 1 heißt: erst nachziehen.
+
 ## Stand (v3.1)
 
 Neu gegenüber v3:
@@ -54,7 +65,7 @@ Neu gegenüber v3:
 
 Neu gegenüber v2.1:
 
-- **Rezeptdatenbank von 36 auf 232 Rezepte ausgebaut.** Der bisherige Kernblock war ein
+- **Rezeptdatenbank von 39 auf 235 Rezepte ausgebaut.** Der bisherige Kernblock war ein
   Startdatensatz zum Testen der Engine – Ø 3,9 Schritte, kein Rezept über 5 Schritte,
   Schwierigkeitsstufe „fortgeschritten" komplett unbelegt. Dazu kommen jetzt vier Blöcke:
   - `js/data/rezepte-komplex.js` – **42 komplexe Rezepte** mit 8–14 Schritten und echten
@@ -71,7 +82,7 @@ Neu gegenüber v2.1:
     Verzichtsentscheidung, sondern eine Zeile im selben Rezept.
   - `js/data/rezepte-welt.js` – **55 Weltküchen-Rezepte** über 25 Küchen, inkl. der bislang
     fast leeren Fisch-Ecke (BfR 17/2024: kleine Fische statt großer Raubfische).
-  - `js/data/rezepte-alltag.js` – **44 Alltagsrezepte**: Frühstück (von 11 auf 27 Rezepte),
+  - `js/data/rezepte-alltag.js` – **44 Alltagsrezepte**: Frühstück (von 14 auf 30 Rezepte),
     schnelle Feierabendgerichte, Resteverwertung und Snacks.
   - **91 neue Zutaten** (Tofu-Varianten, Tempeh, Seitan, Schmorfleisch, Fisch, Risottoreis,
     Filoteig, Weinessig, Gewürze) – die Datenbank umfasst jetzt 249 Zutaten.
@@ -134,7 +145,7 @@ Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
   Ausgeschlossenes (Soja → Tofu, halal/koscher → Schwein) wird gar nicht erst
   angeboten. Rückkopplung: weicher Bonus im Vorschlags-Score, AI-Systemprompt und
   „Trifft deine Vorlieben"-Hinweis im Rezept-Detail ·
-  Stil-Präferenzen (mediterran, High-Protein, Low-Carb; Keto/Paleo mit Evidenz-Hinweis) ·
+  Stil-Präferenzen (mediterran, High-Protein, Low-Carb) ·
   **Ziele** (mehr Energie, Abnehmen, fitter werden/Muskelaufbau, flacherer Bauch, mehr
   Konzentration, gesunde Verdauung) – nur Ziele, die wissenschaftlich belegt über
   Ernährung beeinflussbar sind (DGE, EFSA, ISSN 2017, DIETFITS 2018, PREDIMED/MIND);
@@ -166,7 +177,7 @@ Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
   1 Empfehlung + 2 Alternativen). Quelle Marktguru (PLZ + Keys in den Einstellungen),
   ohne Keys Demo-Modus; Details in [docs/angebots-crawl.md](docs/angebots-crawl.md).
 - **Wissen**: 18 Grundtechniken, 15 Produktzubereitungen, 9 Grundrezepte, Tipps & Ideen aus
-  der Kern-Rezept-DB (Schema `kruggel-recipe-db/v1`, 25 Vollrezepte strukturiert).
+  der Kern-Rezept-DB (Schema `kruggel-recipe-db/v1`, 235 Rezepte strukturiert).
 - **Persistenz** (Kap. 6.4): Auto-Save je Aktion (localStorage), JSON-Export/-Import als
   Backup; offlinefähig per Service Worker.
 
@@ -196,6 +207,7 @@ js/data/rezepte-alltag.js   Aufbaublock 4: Frühstück, Alltag, Snacks
 js/data/profil.js     Ernährungsprofil-Achsen + DGE/BfR-Hinweise
 js/data/angebote-demo.js  Demo-Angebote für den Crawl (offline testbar)
 tools/validate-db.mjs Schema-Validator für die Rezeptdatenbank
+tools/pr-aktuell.mjs  Prüft vor einer PR, ob der Branch noch zu main passt
 docs/                 Projektdoku, fünf Recherchen (Daten, Snacks, Picnic-Recht) + Angebots-Crawl-Doku
 ```
 

@@ -1480,6 +1480,7 @@ function renderValidierung() {
     detailRezept = null;      // sonst liegt das Rezept-Detail noch über dem Zielscreen
     view = "vorrat";
     render();
+    toast(gebucht.length ? `Verbrauch abgebucht · ${gebucht.length} ${gebucht.length === 1 ? "Position" : "Positionen"}` : "Gekocht – nichts abzubuchen");
   });
   app.querySelector("#ohne").addEventListener("click", () => { cook = null; detailRezept = null; view = "heute"; render(); });
 }
@@ -1503,7 +1504,7 @@ function renderVorrat() {
             <button class="pill-btn" id="add-toggle">${vorratAddOffen ? icon("x", 19) : icon("plus", 19)}${vorratAddOffen ? "Schließen" : "Erfassen"}</button>
           </div>
         </div>
-        <p class="subtle small">${s.bestand.length} ${s.bestand.length === 1 ? "Artikel" : "Artikel"}</p>
+        <p class="subtle small">${s.bestand.length} Artikel</p>
       </div>
       ${scanPanel ? barcodeUi() : ""}
       ${vorratAddOffen ? vorratAddForm() : ""}
@@ -1538,7 +1539,17 @@ function renderVorrat() {
     app.querySelector("#bon-start")?.click();
     app.querySelector("#bon-key")?.scrollIntoView({ block: "center" });
   }));
-  app.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => renderVorratEdit(b.dataset.edit)));
+  /* Die Bestandszeilen sind Divs mit role="button" – dann müssen sie auch auf
+     Enter und Leertaste reagieren, sonst sind sie für Tastatur und Schaltersteuerung
+     zwar anspringbar, aber nicht auslösbar. */
+  app.querySelectorAll("[data-edit]").forEach((b) => {
+    b.addEventListener("click", () => renderVorratEdit(b.dataset.edit));
+    b.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      renderVorratEdit(b.dataset.edit);
+    });
+  });
 }
 
 /* Bestandszeile: Schüttgut bekommt den Füllstandsbalken der Übergabe (Design 14),
@@ -2056,24 +2067,32 @@ function renderEinkauf() {
   bindAngebote(s);
 
   app.querySelectorAll("[data-r-check]").forEach((b) => b.addEventListener("click", () => {
-    s.einkauf.rezept[b.dataset.rCheck].erledigt = !s.einkauf.rezept[b.dataset.rCheck].erledigt;
+    const e = s.einkauf.rezept[Number(b.dataset.rCheck)];
+    e.erledigt = !e.erledigt;
     save(); renderEinkauf();
   }));
   app.querySelectorAll("[data-w-check]").forEach((b) => b.addEventListener("click", () => {
-    s.einkauf.woche[b.dataset.wCheck].erledigt = !s.einkauf.woche[b.dataset.wCheck].erledigt;
+    const e = s.einkauf.woche[Number(b.dataset.wCheck)];
+    e.erledigt = !e.erledigt;
     save(); renderEinkauf();
   }));
   app.querySelectorAll("[data-w-del]").forEach((b) => b.addEventListener("click", () => {
-    s.einkauf.woche.splice(b.dataset.wDel, 1);
+    s.einkauf.woche.splice(Number(b.dataset.wDel), 1);
     save(); renderEinkauf();
   }));
   app.querySelector("#einkauf-fertig")?.addEventListener("click", async () => {
-    for (const e of s.einkauf.rezept) buchZugang(s, e.zutat_id);
-    s.einkauf.rezept = [];
+    /* Gebucht wird, was abgehakt ist – vorher wanderte die ganze Liste in den
+       Vorrat, auch die Punkte, die im Laden nicht zu bekommen waren. Wer gar
+       nichts abhakt, meint mit „Eingekauft" den ganzen Einkauf; nur dann zählt
+       die komplette Liste. Nicht Gekauftes bleibt stehen. */
+    const abgehakt = s.einkauf.rezept.filter((e) => e.erledigt);
+    const buchen = abgehakt.length ? abgehakt : s.einkauf.rezept;
+    for (const e of buchen) buchZugang(s, e.zutat_id);
+    s.einkauf.rezept = s.einkauf.rezept.filter((e) => !buchen.includes(e));
     const rid = s.einkauf.rezeptId;
-    s.einkauf.rezeptId = null;
+    if (!s.einkauf.rezept.length) s.einkauf.rezeptId = null;
     save();
-    const r = rid ? findRezept(rid) : null;
+    const r = rid && !s.einkauf.rezept.length ? findRezept(rid) : null;
     if (r && await bestaetige({
       titel: "Bestand aufgefüllt",
       text: `Direkt mit „${r.name}“ loslegen?`,
@@ -2166,7 +2185,7 @@ function bindBonScan(s) {
     renderEinkauf();
   });
   app.querySelectorAll("[data-bon-check]").forEach((b) => b.addEventListener("click", () => {
-    const a = bon.artikel[b.dataset.bonCheck];
+    const a = bon.artikel[Number(b.dataset.bonCheck)];
     a.buchen = !a.buchen;
     renderEinkauf();
   }));

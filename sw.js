@@ -53,8 +53,13 @@ self.addEventListener("fetch", (e) => {
   e.respondWith(
     fetch(e.request)
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        // Nur vollständige Antworten cachen: Teilinhalte (206) und Fehlerseiten
+        // lehnt cache.put ab – ohne den Filter quittiert der Browser das mit
+        // einer unbehandelten Rejection in der Konsole.
+        if (res.ok && res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        }
         return res;
       })
       .catch(() => caches.match(e.request, { ignoreSearch: true }))

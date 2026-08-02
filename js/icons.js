@@ -39,12 +39,9 @@ const PFADE = {
   check: `<circle class="ink" cx="12" cy="12" r="9"/>
     <path class="on" d="M7.8 12.3l2.9 2.9 5.5-6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`,
   checkLeer: `<circle class="ring" cx="12" cy="12" r="9" stroke-width="1.6"/>`,
-  entfernen: `<circle class="warnfill" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/>
-    <path d="M9.2 9.2l5.6 5.6M14.8 9.2l-5.6 5.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>`,
   x: `<path d="M8.4 8.4l7.2 7.2M15.6 8.4l-7.2 7.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`,
   zurueck: `<path d="M14.6 5.4L8 12l6.6 6.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>`,
   weiter: `<path d="M9.4 5.4L16 12l-6.6 6.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
-  runter: `<path d="M6 9.5l6 6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
   suche: `<circle cx="11" cy="11" r="6.6" stroke="currentColor" stroke-width="1.7"/>
     <path d="M15.8 15.8l4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>`,
   /* Lesezeichen offen/gefüllt – der Schalter „ins Kochbuch / wieder raus". */
@@ -59,8 +56,6 @@ const PFADE = {
   idee: `<path class="duo" d="M12 4.6l2.3 5.1 5.1 2.3-5.1 2.3-2.3 5.1-2.3-5.1L4.6 12l5.1-2.3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`,
   geschafft: `<path class="duo" d="M4.2 20.4l4.6-11 6.6 6.6z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
     <path d="M15.4 3.6v2.6M20.4 8.6h-2.6M19.4 4.6l-1.8 1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`,
-  timer: `<circle class="duo" cx="12" cy="13" r="8.2" stroke="currentColor" stroke-width="1.6"/>
-    <path d="M12 9v4.2l2.6 1.6M9.4 2.8h5.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`,
   ziel: `<circle class="duo" cx="12" cy="12" r="8.4" stroke="currentColor" stroke-width="1.6"/>
     <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.6"/>
     <circle class="ink" cx="12" cy="12" r="1.3"/>`,

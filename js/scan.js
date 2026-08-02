@@ -13,9 +13,10 @@ const OFF_FIELDS = "product_name,product_name_de,brands,quantity,product_quantit
 async function lookupBarcode(ean) {
   const code = String(ean).replace(/\D/g, "");
   if (code.length < 8) throw new Error("Kein gültiger EAN-Code.");
-  const res = await fetch(`${OFF_URL}/${code}.json?fields=${OFF_FIELDS}`, {
-    headers: { "User-Agent": "Vorratio/1.0 (private PWA)" },
-  });
+  // Kein User-Agent-Header: Browser verbieten ihn (Forbidden Header Name) und
+  // verwerfen ihn stillschweigend – gesetzt hätte er nur einen unnötigen
+  // Preflight ausgelöst. Open Food Facts verlangt ihn nur serverseitig.
+  const res = await fetch(`${OFF_URL}/${code}.json?fields=${OFF_FIELDS}`);
   if (!res.ok) throw new Error(`Open Food Facts nicht erreichbar (${res.status}).`);
   const data = await res.json();
   if (data.status !== 1 || !data.product) return null;

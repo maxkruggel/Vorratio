@@ -38,9 +38,19 @@ async function anfrage(apiKey, body) {
   }
   const data = await res.json();
   if (data.stop_reason === "refusal") throw new Error("Anfrage wurde vom Modell abgelehnt.");
+  // Bricht die Antwort am Token-Limit ab, ist das JSON abgeschnitten. Ohne
+  // diesen Zweig platzt JSON.parse mit "Unexpected end of JSON input" – eine
+  // Meldung, mit der in der Küche niemand etwas anfangen kann.
+  if (data.stop_reason === "max_tokens") {
+    throw new Error("Die Antwort war zu lang und wurde abgeschnitten. Bitte noch einmal versuchen.");
+  }
   const text = data.content?.find((b) => b.type === "text")?.text;
   if (!text) throw new Error("Leere Antwort vom Modell.");
-  return JSON.parse(text);
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("Antwort des Modells war unvollständig. Bitte noch einmal versuchen.");
+  }
 }
 
 /* ------------------------------------------------------------ Rezept-Schema */

@@ -15,7 +15,9 @@ Rezeptvorschläge (3 je Essens-Slot + Snack-Ecke) → Kochmodus mit Timern →
 automatische Abbuchung mit Toleranz → Einkauf füllt den Bestand wieder auf.
 
 - Starten: `python3 -m http.server 8080` (statisch servieren reicht)
-- Keine Tests, kein Linter, keine CI im Repo
+- Kein Linter, keine CI im Repo. Zwei Prüfskripte gibt es aber, beide ohne
+  Abhängigkeiten: `node tools/validate-db.mjs` (Rezeptdaten) und
+  `node tools/pr-aktuell.mjs` (Branch-Stand vor einer PR, s. u.)
 - Sprache durchgehend Deutsch (Code-Bezeichner, Kommentare, UI)
 
 ## Dateibaum
@@ -40,6 +42,8 @@ js/data/kerndb.js          Kern-DB (Schema kruggel-recipe-db/v1): ZUTATEN, REZEP
 js/data/profil.js          Profil-Achsen: ERNAEHRUNGSFORMEN, FORM_ERLAUBT, AUSSCHLUESSE, STILE, ZIELE, FORM_HINWEISE
 js/data/substitutionen.js  Substitutions-DB (vorratio-substitutions-db/v1): SUBSTITUTIONEN, BASIS_ALLERGENE, SUB_*
 js/data/angebote-demo.js   DEMO_ANGEBOTE für den Crawl ohne API-Keys
+tools/validate-db.mjs      Schema-Validator für die Rezeptdatenbank (node tools/validate-db.mjs)
+tools/pr-aktuell.mjs       PR-Aktualitätsprüfung gegen main (node tools/pr-aktuell.mjs)
 docs/                      Projektdoku (vorratio-doku.md), 5 Recherchen, angebots-crawl.md, design-handoff/
 ```
 
@@ -222,6 +226,35 @@ Allergie-Filter über `BASIS_ALLERGENE[alt.basis]`, hart wie überall.
 - Kommentare im Code verweisen auf Doku-Kapitel („Kap. 4.7") =
   `docs/vorratio-doku.md` und auf Design-Nummern („Design 19") =
   Screenshots in `docs/design-handoff/screenshots/`.
+
+## Pull Requests: an diesem Repo arbeiten mehrere Prozesse parallel
+
+Während ein Branch reift, wandern andere PRs nach `main`. Ein Branch, der beim
+Anlegen noch sauber war, ist beim Mergen womöglich veraltet – und `main` fasst
+regelmäßig dieselben Stellen an (`js/storage.js` bekommt mit jeder neuen
+Funktion ein State-Feld, `sw.js` eine SHELL-Zeile, `js/data/profil.js` eine
+Achse). Erfahrungswert aus der Praxis: drei Nachzüge innerhalb einer Sitzung.
+
+**Pflicht vor jedem `git push`, vor dem Anlegen einer PR und bevor eine PR als
+fertig oder mergebar gemeldet wird:**
+
+```bash
+node tools/validate-db.mjs && node tools/pr-aktuell.mjs
+```
+
+`tools/pr-aktuell.mjs` prüft in einem Lauf: Arbeitsbaum committet · alles
+gepusht (sonst zeigt die PR einen älteren Head) · `origin/main` vollständig
+enthalten · Merge liefe konfliktfrei. Exit 1 = erst nachziehen, die Ausgabe
+nennt den Befehl. Exit 2 = Prüfung selbst nicht möglich (kein Netz, kein
+Repo) – das ist **kein** Freifahrtschein.
+
+Die Statusanzeige von GitHub ist dafür kein Ersatz: `mergeable_state` wird
+asynchron berechnet und liefert direkt nach einem Push `unknown` oder einen
+veralteten Wert. Im Zweifel gilt der lokale Lauf.
+
+Nach jedem Nachziehen die inhaltlichen Prüfungen wiederholen – ein Merge kann
+Rezeptdaten, Icon-Verwendung oder State-Felder verändern, ohne dass es
+Konflikte gibt.
 
 ## Roadmap (nächste Ausbaustufen, Doku Kap. 9)
 
