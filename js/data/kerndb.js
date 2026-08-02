@@ -134,6 +134,8 @@ const ZUTATEN = [
   { id: "ing_haferdrink",           name: "Haferdrink",              kategorie: "trocken",  art: "schuettgut", einheit: "ml", packung: 1000 },
   { id: "ing_sojajoghurt",          name: "Pflanzenjoghurt",         kategorie: "kuehl",    art: "schuettgut", einheit: "g",  packung: 400 },
   { id: "ing_raeuchertofu",         name: "Räuchertofu",             kategorie: "kuehl",    art: "zaehlbar",   einheit: "Pck", inhalt_g: 200 },
+  { id: "ing_tempeh",               name: "Tempeh",                  kategorie: "kuehl",    art: "zaehlbar",   einheit: "Pck", inhalt_g: 200 },
+  { id: "ing_seitan",               name: "Seitan",                  kategorie: "kuehl",    art: "zaehlbar",   einheit: "Pck", inhalt_g: 200 },
   { id: "ing_kidney_trocken",       name: "Weiße Bohnen (Dose)",     kategorie: "konserve", art: "zaehlbar",   einheit: "Dose", inhalt_g: 250 },
   { id: "ing_thunfisch_dose",       name: "Thunfisch (Dose)",        kategorie: "konserve", art: "zaehlbar",   einheit: "Dose", inhalt_g: 150 },
   { id: "ing_gefluegel_hack",       name: "Geflügelhack",            kategorie: "kuehl",    art: "schuettgut", einheit: "g",  packung: 400 },
