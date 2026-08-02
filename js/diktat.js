@@ -98,6 +98,10 @@ const ZAHLWORT = {
   dreissig: 30, vierzig: 40, fuenfzig: 50, hundert: 100, dutzend: 12,
   halb: 0.5, halbe: 0.5, halben: 0.5, halber: 0.5, halbes: 0.5,
   anderthalb: 1.5, eineinhalb: 1.5, zweieinhalb: 2.5, dreieinhalb: 3.5,
+  // Mal-Wörter sind gesprochene Stückzahlen: "einmal Haferdrink",
+  // "zweimal 700 ml passierte Tomaten".
+  einmal: 1, zweimal: 2, dreimal: 3, viermal: 4, fuenfmal: 5,
+  sechsmal: 6, siebenmal: 7, achtmal: 8, neunmal: 9, zehnmal: 10,
 };
 
 /* Halbe Sachen sind zweideutig – siehe gruppenAusZeile(). */
@@ -226,8 +230,10 @@ function eigeneKandidaten(bestand) {
 
 /* Einheiten-Familie: nur echte Mengen-Einheiten dürfen einen Kandidaten
    ausschließen. "Glas", "Packung", "Becher" sagen nichts über die Führungsart
-   und bleiben darum wertungsfrei. */
-const FAMILIE = { g: "g", kg: "g", ml: "ml", l: "ml", Stk: "Stk", Dose: "Dose", Zehe: "Zehe", Bund: "Bund", Stange: "Stange", Rolle: "Rolle" };
+   und bleiben darum wertungsfrei. Gramm und Milliliter sind EINE Familie:
+   "700 ml passierte Tomaten" meint dieselbe Zutat, auch wenn der Katalog sie
+   in g führt – ml ≈ g liegt im Toleranzband (Kap. 5). */
+const FAMILIE = { g: "schuett", kg: "schuett", ml: "schuett", l: "schuett", Stk: "Stk", Dose: "Dose", Zehe: "Zehe", Bund: "Bund", Stange: "Stange", Rolle: "Rolle" };
 
 /* Wie gut deckt ein einzelnes gesprochenes Wort einen Kandidatennamen? */
 function punkteFuerWort(w, st, kandidatWoerter) {
@@ -287,14 +293,38 @@ function findeZutat(name, einheit, bekannt = new Set(), kandidaten = KATALOG) {
 }
 
 /* ------------------------------------------------------------- Zerlegung */
+/* Manche Produktnamen tragen ihr "und" im Namen: "Erbsen und Möhren" ist die
+   Dosen-Mischung, kein Aufzählungs-und. Geschützt wird nur, was so im Katalog
+   oder im eigenen Bestand steht – jedes andere "und" trennt weiterhin. */
+function undKomposita(kandidaten) {
+  const paare = [];
+  for (const k of kandidaten) {
+    const undPos = k.woerter.indexOf("und");
+    if (undPos > 0 && undPos < k.woerter.length - 1) {
+      paare.push([stamm(k.woerter[undPos - 1]), stamm(k.woerter[undPos + 1])]);
+    }
+  }
+  return paare;
+}
+
+function schuetzeKomposita(text, paare) {
+  if (!paare.length) return text;
+  return String(text ?? "").replace(/([\p{L}\p{N}-]+)(\s+)und(\s+)([\p{L}\p{N}-]+)/giu, (treffer, vor, w1, w2, nach) => {
+    const links = stamm(normText(vor));
+    const rechts = stamm(normText(nach));
+    return paare.some(([a, b]) => a === links && b === rechts) ? `${vor}${w1}⁊${w2}${nach}` : treffer;
+  });
+}
+
 /* Ein Diktat ist eine Aufzählung. Getrennt wird an dem, was Menschen beim
    Aufzählen sagen – Komma, Punkt, "und", "dann", "außerdem". Zahlen mit
-   Dezimalkomma werden vorher geschützt, sonst zerfällt "1,5 kg". */
-function segmente(text) {
-  const roh = String(text ?? "")
+   Dezimalkomma werden vorher geschützt, sonst zerfällt "1,5 kg"; geschützte
+   Komposita-"und" (⁊) kommen nach dem Trennen zurück. */
+function segmente(text, komposita = []) {
+  const roh = schuetzeKomposita(String(text ?? ""), komposita)
     .replace(/(\d)[,.](\d)/g, "$1·$2")
     .split(/[,.;\n!?]+|\bund\b|\bdann\b|\bau(?:ß|ss)erdem\b|\bsowie\b|\bplus\b/i);
-  return roh.map((s) => s.replace(/·/g, ",").trim()).filter((s) => s.length > 1);
+  return roh.map((s) => s.replace(/·/g, ",").replace(/⁊/g, "und").trim()).filter((s) => s.length > 1);
 }
 
 /* Wortpaare: normalisiert für die Logik, im Original für die Anzeige. Beides
@@ -354,6 +384,16 @@ function gruppenAusZeile(zeile) {
           akt.kopf.push(naechstes.roh);
           i++;
         }
+        continue;
+      }
+      /* Zwei Mengen direkt hintereinander ("zweimal 700 ml Passata"):
+         Stückzahl × Packungsgröße ist EINE Angabe, kein neuer Artikel. */
+      const groesse = worte[i + 1];
+      if (groesse && EINHEIT_INDEX[groesse.norm]) {
+        akt.menge *= alsZahl;
+        akt.einheit = EINHEIT_INDEX[groesse.norm];
+        akt.kopf.push(worte[i].roh, groesse.roh);
+        i++;
         continue;
       }
     }
@@ -451,7 +491,7 @@ function parseDiktat(text, bestand = []) {
   const kandidaten = [...KATALOG, ...eigeneKandidaten(bestand)];
   const eintraege = [];
 
-  for (const zeile of segmente(text)) {
+  for (const zeile of segmente(text, undKomposita(kandidaten))) {
     for (const gruppe of gruppenAusZeile(zeile)) {
       const artikel = teileArtikel(gruppe.worte, gruppe.einheit, bekannt, kandidaten);
 

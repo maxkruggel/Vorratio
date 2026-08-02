@@ -89,6 +89,17 @@ function anzahlNormiert(wert) {
   return Math.min(999, Math.round(n));
 }
 
+/* Aufgedruckte Packungsgröße ("500 g", "0,7 l") → g/ml. Kommt nur, wenn das
+   Etikett wirklich lesbar war – der Prompt verbietet das Raten. Sie sticht die
+   Standardgröße des Katalogs aus: "¾ voll" von 500 g sind 380 g, nicht 150 g. */
+function packungNormiert(menge, einheit) {
+  const n = Number(menge);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const faktor = { g: 1, ml: 1, kg: 1000, l: 1000 }[einheit];
+  if (!faktor) return null;
+  return Math.round(n * faktor);
+}
+
 /* Erkannte Artikel → Bestandseinträge in der Führungsart der Zutat.
 
    `freieDaten(name)` liefert die Ersatzangaben für alles, was nicht im Katalog
@@ -108,7 +119,9 @@ function fotoEintraege(artikel, freieDaten = () => ({})) {
     const kat = a?.zutat_id ? ZUTAT_INDEX[a.zutat_id] : null;
     const daten = kat || freieDaten(rohName) || {};
     const art = daten.art || "schuettgut";
-    const packung = daten.packung || kat?.packung || (art === "schuettgut" ? 500 : null);
+    const aufdruck = packungNormiert(a?.packung_menge, a?.packung_einheit);
+    const packung = (art === "schuettgut" && aufdruck) || daten.packung || kat?.packung
+      || (art === "schuettgut" ? 500 : null);
     const anzahl = anzahlNormiert(a?.anzahl);
     const fuellstand = anteilNormiert(a?.fuellstand);
 

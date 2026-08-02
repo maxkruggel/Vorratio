@@ -364,13 +364,15 @@ const SCHRANK_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["gesehen", "name", "zutat_id", "anzahl", "fuellstand", "sicher"],
+        required: ["gesehen", "name", "zutat_id", "anzahl", "fuellstand", "packung_menge", "packung_einheit", "sicher"],
         properties: {
           gesehen: { type: "string" },
           name: { type: "string" },
           zutat_id: { type: ["string", "null"] },
           anzahl: { type: ["number", "null"] },
           fuellstand: { type: ["number", "null"] },
+          packung_menge: { type: ["number", "null"] },
+          packung_einheit: { type: ["string", "null"], enum: ["g", "kg", "ml", "l", null] },
           sicher: { type: "boolean" },
         },
       },
@@ -402,6 +404,8 @@ und trägt fehlende Mengen selbst nach – eine erfundene Angabe kostet ihn mehr
   (5 sichtbare Dosen = 5). Verdeckt gestapelt oder unklar: null.
 - "fuellstand": 0 bis 1, NUR wenn der Inhalt sichtbar ist – durchsichtiges Glas, Flasche,
   offene Schale. Blickdichte Packungen (Mehltüte, Karton, Dose): immer null. Rate nie.
+- "packung_menge"/"packung_einheit": die aufgedruckte Packungsgröße (z. B. "500 g", "0,7 l"),
+  NUR wenn sie auf dem Etikett wirklich lesbar ist. Nicht lesbar oder nur üblich: beides null.
 - "sicher": true nur bei lesbarem Etikett oder eindeutiger Form. Alles Erahnte: false.
 - Steht dieselbe Sache mehrfach im Bild oder auf mehreren Fotos, nenne sie einmal.
 - "ort": drei bis fünf Worte, was da fotografiert wurde ("Schubfach mit Trockenware").

@@ -1443,8 +1443,13 @@ function barcodeUi() {
       <span class="hint-body">Barcode ${esc(p.ean)} ist nicht in Open Food Facts. Produkt bitte über „Erfassen“ anlegen.</span>
     </div>
     <button class="btn secondary" id="ean-zurueck">Zurück</button>`;
-  // Treffer: Produkt + Zuordnungsvorschlag
+  // Treffer: Produkt + Zuordnungsvorschlag. Ohne Auto-Treffer wird nichts
+  // vorgegaukelt: Standard ist dann der eigene Artikel unter dem Produktnamen –
+  // ein zweiter Scan desselben Produkts landet über den Namen wieder bei ihm.
   const produkt = p.produkt;
+  const eigeneGesehen = new Set();
+  const eigene = getState().bestand.filter((b) =>
+    b.zutat_id && !ZUTAT_INDEX[b.zutat_id] && !eigeneGesehen.has(b.zutat_id) && eigeneGesehen.add(b.zutat_id));
   return `
     <div class="section-gap">
       <div class="section-head"><h2>Gefunden</h2><button class="backlink" id="ean-zurueck">Abbrechen</button></div>
@@ -1462,9 +1467,14 @@ function barcodeUi() {
         <hr class="divider" style="margin:14px 0">
         <p class="small mute" style="margin-bottom:8px">Als welche Zutat buchen?</p>
         <select id="ean-zutat">
-          ${ZUTATEN.map((z) => `<option value="${z.id}" ${p.vorschlag?.id === z.id ? "selected" : ""}>${esc(z.name)}</option>`).join("")}
+          <option value="">Als eigenen Artikel anlegen („${esc(produkt.name)}“)</option>
+          ${eigene.length ? `<optgroup label="Eigene Artikel">${eigene.map((b) =>
+            `<option value="${esc(b.zutat_id)}">${esc(b.name)}</option>`).join("")}</optgroup>` : ""}
+          <optgroup label="Zutaten-Katalog">
+            ${ZUTATEN.map((z) => `<option value="${z.id}" ${p.vorschlag?.id === z.id ? "selected" : ""}>${esc(z.name)}</option>`).join("")}
+          </optgroup>
         </select>
-        ${p.vorschlag ? "" : '<p class="subtle small" style="margin-top:6px">Kein automatischer Treffer – bitte auswählen.</p>'}
+        ${p.vorschlag ? "" : '<p class="subtle small" style="margin-top:6px">Kein Katalog-Treffer – das Produkt wird als eigener Artikel angelegt. Oder wähl oben die passende Zutat.</p>'}
       </div>
       <div class="card hint-card" style="flex-direction:column">
         <b>Menge wird als Packungsgröße gebucht</b>
@@ -1532,10 +1542,26 @@ function bindBarcode() {
     const s = getState();
     const zutatId = app.querySelector("#ean-zutat").value;
     const produkt = scanPanel.produkt;
-    const kat = ZUTAT_INDEX[zutatId];
     // OFF-Packungsgröße nutzen, wenn Einheit zum Bestandseintrag passt
     const einheit = produkt.mengen_einheit === "g" || produkt.mengen_einheit === "ml" ? produkt.mengen_einheit : null;
-    buchZugang(s, zutatId, einheit && kat?.einheit === einheit ? produkt.menge : null, einheit);
+    if (zutatId) {
+      const kat = ZUTAT_INDEX[zutatId];
+      buchZugang(s, zutatId, einheit && kat?.einheit === einheit ? produkt.menge : null, einheit);
+    } else {
+      /* Kein Katalog-Treffer: das Produkt wird eigener Artikel – mit der
+         OFF-Packungsgröße statt eines geratenen Standardwerts. */
+      const vorher = new Set(s.bestand.map((b) => b.id));
+      const item = freierBestand(s, produkt.name);
+      const neu = !vorher.has(item.id);
+      if (einheit && produkt.menge && item.art === "schuettgut") {
+        item.packung = produkt.menge;
+        item.einheit = einheit;
+        item.menge = neu ? produkt.menge : (item.menge ?? 0) + produkt.menge;
+      } else if (!neu && item.art === "zaehlbar") {
+        item.menge = (item.menge ?? 0) + 1;
+      }
+      item.updated = new Date().toISOString();
+    }
     save();
     scanPanel = null;
     renderVorrat();
@@ -1914,15 +1940,20 @@ function schrankfotoUi() {
 }
 
 /* Mengen-Bedienelement je Führungsart – dieselbe Logik wie im Mengen-Screen,
-   nur kompakt in der Zeile (Design 19–21). */
+   nur kompakt in der Zeile (Design 19–21). Die Führungsart ist umschaltbar:
+   Auf dem Foto liegen vier Tortenguss-Päckchen – das ist eine Stückzahl, kein
+   „¾ voll", auch wenn der Artikel nicht im Katalog steht. Und bei Mandelmus
+   im Glas will man den Füllstand ziehen statt nur „vorrätig" zu sagen. */
 function fotoMengeUi(e, i) {
+  const wechsel = (ziel, text) => `<button class="mini-link" data-fot-art="${i}" data-wert="${ziel}">${text}</button>`;
   if (e.art === "pauschal") {
     const leer = e.menge === 0;
     return `
       <div class="quick-row">
         <button class="chip ${leer || e.nachfragen ? "" : "selected"}" data-fot-pausch="${i}" data-wert="da">vorrätig</button>
         <button class="chip ${leer ? "selected" : ""}" data-fot-pausch="${i}" data-wert="leer">leer</button>
-      </div>`;
+      </div>
+      <div class="foto-meta">${wechsel("schuettgut", "Füllstand schätzen")}</div>`;
   }
   if (e.art === "zaehlbar") {
     return `
@@ -1930,16 +1961,29 @@ function fotoMengeUi(e, i) {
         <button data-fot-schritt="${i}" data-wert="-1" aria-label="Weniger">${icon("minus", 18)}</button>
         <span class="count">${e.menge ?? 0}<span class="einheit">${esc(e.einheit)}</span></span>
         <button class="primary" data-fot-schritt="${i}" data-wert="1" aria-label="Mehr">${icon("plus", 18)}</button>
-      </div>`;
+      </div>
+      <div class="foto-meta">${wechsel("schuettgut", "Füllstand schätzen statt zählen")}</div>`;
   }
   const voll = e.packung || 500;
   const pct = Math.round(Math.min(1, (e.menge || 0) / voll) * 100);
   const stufen = [["leer", 0], ["¼", 25], ["½", 50], ["¾", 75], ["voll", 100]];
   const nahe = stufen.reduce((a, b) => (Math.abs(b[1] - pct) < Math.abs(a[1] - pct) ? b : a))[1];
   return `
-    <div class="quick-row">
-      ${stufen.map(([label, v]) => `
-        <button class="chip ${!e.nachfragen && nahe === v ? "selected" : ""}" data-fot-stufe="${i}" data-wert="${v}">${label}</button>`).join("")}
+    <div class="foto-fuellstand">
+      <div class="pack-silhouette mini"><div data-fot-fill="${i}" style="height:${pct}%"></div></div>
+      <div class="grow">
+        <input type="range" data-fot-regler="${i}" min="0" max="100" step="5" value="${pct}" style="--pct:${pct}%" aria-label="Füllstand in Prozent">
+        <div class="quick-row">
+          ${stufen.map(([label, v]) => `
+            <button class="chip ${!e.nachfragen && nahe === v ? "selected" : ""}" data-fot-stufe="${i}" data-wert="${v}">${label}</button>`).join("")}
+        </div>
+      </div>
+    </div>
+    <div class="foto-meta">
+      <label class="packung-edit">Packung
+        <input type="number" data-fot-packung="${i}" value="${voll}" min="10" max="20000" step="10" inputmode="numeric" aria-label="Packungsgröße"> ${esc(e.einheit || "g")}
+      </label>
+      ${wechsel("zaehlbar", "Stück zählen statt schätzen")}
     </div>`;
 }
 
@@ -2090,6 +2134,56 @@ function bindSchrankfoto() {
     renderVorrat();
   }));
 
+  /* Füllstands-Regler: beim Ziehen nur die Zeile nachführen (ein Neuzeichnen
+     risse den Griff aus der Hand), erst beim Loslassen den Screen auffrischen. */
+  app.querySelectorAll("[data-fot-regler]").forEach((r) => {
+    const i = Number(r.dataset.fotRegler);
+    r.addEventListener("input", () => {
+      const e = foto.eintraege[i];
+      const v = Number(r.value);
+      setzeFuellstand(e, v, e.packung);
+      getippt(e);
+      r.style.setProperty("--pct", `${v}%`);
+      const fill = app.querySelector(`[data-fot-fill="${i}"]`);
+      if (fill) fill.style.height = `${v}%`;
+      const nahe = [0, 25, 50, 75, 100].reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
+      app.querySelectorAll(`[data-fot-stufe="${i}"]`).forEach((c) => c.classList.toggle("selected", Number(c.dataset.wert) === nahe));
+    });
+    r.addEventListener("change", () => renderVorrat());
+  });
+
+  /* Packungsgröße korrigieren: der Anteil bleibt, die Basis ändert sich –
+     „¾ voll" von 500 g sind 380 g, nicht 150 g. */
+  app.querySelectorAll("[data-fot-packung]").forEach((f) => f.addEventListener("change", () => {
+    const e = foto.eintraege[Number(f.dataset.fotPackung)];
+    const neu = Math.round(Number(f.value) || 0);
+    if (neu < 10) { renderVorrat(); return; }
+    const anteil = e.packung ? Math.min(1, (e.menge || 0) / e.packung) : 0.5;
+    e.packung = neu;
+    setzeFuellstand(e, Math.round(anteil * 100), neu);
+    renderVorrat();
+  }));
+
+  /* Führungsart wechseln: vier sichtbare Päckchen sind eine Stückzahl, ein
+     Glas Mandelmus ein Füllstand. Die Menge ist danach bewusst wieder offen. */
+  app.querySelectorAll("[data-fot-art]").forEach((b) => b.addEventListener("click", () => {
+    const e = foto.eintraege[Number(b.dataset.fotArt)];
+    if (b.dataset.wert === "zaehlbar") {
+      e.art = "zaehlbar";
+      e.einheit = "Pck";
+      const n = Math.round(e.packung ? (e.menge || 0) / e.packung : 1);
+      e.menge = Math.min(20, Math.max(1, n || 1));
+    } else {
+      e.art = "schuettgut";
+      e.einheit = e.einheit === "ml" ? "ml" : "g";
+      e.packung = e.packung || 500;
+      setzeFuellstand(e, 50, e.packung);
+    }
+    e.nachfragen = true;
+    e.buchen = true;
+    renderVorrat();
+  }));
+
   app.querySelector("#fot-buchen")?.addEventListener("click", () => uebernehmeSchrankfoto());
 }
 
@@ -2102,6 +2196,14 @@ function uebernehmeSchrankfoto() {
     if (!e.buchen) continue;
     const item = e.zutat_id ? bestandFuer(s, e.zutat_id) : freierBestand(s, e.name);
     if (!item) continue;
+    /* Die Zeile darf Führungsart und Packungsgröße korrigiert haben (vier
+       Päckchen statt Schüttgut, Aufdruck 500 g statt Katalogwert) – der
+       Bestand zieht mit, sonst stimmt schon der nächste Blick wieder nicht. */
+    if (e.art && e.art !== item.art) {
+      item.art = e.art;
+      item.einheit = e.einheit || item.einheit;
+    }
+    if (item.art === "schuettgut" && e.packung) item.packung = e.packung;
     item.menge = item.art === "pauschal" ? (e.menge === 0 ? 0 : null) : e.menge;
     item.updated = new Date().toISOString();
     gebucht++;
@@ -2187,7 +2289,9 @@ function bindVorratAdd() {
    Namen abgeleitet, damit der Mengen-Screen direkt die richtige Bedienung
    zeigt (Stepper, Füllstandsregler oder da/leer). */
 const FREI_REGELN = [
-  { kat: "tk",      art: "schuettgut", packung: 450, muster: /tk|tiefkühl|gefroren|rahmspinat|eis\b/ },
+  /* \b um die Kürzel: ohne Wortgrenzen träfe /tk/ das „tk“ in „Bratkartoffel-
+     gewürz“ und /eis\b/ den „Jasminreis“ – beide lägen dann im Tiefkühlfach. */
+  { kat: "tk",      art: "schuettgut", packung: 450, muster: /\btk\b|tiefkühl|gefroren|rahmspinat|\beis\b/ },
   /* Fertigprodukte stehen vor den Zutatenregeln, sonst zieht ein Wort im
      Produktnamen die falsche Führungsart nach sich: „Maggi Zwiebelsuppe“ ist
      kein Bund Zwiebeln, sondern eine Packung. */
@@ -2335,6 +2439,14 @@ function renderVorratEdit(itemId) {
       </div>
       ${mengenUi}
       ${fussnote}
+      ${item.eigen ? `
+        <div class="card" style="margin-top:12px">
+          <p class="small mute" style="margin-bottom:8px">Einsortiert unter</p>
+          <div class="chip-wrap">
+            ${Object.entries(KATEGORIE_NAMEN).map(([id, name]) => `
+              <button class="chip ${item.kategorie === id ? "selected" : ""}" data-kat="${id}">${esc(name)}</button>`).join("")}
+          </div>
+        </div>` : ""}
       <button class="btn" id="sichern">Sichern</button>
       <button class="btn danger" id="entfernen">Aus dem Vorrat entfernen</button>
     </div>`, `vorrat-edit:${itemId}`);
@@ -2358,6 +2470,13 @@ function renderVorratEdit(itemId) {
   }));
   app.querySelector("#da")?.addEventListener("click", () => { item.menge = null; stempel(); renderVorratEdit(itemId); });
   app.querySelector("#leer")?.addEventListener("click", () => { item.menge = 0; stempel(); renderVorratEdit(itemId); });
+  /* Eigene Artikel: die aus dem Namen geratene Kategorie ist korrigierbar –
+     Bratkartoffelgewürz gehört zu den Gewürzen, nicht in den Tiefkühler. */
+  app.querySelectorAll("[data-kat]").forEach((b) => b.addEventListener("click", () => {
+    item.kategorie = b.dataset.kat;
+    stempel();
+    renderVorratEdit(itemId);
+  }));
   app.querySelectorAll("[data-stufe]").forEach((b) => b.addEventListener("click", () => {
     setzeFuellstand(item, Number(b.dataset.stufe), voll);
     stempel();
