@@ -64,7 +64,10 @@ Vier gleichwertige Erfassungswege, frei kombinierbar:
 - Rezept abhaken → kurze **Validierung** → der Vorrat reduziert sich automatisch um die Rezeptmengen (mit Toleranzband). Das passiert bei jedem Rezept.
 
 ### 4.7 Wocheneinkauf & Angebots-Crawl
-- **Leere oder fast leere Vorräte** (z. B. noch ein Fünftel) landen automatisch auf der **Wocheneinkaufsliste**.
+- **Leere oder fast leere Vorräte** (z. B. noch ein Fünftel) sammelt die App ein. Gerechnet wird **je Zutat über alle Bestandsposten zusammen** – eine angebrochene Packung neben einer vollen ist kein Grund zum Nachkaufen.
+- **Ungefragt auf die Liste wandern nur Grundzutaten** (Öl, Essig, Brühe, Gewürze – `basis: true`). Sie sind erst Kandidat, wenn sie von Hand auf „leer" gesetzt wurden; da gibt es nichts mehr zu fragen. Alles andere erscheint im Einkauf-Tab unter **„Kommt das mit?"** und wandert erst nach einem Tap auf die Liste. Ob die letzte Dose Tomaten nachgekauft werden soll, weiß nur der Mensch.
+- **Abgelehntes bleibt weg**, bis der Vorrat wieder über der Schwelle liegt (`einkauf.abgelehnt`) – auch das Wegwischen eines Auto-Eintrags zählt als Ablehnung. Sonst legt die Automatik den Punkt beim nächsten Zeichnen wieder an.
+- Schwellen: Packungsgröße bekannt → **≤ 20 %**. Zählbares ohne Packungsgröße → erst bei **0**, bei Frischem und Gekühltem schon beim **letzten Stück** (die letzte Möhre ist ein Rest, die letzte Dose ist Vorrat).
 - **Einmal wöchentlich** (z. B. freitags) läuft ein **Angebots-Crawl** über die bestmöglichen Angebote am gewählten **Standort**: Die App gibt eine Einschätzung, bei welchem Markt (Edeka, Lidl, Rewe, Penny …) die Liste am besten abgedeckt ist – meiste Angebote, meiste Produkte, beste Konditionen.
 - Bewusst kein Markt-Hopping: **kein deutlicher Wechsel über zwei, drei Einkaufsmärkte hinaus.**
 

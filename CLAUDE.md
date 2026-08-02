@@ -110,7 +110,8 @@ bestand       [{ id, zutat_id, name, kategorie, art, einheit, menge, packung?, e
 vorschlaege   { datum, slot, rezeptIds[], gewuerfelt, bestandLeer }   (Push-Fallback, tagesstabil)
 snackVorschlaege { datum, rezeptIds[], gewuerfelt }
 historie      [{ rezeptId, name, portionen, datum }]
-einkauf       { rezept: [{zutat_id, name, menge, einheit, erledigt}], woche: [{zutat_id, name, erledigt, auto}], rezeptId }
+einkauf       { rezept: [{zutat_id, name, menge, einheit, erledigt}], woche: [{zutat_id, name, erledigt, auto}], rezeptId, abgelehnt: [zutat_id] }
+              (abgelehnt = "nicht nachkaufen", gilt bis der Vorrat wieder über der Schwelle liegt)
 angebote      { plz, apikey, clientkey, proxy, demo, letzter }        (Marktguru; letzter gilt 1 ISO-KW)
 aiRezepte     [max. 24 AI-Rezepte, v1-kompatibel, id "AI-<ts>-<i>"]
 vorratRezepte [max. 24 offline generierte Rezepte, id "GEN-<hash>"]
@@ -136,6 +137,13 @@ Datumsstempel für Tagesvorschläge kommen aus `lokalesDatum()` (Ortszeit, nicht
   `packung`), `zaehlbar` (Stk/Dose/Pck, Stepper), `pauschal` (nur da/leer;
   `menge: null` = vorrätig, `0` = leer). Bestimmt UI in `renderVorratEdit()`
   und die gesamte Mengenlogik.
+- **Einkaufsliste fragt, statt zu bestimmen (Kap. 4.7):** Ungefragt sammelt die
+  Wochenliste nur Grundzutaten (`basis: true` – Öl, Essig, Brühe, Gewürze; die
+  sind ohnehin erst Kandidat, wenn jemand sie auf „leer" gesetzt hat). Alles
+  andere kommt in die Sektion „Kommt das mit?" und braucht einen Tap. Ein
+  abgelehnter Punkt landet in `einkauf.abgelehnt` und schweigt, bis der Vorrat
+  wieder über der Schwelle liegt – wer das aufweicht, holt die Nörgelliste
+  zurück, die einen Artikel unmittelbar nach dem Erfassen zum Nachkauf meldet.
 - **Slots:** Frühstück/Mittag/Abend (8:00/11:30/17:30, `aktuellerSlot()`:
   Grenzen 11:00/16:00). **Push-Fallback:** kein Push-Server – Vorschläge werden
   beim Öffnen/`visibilitychange` erzeugt und persistiert
@@ -211,7 +219,9 @@ Datumsstempel für Tagesvorschläge kommen aus `lokalesDatum()` (Ortszeit, nicht
 `istVorhanden` (summiert über mehrere Posten derselben Zutat), `bewerte`,
 `vorschlaege`, `snackVorschlaege`, `zielTreffer`, `vorliebenTreffer`,
 `tagesSeed`, `pseudoZufall`, `abbuchen` (räumt mehrere Posten der Reihe nach ab),
-`mengeAnzeige`, `wochenKandidaten` (leer/≤20 % Packung → Wochenliste),
+`mengeAnzeige`, `wochenKandidaten` (je Zutat **über alle Posten summiert**: leer /
+≤20 % Packung / bei Zählbarem ohne Packungsgröße per `REST_SCHWELLE` nach
+Kategorie), `istGrundzutat` (`basis: true` → wandert ungefragt auf die Liste),
 `mengeInBestandsEinheit`, `ZUTAT_INDEX`.
 
 **ui.js** – `app`, `esc`, `h`, `zeigeApp`, `aktuellerScreen`, `dialog`,
@@ -243,7 +253,8 @@ Angabe → Bestandsmenge) · Schrankfoto-UI (`foto`-Statusmaschine:
 start→lesen→ergebnis/fehler; `nimmFotos` sammelt bis zu `MAX_FOTOS` Fächer,
 `werteFotosAus`, `fotoMengeUi` = Mengen-Bedienelement je Führungsart,
 `uebernehmeSchrankfoto`) · Einkauf
-(`syncWochenliste`, `bestandFuer`/`freierBestand` = Bestandszeile holen/anlegen,
+(`syncWochenliste` = Grundzutaten direkt auf die Liste, alles andere als Vorschlag
+zurückgeben („Kommt das mit?"), `bestandFuer`/`freierBestand` = Bestandszeile holen/anlegen,
 `buchZugang` = zentrale Zugangsbuchung über Packungsgrößen)
 · Bon-Scan (`bon`-Statusmaschine) · Angebots-Sektion (`starteCrawl`,
 `crawlListe`) · Wissen (Tabs: tipps/ersatz/preps/bases/techniken) · Profil
