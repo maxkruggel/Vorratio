@@ -14,6 +14,7 @@ import {
 import {
   ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, vorschlaege, snackVorschlaege,
   zielTreffer, vorliebenTreffer, tagesSeed, bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
+  istGrundzutat,
 } from "./engine.js";
 import { angebotsCrawl, isoWoche, liveKonfiguriert } from "./angebote.js";
 import { generiereRezepte, scanBon, leseDiktat, leseSchrankfoto, leseBarcodeVomFoto } from "./ai.js";
@@ -2665,19 +2666,36 @@ function setzeFuellstand(item, prozent, voll) {
 }
 
 /* ----------------------------------------------------------------- Einkauf */
+/* Leere/fast leere Vorräte einsammeln (Kap. 4.7). Ungefragt wandern nur
+   Grundzutaten auf die Liste – Öl, Essig, Brühe, Gewürze, die vorher von Hand
+   auf "leer" gesetzt wurden. Alles andere wird vorgeschlagen und erst nach
+   einem Tap gebucht: ob die letzte Dose Tomaten nachgekauft werden soll, weiß
+   nur der Mensch. Rückgabe = die offenen Vorschläge (abgeleitet, nicht
+   gespeichert). Was der Nutzer ablehnt, steht in einkauf.abgelehnt und ist
+   vergessen, sobald der Vorrat wieder über der Schwelle liegt. */
 function syncWochenliste(s) {
-  // Leere/fast leere Vorräte landen automatisch auf der Wochenliste (Kap. 4.7)
   const kandidaten = wochenKandidaten(s.bestand);
+  const ids = new Set(kandidaten.map((k) => k.zutat_id));
+  s.einkauf.abgelehnt = s.einkauf.abgelehnt.filter((id) => ids.has(id));
+
+  const aufListe = new Set(s.einkauf.woche.map((w) => w.zutat_id));
+  const abgelehnt = new Set(s.einkauf.abgelehnt);
+  const offen = [];
   for (const k of kandidaten) {
-    if (!s.einkauf.woche.some((w) => w.zutat_id === k.zutat_id)) {
+    if (aufListe.has(k.zutat_id) || abgelehnt.has(k.zutat_id)) continue;
+    if (istGrundzutat(k.zutat_id)) {
       s.einkauf.woche.push({ zutat_id: k.zutat_id, name: k.name, erledigt: false, auto: true });
+      aufListe.add(k.zutat_id);
+    } else {
+      offen.push({ zutat_id: k.zutat_id, name: k.name });
     }
   }
+  return offen;
 }
 
 function renderEinkauf() {
   const s = getState();
-  syncWochenliste(s);
+  const vorschlaegeEinkauf = syncWochenliste(s);
   const rezept = s.einkauf.rezeptId ? findRezept(s.einkauf.rezeptId) : null;
 
   const rezeptErledigt = s.einkauf.rezept.filter((e) => e.erledigt).length;
@@ -2700,6 +2718,23 @@ function renderEinkauf() {
         </div>
         <button class="btn" id="einkauf-fertig">Eingekauft → in den Vorrat buchen</button>` : ""}
 
+      ${vorschlaegeEinkauf.length ? `
+        <div class="section-gap">
+          <div class="section-head">
+            <h2>Kommt das mit?</h2>
+            <span class="small mute">${vorschlaegeEinkauf.length} zur Neige</span>
+          </div>
+          <div class="card">
+            ${vorschlaegeEinkauf.map((e, i) => `
+              <div class="list-item">
+                <button class="check" data-v-ja="${i}" aria-label="Auf die Liste setzen">${icon("plus", 24)}</button>
+                <div class="grow">${esc(e.name)}</div>
+                <button class="icon-btn" data-v-nein="${i}" aria-label="Nicht nachkaufen">${icon("x", 20)}</button>
+              </div>`).join("")}
+          </div>
+          <p class="centered-note">Grundzutaten – Öl, Essig, Brühe, Gewürze – kommen weiter ungefragt auf die Liste.</p>
+        </div>` : ""}
+
       <div class="section-gap">
         <div class="section-head">
           <h2>Wocheneinkauf</h2>
@@ -2719,7 +2754,7 @@ function renderEinkauf() {
           <div class="empty-state">
             ${icon("einkauf", 46)}
             <h3>Nichts auf der Liste</h3>
-            <p>Dein Vorrat sieht gut aus. Was leer wird, landet hier automatisch.</p>
+            <p>Dein Vorrat sieht gut aus. Was zur Neige geht, fragt Vorratio hier ab.</p>
           </div>`}
       </div>
 
@@ -2743,7 +2778,22 @@ function renderEinkauf() {
     save(); renderEinkauf();
   }));
   app.querySelectorAll("[data-w-del]").forEach((b) => b.addEventListener("click", () => {
-    s.einkauf.woche.splice(Number(b.dataset.wDel), 1);
+    /* Wegwischen muss halten: sonst legt syncWochenliste den Punkt beim
+       nächsten Zeichnen wieder an, solange der Vorrat niedrig ist. */
+    const [weg] = s.einkauf.woche.splice(Number(b.dataset.wDel), 1);
+    if (weg?.auto && weg.zutat_id && !s.einkauf.abgelehnt.includes(weg.zutat_id)) {
+      s.einkauf.abgelehnt.push(weg.zutat_id);
+    }
+    save(); renderEinkauf();
+  }));
+  app.querySelectorAll("[data-v-ja]").forEach((b) => b.addEventListener("click", () => {
+    const v = vorschlaegeEinkauf[Number(b.dataset.vJa)];
+    if (v) s.einkauf.woche.push({ zutat_id: v.zutat_id, name: v.name, erledigt: false, auto: true });
+    save(); renderEinkauf();
+  }));
+  app.querySelectorAll("[data-v-nein]").forEach((b) => b.addEventListener("click", () => {
+    const v = vorschlaegeEinkauf[Number(b.dataset.vNein)];
+    if (v && !s.einkauf.abgelehnt.includes(v.zutat_id)) s.einkauf.abgelehnt.push(v.zutat_id);
     save(); renderEinkauf();
   }));
   app.querySelector("#einkauf-fertig")?.addEventListener("click", async () => {

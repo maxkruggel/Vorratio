@@ -12,7 +12,8 @@
 import { REZEPTE, ZUTATEN } from "../js/data/kerndb.js";
 import {
   rezeptErlaubt, bestandsAbgleich, istVorhanden, abbuchen, vorschlaege, snackVorschlaege,
-  mengeInBestandsEinheit, wochenKandidaten, tagesSeed, pseudoZufall, mengeAnzeige, aktuellerSlot,
+  mengeInBestandsEinheit, wochenKandidaten, istGrundzutat, tagesSeed, pseudoZufall, mengeAnzeige,
+  aktuellerSlot,
   ZUTAT_INDEX,
 } from "../js/engine.js";
 import { fotoEintraege, passeEintragAn } from "../js/vorratsfoto.js";
@@ -436,6 +437,45 @@ pruefe("Wochenliste sammelt leere und fast leere Posten", () => {
     posten("ing_salz", 0, { art: "pauschal" }),
   ];
   gleich(wochenKandidaten(b).map((x) => x.zutat_id), ["ing_nudeln", "ing_salz"]);
+});
+
+pruefe("Wochenliste summiert mehrere Posten derselben Zutat", () => {
+  // Angebrochene Packung neben einer vollen: kein Grund zum Nachkaufen.
+  const b = [
+    posten("ing_nudeln", 50, { packung: 500 }),
+    posten("ing_nudeln", 500, { packung: 500 }),
+  ];
+  gleich(wochenKandidaten(b).map((x) => x.zutat_id), []);
+  // Zwei angebrochene Reste zusammen bleiben unter der Schwelle → Kandidat, aber nur einmal.
+  const c = [posten("ing_nudeln", 40, { packung: 500 }), posten("ing_nudeln", 40, { packung: 500 })];
+  gleich(wochenKandidaten(c).map((x) => x.zutat_id), ["ing_nudeln"]);
+});
+
+pruefe("Ein vorrätiger Pauschal-Posten reicht, ein unbestimmter auch", () => {
+  const b = [
+    posten("ing_salz", 0, { art: "pauschal" }),
+    posten("ing_salz", null, { art: "pauschal" }),
+    posten("ing_mehl", null, { packung: 1000 }),
+  ];
+  gleich(wochenKandidaten(b).map((x) => x.zutat_id), []);
+});
+
+pruefe("Zählbares ohne Packungsgröße: Vorrat erst bei 0, Frisches schon beim Rest", () => {
+  const dose = (menge) => posten("frei_tomaten_dose", menge,
+    { art: "zaehlbar", einheit: "Dose", kategorie: "konserve", packung: null });
+  const moehre = (menge) => posten("ing_moehre", menge,
+    { art: "zaehlbar", einheit: "Stk", kategorie: "frisch", packung: null });
+  gleich(wochenKandidaten([dose(1)]).map((x) => x.zutat_id), []);
+  gleich(wochenKandidaten([dose(0)]).map((x) => x.zutat_id), ["frei_tomaten_dose"]);
+  gleich(wochenKandidaten([moehre(1)]).map((x) => x.zutat_id), ["ing_moehre"]);
+  gleich(wochenKandidaten([moehre(2)]).map((x) => x.zutat_id), []);
+});
+
+pruefe("Grundzutaten sind als solche erkennbar", () => {
+  wahr(istGrundzutat("ing_olivenoel"));
+  wahr(istGrundzutat("ing_salz"));
+  falsch(istGrundzutat("ing_nudeln"));
+  falsch(istGrundzutat("frei_wacholderbeeren"));
 });
 
 pruefe("Slotgrenzen liegen bei 11:00 und 16:00", () => {

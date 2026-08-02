@@ -289,20 +289,52 @@ function mengeAnzeige(item) {
   return `${item.menge} ${item.einheit}`;
 }
 
-/* Wocheneinkauf: leere oder fast leere Vorräte (≤ 1/5 der Packung) einsammeln. */
+/* Ab welchem Rest gilt ein zählbarer Artikel ohne Packungsgröße als
+   nachzukaufen? Nach Kategorie, nicht pauschal: die letzte Möhre im Gemüsefach
+   ist ein Rest, die letzte Dose im Schrank ist Vorrat. Ohne diese Trennung
+   stünde alles, wovon man üblicherweise genau eins hat (ein Glas
+   Wacholderbeeren, ein Päckchen Vanillezucker), dauerhaft auf der Liste. */
+const REST_SCHWELLE = { frisch: 1, kuehl: 1 };
+
+/* Ist der gesamte Bestand einer Zutat leer oder fast leer (≤ 1/5 der Packung)?
+   `posten` sind alle Bestandszeilen derselben zutat_id. */
+function nachkaufReif(posten) {
+  const leit = posten[0];
+  const kat = ZUTAT_INDEX[leit.zutat_id] || {};
+  // "Da oder leer": ein einziger vorrätiger Posten genügt.
+  if (leit.art === "pauschal") return posten.every((p) => p.menge === 0);
+  // Unbestimmte Menge zählt als vorhanden – nie gegen eine Schwelle rechnen.
+  if (posten.some((p) => p.menge == null)) return false;
+  const summe = posten.reduce((n, p) => n + (Number(p.menge) || 0), 0);
+  const voll = leit.packung || kat.packung || null;
+  if (voll) return summe <= voll * 0.2;
+  if (leit.art === "zaehlbar") return summe <= (REST_SCHWELLE[leit.kategorie] ?? 0);
+  return summe <= 0;
+}
+
+/* Wocheneinkauf: leere oder fast leere Vorräte einsammeln – je Zutat ein
+   Treffer, über alle Posten summiert. Eine angebrochene Packung neben einer
+   vollen ist kein Grund zum Nachkaufen (Kap. 4.7). */
 function wochenKandidaten(bestand) {
-  return bestand.filter((item) => {
-    if (item.art === "pauschal") return item.menge === 0;
-    if (item.menge == null) return false;
-    const kat = ZUTAT_INDEX[item.zutat_id] || {};
-    const voll = item.packung || kat.packung || null;
-    if (voll) return item.menge <= voll * 0.2;
-    return item.menge <= (item.art === "zaehlbar" ? 1 : 0);
-  });
+  const gruppen = new Map();
+  for (const item of bestand) {
+    if (!item.zutat_id) continue;
+    if (!gruppen.has(item.zutat_id)) gruppen.set(item.zutat_id, []);
+    gruppen.get(item.zutat_id).push(item);
+  }
+  return [...gruppen.values()].filter(nachkaufReif).map((posten) => posten[0]);
+}
+
+/* Grundzutat = Öl, Essig, Brühe, Gewürze (basis: true in der Kern-DB). Die
+   wandern ohne Rückfrage auf die Liste: sie sind erst Kandidat, wenn sie von
+   Hand auf "leer" gesetzt wurden – da gibt es nichts mehr zu fragen. */
+function istGrundzutat(zutatId) {
+  return Boolean(ZUTAT_INDEX[zutatId]?.basis);
 }
 
 export {
   ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, bestandsAbgleich, bestandsPosten,
   istVorhanden, bewerte, vorschlaege, snackVorschlaege, zielTreffer, vorliebenTreffer,
-  tagesSeed, pseudoZufall, abbuchen, mengeAnzeige, wochenKandidaten, mengeInBestandsEinheit,
+  tagesSeed, pseudoZufall, abbuchen, mengeAnzeige, wochenKandidaten, istGrundzutat,
+  mengeInBestandsEinheit,
 };

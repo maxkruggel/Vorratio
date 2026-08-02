@@ -27,6 +27,8 @@ const DEFAULT_STATE = {
     rezept: [],              // rezeptbezogene Liste [{ zutat_id, name, menge, einheit, erledigt }]
     woche: [],               // Wocheneinkauf [{ zutat_id, name, erledigt, auto }]
     rezeptId: null,
+    abgelehnt: [],           // zutat_ids, die nicht nachgekauft werden sollen (gilt,
+                             // bis der Vorrat wieder über der Schwelle liegt)
   },
   angebote: {                // Angebots-Crawl (Kap. 4.7/7.4)
     plz: "",                 // Standort für den Crawl
@@ -91,6 +93,7 @@ function migriere(s) {
   s.profil.personen = Number.isFinite(personen) && personen >= 1 ? Math.round(personen) : 2;
   s.einkauf.rezept = liste(s.einkauf.rezept);
   s.einkauf.woche = liste(s.einkauf.woche);
+  s.einkauf.abgelehnt = liste(s.einkauf.abgelehnt).filter((id) => typeof id === "string");
   s.tipps.gesehen = liste(s.tipps.gesehen);
   s.kochbuch = liste(s.kochbuch);
   // Kochmodus: Objekt oder null, nie eine Liste – deshalb außerhalb von liste().
