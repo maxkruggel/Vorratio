@@ -547,4 +547,7 @@ function diktatAnzeige(e) {
 
 const trimZahl = (n) => (Number.isInteger(n) ? String(n) : String(n).replace(".", ","));
 
-export { diktatVerfuegbar, starteDiktat, parseDiktat, diktatAnzeige };
+/* `findeZutat` gehört nicht zur Diktat-UI, ist aber der einzige Name→zutat_id-
+   Abgleich im Projekt – tools/rezept-import.mjs benutzt ihn für die
+   Zutatenzeilen der Rezept-Markdowns. */
+export { diktatVerfuegbar, starteDiktat, parseDiktat, diktatAnzeige, findeZutat };

@@ -20,7 +20,8 @@ automatische Abbuchung mit Toleranz → Einkauf füllt den Bestand wieder auf.
 - Lokal starten: `python3 -m http.server 8080` (statisch servieren reicht) – zum Entwickeln,
   nicht zum Installieren
 - Prüfen: `node tools/validate-db.mjs` (Rezeptdaten) + `node tools/test-engine.mjs`
-  (Engine) + `node tools/test-diktat.mjs` (Diktat-Parser). Alles läuft in der CI (`.github/workflows/ci.yml`), ohne
+  (Engine) + `node tools/test-diktat.mjs` (Diktat-Parser) + `node tools/test-rezept-import.mjs`
+  (Rezept-Import). Alles läuft in der CI (`.github/workflows/ci.yml`), ohne
   Abhängigkeiten. Dazu `node tools/pr-aktuell.mjs` (Branch-Stand vor einer PR,
   s. u.). Kein Linter, kein Build-Schritt.
 - Sprache durchgehend Deutsch (Code-Bezeichner, Kommentare, UI)
@@ -62,8 +63,10 @@ js/data/profil.js          Profil-Achsen: ERNAEHRUNGSFORMEN, FORM_ERLAUBT, AUSSC
 js/data/substitutionen.js  Substitutions-DB (vorratio-substitutions-db/v1): SUBSTITUTIONEN, BASIS_ALLERGENE, SUB_*
 js/data/angebote-demo.js   DEMO_ANGEBOTE für den Crawl ohne API-Keys
 tools/validate-db.mjs      Datenbank-Validator (Schema, IDs, Allergen-Deklaration) – Exit 1 bei Fehlern
+tools/rezept-import.mjs    docs/rezepte/*.md → Blockdatei in js/data/ (Trockenlauf, --schreiben)
 tools/test-engine.mjs      Engine-Tests ohne Framework – Filter, Toleranzband, Abbuchung, Abdeckung
 tools/test-diktat.mjs      Diktat-Tests ohne Framework – Zerlegung ohne Satzzeichen, Mengen, Anteile, Zuordnung
+tools/test-rezept-import.mjs  Import-Tests – Zutatenzeilen, Timer-Umrechnung, Ableitungen, Literal
 tools/browsertest.mjs      Browser-Rauchtest (Onboarding→Tabs→Kochmodus→Neuladen). Nicht in der CI,
                            braucht einmalig `npm install --no-save playwright-core`
 tools/pr-aktuell.mjs       PR-Aktualitätsprüfung gegen main (node tools/pr-aktuell.mjs)
@@ -318,12 +321,22 @@ inkl. Katalogprüfung, Anteil-Normierung (0–1 oder Prozent) und Zusammenlegen
 doppelter Nennungen über mehrere Fotos, `passeEintragAn` (Führungsart nachziehen,
 wenn im Ergebnis eine andere Zutat gewählt wird), `MAX_FOTOS`.
 
+**tools/rezept-import.mjs** – Markdown → v1-Literal. `leseMarkdown` (Sektionen),
+`leseZutat` (Menge/Einheit/Name, Spanne → untere Menge, „(optional)", Klammer
+mit Packungsgröße raus), `leseSchritt` (Timer-Klammer, °C), `timerName`
+(Sache + Tätigkeit), `baueRezept` (Katalog-Abgleich über `findeZutat` aus
+diktat.js, Ernährungsform/Allergene über `tagsAusZutaten` + `allergeneAusZutaten`),
+`serialisiere` (Literal im Stil der Blockdateien), `naechsteId`. Behauptet
+nichts: fehlendes Nährwertprofil wird `ausgewogen` + Warnung, unbekannte Zutaten
+bleiben ohne `zutat_id`. `--schreiben` läuft erst nach grünem Validator zu Ende.
+
 **diktat.js** – `diktatVerfuegbar`/`starteDiktat` (Web Speech, de-DE, hört nach
 jeder Sprechpause von allein weiter), `parseDiktat(text, bestand)` → Einträge
 {rohtext, name, zutat_id, menge, einheit, anteil, aktion, sicher} – dieselbe
 Form liefert `leseDiktat` aus ai.js. Rein lokal: `ZAHLWORT`, `EINHEIT_WORT`,
 `ANTEIL_MUSTER`, `LEER_MUSTER`, `ALIAS` (Kurzform → zutat_id), `findeZutat`
-(Wortstamm-Matching, von der genannten Einheit geschärft), `diktatAnzeige`.
+(Wortstamm-Matching, von der genannten Einheit geschärft – exportiert, weil
+`tools/rezept-import.mjs` denselben Abgleich braucht), `diktatAnzeige`.
 **Dreistufige Zerlegung** – wer hier etwas ändert, belegt es in
 `tools/test-diktat.mjs`: `segmente()` (Komma/„und"/Punkt; ein „und" im
 Produktnamen wie „Erbsen und Möhren" wird geschützt, wenn Katalog oder eigener
@@ -391,6 +404,11 @@ Fallback sind dann die Demo-Angebote.
   („vorratio-vN"), sonst laden Alt-Clients sie offline nie.
 - **Neuer Rezeptblock:** Datei in `js/data/`, Import + Spread in `kerndb.js`
   (`REZEPTE`), Eintrag in `sw.js` SHELL, danach `node tools/validate-db.mjs`.
+  Der neue Block gehört zusätzlich in `BLOECKE` in `tools/rezept-import.mjs`,
+  sonst kann der Import nicht hineinschreiben.
+- **Einzelne Rezepte** kommen über `tools/rezept-import.mjs` aus
+  `docs/rezepte/*.md` herein (s. README dort) – erst Trockenlauf, dann
+  `--schreiben`. Von Hand eintragen geht weiter, ist aber der Sonderweg.
 - Nach jeder State-Mutation `save()` aufrufen; UI danach über die passende
   `renderX()` neu zeichnen (Listener werden bei jedem Render neu gebunden).
 - `zeigeApp(html, key)`: gleicher key = kein Fade/kein Scroll-Reset. Für neue
