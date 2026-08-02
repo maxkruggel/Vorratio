@@ -33,6 +33,10 @@ const DEFAULT_STATE = {
     letzter: null,           // letztes Crawl-Ergebnis (gilt eine Kalenderwoche)
   },
   aiRezepte: [],             // AI-generierte Rezepte (kruggel-recipe-db/v1-kompatibel)
+  /* Kochbuch (Kap. 4.10): gemerkte und eigene Rezepte als vollständige Kopien
+     im Rezeptschema. Bewusst Kopien statt Verweisen – ein gemerktes
+     Claude-Rezept überlebt so die Rotation des AI-Pools. */
+  kochbuch: [],
   /* Tipp-Dosierung: Tipps kommen nach und nach statt alle auf einmal.
      `klicks` zählt die Interaktionen bis zum nächsten Pop-up, `gesehen`
      merkt sich die schon gezeigten Tipps, damit sie rotieren. */
@@ -46,6 +50,7 @@ function migriere(s) {
   s.profil.eigeneAusschluesse ||= [];
   s.tipps ||= { klicks: 0, gesehen: [] };
   s.tipps.gesehen ||= [];
+  s.kochbuch ||= [];
   return s;
 }
 
