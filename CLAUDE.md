@@ -66,7 +66,9 @@ tools/test-diktat.mjs      Diktat-Tests ohne Framework – Zerlegung ohne Satzze
 tools/browsertest.mjs      Browser-Rauchtest (Onboarding→Tabs→Kochmodus→Neuladen). Nicht in der CI,
                            braucht einmalig `npm install --no-save playwright-core`
 tools/pr-aktuell.mjs       PR-Aktualitätsprüfung gegen main (node tools/pr-aktuell.mjs)
-docs/                      Projektdoku (vorratio-doku.md), 5 Recherchen, angebots-crawl.md, design-handoff/
+docs/                      Projektdoku (vorratio-doku.md), 6 Recherchen, angebots-crawl.md, design-handoff/
+                           Recherche 6 ist ein Ordner (recherche-6-tofu/): Quellmaterial + README mit der
+                           Umschlüsselung auf die Projekt-IDs. Rohstoff, kein Wahrheitsstand – der Code gilt
 ```
 
 ## Architektur & Datenfluss

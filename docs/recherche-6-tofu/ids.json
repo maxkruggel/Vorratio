@@ -1,0 +1,45 @@
+{
+  "auftrag_id": "24",
+  "kurzname": "tofu-rezepte",
+  "stand": "2026-08-02",
+
+  "namensraeume": [
+    {"praefix": "T", "bedeutung": "Tofu-Rezept", "format": "T + 2 Ziffern", "vergeben_von": "T01", "vergeben_bis": "T60", "naechste_freie": "T61", "kollisionsrisiko": "hoch – generisches Praefix. Bei Zusammenfuehrung mit der Gesamt-Rezept-DB auf recipe_tofu_NN umschluesseln."},
+    {"praefix": "BT", "bedeutung": "Basistechnik Tofu", "format": "BT + 2 Ziffern", "vergeben_von": "BT01", "vergeben_bis": "BT12", "naechste_freie": "BT13", "kollisionsrisiko": "mittel – mit Auftrag 17 (Kochschritte) abgleichen und dort als step_ mappen."},
+    {"praefix": "TT", "bedeutung": "Tipp", "format": "TT + 2 Ziffern", "vergeben_von": "TT01", "vergeben_bis": "TT12", "naechste_freie": "TT13", "kollisionsrisiko": "niedrig"},
+    {"praefix": "tofu_", "bedeutung": "Tofusorte", "format": "tofu_ + Klartext", "vergeben": ["tofu_fest", "tofu_extra_fest", "tofu_seiden", "tofu_seiden_tetra", "tofu_raeucher", "tofu_frittiert", "tofu_yuba", "tofu_fermentiert", "tofu_gepresst"], "kollisionsrisiko": "niedrig – als ing_-IDs in Auftrag 02 uebernehmen"}
+  ],
+
+  "rezept_ids": {
+    "top20": ["T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T10", "T11", "T12", "T13", "T14", "T15", "T16", "T17", "T18", "T19", "T20"],
+    "erweiterung_stub": ["T21", "T22", "T23", "T24", "T25", "T26", "T27", "T28", "T29", "T30", "T31", "T32", "T33", "T34", "T35", "T36", "T37", "T38", "T39", "T40", "T41", "T42", "T43", "T44", "T45", "T46", "T47", "T48", "T49", "T50", "T51", "T52", "T53", "T54", "T55", "T56", "T57", "T58", "T59", "T60"]
+  },
+
+  "basistechnik_ids": [
+    {"id": "BT01", "name": "Tofu pressen"},
+    {"id": "BT02", "name": "Einfrieren fuer Fleischtextur"},
+    {"id": "BT03", "name": "Marinieren"},
+    {"id": "BT04", "name": "Staerke-Coating"},
+    {"id": "BT05", "name": "Anbraten"},
+    {"id": "BT06", "name": "Im Ofen backen"},
+    {"id": "BT07", "name": "Airfryer"},
+    {"id": "BT08", "name": "Frittieren"},
+    {"id": "BT09", "name": "Kruemeln als Hackersatz"},
+    {"id": "BT10", "name": "Ruehrtofu-Technik"},
+    {"id": "BT11", "name": "Blanchieren"},
+    {"id": "BT12", "name": "Seidentofu-Handling"}
+  ],
+
+  "querverweise": [
+    {"auftrag": "01", "thema": "Zutaten-Austausch-Matrix", "verweis": "Block substitutionen – sub_id-Vergabe dort fuehren, hier nur tofu-spezifische Vertiefung"},
+    {"auftrag": "02", "thema": "Mengen und Umrechnung", "verweis": "Tofu-Gebindegroessen 200/250/400/500 g, Stueckgewichte, Pressverlust ca. 10–15 Prozent"},
+    {"auftrag": "04", "thema": "Garzeiten und Methoden", "verweis": "BT05–BT08 als method_id uebernehmen (Pfanne, Ofen 200 Grad, Airfryer 200 Grad, Frittieren 175 Grad)"},
+    {"auftrag": "05", "thema": "Haltbarkeit und Lagerung", "verweis": "Block tofu_grundlagen.lagerung als Produktgruppe Tofu einhaengen"},
+    {"auftrag": "17", "thema": "Kochschritte", "verweis": "basistechnik_ids gegen zentrale step_-IDs mappen"}
+  ],
+
+  "offene_id_entscheidungen": [
+    "Umschluesselung T-Praefix auf globales Rezept-Schema bei Zusammenfuehrung der Gesamt-DB",
+    "Ob Basistechniken eigenstaendige Entitaet bleiben oder in die zentrale Schritt-DB aus Auftrag 17 aufgehen"
+  ]
+}

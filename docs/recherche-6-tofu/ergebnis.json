@@ -1,0 +1,683 @@
+{
+  "meta": {
+    "auftrag_id": "24",
+    "kurzname": "tofu-rezepte",
+    "version": "1.0.0",
+    "stand": "2026-08-02",
+    "sprache": "de",
+    "einheiten": "metrisch",
+    "anzahl_rezepte": 60,
+    "anzahl_vollstaendig": 20,
+    "anzahl_stub": 40,
+    "anzahl_basistechniken": 12,
+    "hinweis": "Rezepttexte sind eigenformuliert. Quellenangaben sind Herkunftsnachweise, keine Textvorlagen."
+  },
+
+  "tofu_grundlagen": {
+    "sorten": [
+      {"sorte_id": "tofu_fest", "name": "Naturtofu (fest)", "konsistenz": "schnittfest, mild", "verwendung": ["Braten", "Currys", "Bolognese", "Marinieren", "Ruehrtofu"], "erhaeltlichkeit_de": ["Aldi", "Rewe", "Edeka", "Penny", "Lidl", "dm", "Rossmann", "Bioladen"], "pressen_noetig": true},
+      {"sorte_id": "tofu_extra_fest", "name": "Extra fester / High-Protein-Tofu", "konsistenz": "sehr dicht, kaum Wasser", "verwendung": ["Knuspriges", "Airfryer", "Spiesse"], "erhaeltlichkeit_de": ["Rewe", "Edeka", "Bioladen", "teilweise Aldi", "teilweise Lidl"], "pressen_noetig": false},
+      {"sorte_id": "tofu_seiden", "name": "Seidentofu (frisch, Kuehlung)", "konsistenz": "puddingartig, cremig", "verwendung": ["Mousse", "Cheesecake", "Dressings", "Suppen", "Ei-Ersatz beim Backen"], "erhaeltlichkeit_de": ["Bioladen", "gut sortierte Rewe/Edeka"], "pressen_noetig": false},
+      {"sorte_id": "tofu_seiden_tetra", "name": "Seidentofu (Tetrapak, ungekuehlt)", "konsistenz": "fest-cremig, lange haltbar", "verwendung": ["wie frischer Seidentofu"], "erhaeltlichkeit_de": ["Asiamarkt", "Bioladen", "online"], "pressen_noetig": false, "vorratsheld": true},
+      {"sorte_id": "tofu_raeucher", "name": "Raeuchertofu", "konsistenz": "fest, wuerzig-rauchig", "verwendung": ["Salate", "Brotbelag", "Pfannen", "Speckersatz"], "erhaeltlichkeit_de": ["Rewe", "Edeka", "Bioladen", "dm"], "pressen_noetig": false},
+      {"sorte_id": "tofu_frittiert", "name": "Frittierter Tofu (Atsuage/Aburaage)", "konsistenz": "aussen fest, innen weich bis hohl", "verwendung": ["Suppen", "Curry", "Inari", "Donburi"], "erhaeltlichkeit_de": ["Asiamarkt"], "pressen_noetig": false},
+      {"sorte_id": "tofu_yuba", "name": "Tofuhaut / Yuba", "konsistenz": "duenn, blaettrig", "verwendung": ["Wraps", "vegane Ente", "Salate"], "erhaeltlichkeit_de": ["Asiamarkt"], "pressen_noetig": false},
+      {"sorte_id": "tofu_fermentiert", "name": "Fermentierter Tofu (Furu)", "konsistenz": "intensiv, salzig-cremig", "verwendung": ["Wuerzpaste", "Dip", "zu Congee"], "erhaeltlichkeit_de": ["Asiamarkt"], "pressen_noetig": false},
+      {"sorte_id": "tofu_gepresst", "name": "Gepresster Tofu (Doufu gan)", "konsistenz": "sehr fest, kaeseartig", "verwendung": ["Stir-Fry", "Salate"], "erhaeltlichkeit_de": ["Asiamarkt"], "pressen_noetig": false}
+    ],
+
+    "lagerung": [
+      {"zustand": "ungeoeffnet_gekuehlt", "haltbarkeit": "bis MHD, meist 2–4 Wochen", "hinweis": "haeufig darueber hinaus geniessbar, Sensorik pruefen"},
+      {"zustand": "ungeoeffnet_tetrapak", "haltbarkeit": "mehrere Monate bei Raumtemperatur", "hinweis": "nach Oeffnen wie frischer Tofu behandeln"},
+      {"zustand": "geoeffnet", "haltbarkeit": "2–3 Tage", "hinweis": "in frischem Wasser, luftdicht, Kuehlschrank, Wasser taeglich wechseln"},
+      {"zustand": "geoeffnet_raeucher", "haltbarkeit": "ca. 5 Tage", "hinweis": "kein Wasserbad noetig"},
+      {"zustand": "zubereitet", "haltbarkeit": "2–3 Tage", "hinweis": "Knuspriges verliert Textur, Sauce getrennt lagern"},
+      {"zustand": "eingefroren", "haltbarkeit": "3–6 Monate", "hinweis": "Textur wird fester und poroeser – gewollt fuer Fleischbiss. Seidentofu eignet sich nicht. Aufgetautes nicht erneut einfrieren."}
+    ],
+
+    "verderb_erkennen": ["saurer, gaeriger oder muffiger Geruch", "schmieriger Belag", "gelbliche, gruenliche oder rosa Verfaerbung", "Blaeschen in der Lake", "bombierte Verpackung", "saure oder schleimige Lake"],
+
+    "naehrwerte_pro_100g": [
+      {"sorte_id": "tofu_fest", "quelle": "USDA FDC 172475 (Calciumsulfat)", "kcal": 144, "protein_g": 17.27, "fett_g": 8.72, "kh_g": 2.78, "calcium_mg": 683, "eisen_mg": 2.9},
+      {"sorte_id": "tofu_fest_nigari", "quelle": "USDA FDC 172448 (Calciumsulfat + Nigari)", "kcal": 78, "protein_g": 9.04, "fett_g": 5.0, "kh_g": 1.95, "calcium_mg": 201, "eisen_mg": 1.6},
+      {"sorte_id": "tofu_seiden", "quelle": "USDA / Illinois Extension", "kcal": 58, "protein_g": 7.0, "fett_g": 4.0, "kh_g": 2.5, "calcium_mg": null, "eisen_mg": 1.8},
+      {"sorte_id": "tofu_raeucher", "quelle": "Herstellerangaben, Richtwert", "kcal": 170, "protein_g": 18.0, "fett_g": 11.0, "kh_g": 1.5, "calcium_mg": null, "eisen_mg": 2.5}
+    ],
+
+    "haeufige_fehler": [
+      {"fehler": "Tofu wird matschig", "ursache": "nicht gepresst oder falsche Sorte", "loesung": "extra festen Tofu nehmen und pressen (BT01)"},
+      {"fehler": "Tofu schmeckt nach nichts", "ursache": "Marinade dringt kaum ein", "loesung": "salzig-umami marinieren, Oberflaeche vergroessern, Sauce am Ende zugeben"},
+      {"fehler": "Tofu klebt in der Pfanne", "ursache": "Pfanne zu kalt oder zu frueh gewendet", "loesung": "Pfanne erst heiss, dann Oel, dann Tofu – 2–3 Minuten ungestoert braten"}
+    ]
+  },
+
+  "basistechniken": [
+    {"id": "BT01", "name": "Tofu pressen", "anwendbar_auf": ["tofu_fest", "tofu_extra_fest"], "dauer_min": 15, "dauer_max": 30, "timer_sekunden": 1200, "timer_name": "Tofu pressen", "schritte": ["Tofu aus der Packung nehmen und die Fluessigkeit abgiessen.", "Block in Kuechenpapier oder ein sauberes Tuch wickeln.", "Ein Brett auflegen und mit einem Gewicht beschweren, zum Beispiel einer Pfanne.", "15 bis 30 Minuten stehen lassen. Je laenger, desto knuspriger wird der Tofu spaeter."], "tipp": "Fuer Suppen und Eintoepfe entfaellt das Pressen."},
+    {"id": "BT02", "name": "Einfrieren fuer Fleischtextur", "anwendbar_auf": ["tofu_fest"], "dauer_min": 480, "schritte": ["Tofublock einfrieren, auch angebrochen.", "Vollstaendig auftauen lassen.", "Wasser vorsichtig mit den Haenden ausdruecken."], "tipp": "Ergebnis ist schwammig-poroes und saugt Marinade auf."},
+    {"id": "BT03", "name": "Marinieren", "anwendbar_auf": ["tofu_fest", "tofu_extra_fest"], "dauer_min": 15, "dauer_max": 30, "timer_sekunden": 1200, "timer_name": "Tofu marinieren", "schritte": ["Gepressten Tofu in Wuerfel oder Scheiben schneiden.", "Marinade aus Sojasauce, Knoblauch, Ingwer, Sesamoel und etwas Essig mischen.", "Tofu mindestens 15 Minuten einlegen.", "Vor dem Panieren kurz trocken tupfen."]},
+    {"id": "BT04", "name": "Staerke-Coating", "anwendbar_auf": ["tofu_fest", "tofu_extra_fest"], "schritte": ["Tofu trocken tupfen.", "Pro 200 Gramm Tofu etwa einen Esslloeffel Staerke ueber die Wuerfel streuen.", "Vorsichtig schwenken, bis alle Seiten mattiert sind."], "tipp": "Speise- und Maisstaerke geben eine neutrale Kruste, Kartoffelstaerke die feinste und knusprigste."},
+    {"id": "BT05", "name": "Anbraten", "anwendbar_auf": ["tofu_fest", "tofu_extra_fest", "tofu_raeucher"], "timer_sekunden": 180, "timer_name": "Tofu braten pro Seite", "schritte": ["Pfanne ohne Oel heiss werden lassen.", "Erst dann Oel zugeben.", "Tofu einlagig einlegen, Pfanne nicht ueberfuellen.", "2 bis 3 Minuten pro Seite ungestoert braten – der Tofu loest sich von selbst, wenn die Kruste fertig ist."]},
+    {"id": "BT06", "name": "Im Ofen backen", "anwendbar_auf": ["tofu_fest", "tofu_extra_fest"], "temperatur_c": 200, "timer_sekunden": 1650, "timer_name": "Tofu backen", "schritte": ["Ofen auf 200 Grad Ober-/Unterhitze vorheizen.", "Tofu auf ein Blech mit Backpapier legen.", "25 bis 30 Minuten backen, nach der Haelfte einmal wenden."]},
+    {"id": "BT07", "name": "Airfryer", "anwendbar_auf": ["tofu_fest", "tofu_extra_fest"], "temperatur_c": 200, "timer_sekunden": 900, "timer_name": "Tofu im Airfryer", "schritte": ["Airfryer auf 200 Grad einstellen.", "Tofu einlagig einfuellen.", "15 Minuten garen, nach 8 Minuten einmal durchschuetteln."]},
+    {"id": "BT08", "name": "Frittieren", "anwendbar_auf": ["tofu_fest", "tofu_extra_fest"], "temperatur_c": 175, "timer_sekunden": 180, "timer_name": "Tofu frittieren", "schritte": ["Oel auf 170 bis 180 Grad erhitzen.", "Tofu portionsweise 2 bis 4 Minuten goldbraun frittieren.", "Auf Kuechenpapier abtropfen lassen."]},
+    {"id": "BT09", "name": "Kruemeln als Hackersatz", "anwendbar_auf": ["tofu_fest"], "timer_sekunden": 480, "timer_name": "Tofukruemel anbraten", "schritte": ["Tofu mit den Haenden oder einer Gabel grob zerbroeseln.", "In heisser Pfanne mit Oel scharf anbraten.", "So lange braten, bis die Kruemel Roestaromen bekommen und trocken wirken."]},
+    {"id": "BT10", "name": "Ruehrtofu-Technik", "anwendbar_auf": ["tofu_fest"], "schritte": ["Tofu zerbroeseln und anbraten (BT09).", "Kurkuma, Hefeflocken und Paprikapulver zugeben.", "Etwas Sojajoghurt unterruehren – das macht die Masse cremig.", "Kala Namak erst ganz zum Schluss ueber die Pfanne streuen."], "tipp": "Das Ei-Aroma des Schwarzsalzes stammt von Schwefelverbindungen und verfliegt bei Hitze."},
+    {"id": "BT11", "name": "Blanchieren", "anwendbar_auf": ["tofu_fest", "tofu_seiden"], "timer_sekunden": 90, "timer_name": "Tofu blanchieren", "schritte": ["Wasser leicht salzen und zum Sieden bringen.", "Tofuwuerfel 1 bis 2 Minuten ziehen lassen.", "Vorsichtig abgiessen."], "tipp": "Festigt den Tofu und verhindert Zerfallen im Eintopf."},
+    {"id": "BT12", "name": "Seidentofu-Handling", "anwendbar_auf": ["tofu_seiden", "tofu_seiden_tetra"], "schritte": ["Seidentofu niemals pressen.", "Fuer Suppen vorsichtig direkt aus der Packung in grosse Wuerfel schneiden.", "Fuer Cremes und Desserts komplett glatt puerieren."]}
+  ],
+
+  "rezepte": [
+    {
+      "id": "T01", "name_de": "Knuspriger Tofu (Basisrezept)", "name_original": null, "kueche": "universell", "kategorie": "Mittag", "tags": ["basis", "knusprig", "meal-prep"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "anfaengertauglich", "zeit_vorbereitung_min": 10, "zeit_koch_min": 15, "zeit_gesamt_min": 25, "portionen": 2, "tofu_sorte": "extra_fest",
+      "zutaten": [
+        {"name": "Extra fester Tofu", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": ["fester Naturtofu", "Tempeh"], "kategorie": "Kuehlung"},
+        {"name": "Speisestaerke", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": ["Maisstaerke", "Kartoffelstaerke"], "kategorie": "Trockenware"},
+        {"name": "Sojasauce", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": ["Tamari"], "kategorie": "Gewuerz"},
+        {"name": "Neutrales Oel", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Sesamoel", "menge": 1, "einheit": "TL", "optional": true, "substituierbar_durch": [], "kategorie": "Gewuerz"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu pressen", "anweisung": "Tofu aus der Packung nehmen, Fluessigkeit abgiessen, in Kuechenpapier wickeln und mit einem Gewicht beschweren. 15 Minuten stehen lassen.", "timer_sekunden": 900, "timer_name": "Pressen", "tipp": null, "basistechnik_ref": "BT01"},
+        {"schritt_nr": 2, "titel": "Wuerfeln", "anweisung": "Tofu in etwa 2 Zentimeter grosse Wuerfel schneiden.", "timer_sekunden": null, "timer_name": null, "tipp": "Wer statt zu schneiden mit den Haenden Stuecke abreisst, bekommt mehr knusprige Kanten.", "basistechnik_ref": null},
+        {"schritt_nr": 3, "titel": "Wuerzen", "anweisung": "Wuerfel in einer Schuessel mit der Sojasauce mischen und kurz ziehen lassen.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": "BT03"},
+        {"schritt_nr": 4, "titel": "Staerke aufbringen", "anweisung": "Speisestaerke darueberstreuen und vorsichtig schwenken, bis alle Seiten mattiert sind.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": "BT04"},
+        {"schritt_nr": 5, "titel": "Braten", "anweisung": "Pfanne heiss werden lassen, Oel zugeben, Tofu einlagig einlegen und 2 bis 3 Minuten pro Seite ungestoert braten, bis er goldbraun ist.", "timer_sekunden": 180, "timer_name": "Pro Seite braten", "tipp": "Nicht ruehren – der Tofu loest sich von selbst.", "basistechnik_ref": "BT05"}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 230, "protein_g": 20, "fett_g": 14, "kh_g": 7, "ballaststoffe_g": 2, "berechnungsgrundlage": "geschaetzt aus Zutaten auf USDA-Basis"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": false, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Gluten (ausser mit Tamari)"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "hoch",
+      "quelle": "Kompilat: Kitchn, Omnivore's Cookbook", "quellen_typ": "Foodblog",
+      "variationen": ["Im Airfryer bei 200 Grad, 15 Minuten", "Im Ofen bei 200 Grad, 25–30 Minuten", "Mit Ahornsirup glasiert"]
+    },
+    {
+      "id": "T02", "name_de": "Mapo Tofu", "name_original": "麻婆豆腐", "kueche": "chinesisch (Sichuan)", "kategorie": "Abend", "tags": ["scharf", "klassiker", "schnell"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "mittel", "zeit_vorbereitung_min": 10, "zeit_koch_min": 15, "zeit_gesamt_min": 25, "portionen": 3, "tofu_sorte": "seiden",
+      "zutaten": [
+        {"name": "Seidentofu oder weicher Tofu", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Hackfleisch oder gehackte Shiitake", "menge": 150, "einheit": "g", "optional": false, "substituierbar_durch": ["Sojagranulat"], "kategorie": "Kuehlung"},
+        {"name": "Doubanjiang (Bohnenpaste)", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": ["Gochujang plus Miso"], "kategorie": "Gewuerz"},
+        {"name": "Sichuanpfeffer, gemahlen", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Fermentierte schwarze Bohnen (Douchi)", "menge": 1, "einheit": "EL", "optional": true, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Knoblauchzehen", "menge": 2, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Ingwer", "menge": 15, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Fruehlingszwiebeln", "menge": 2, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Speisestaerke", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Gemuesebruehe", "menge": 250, "einheit": "ml", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu vorbereiten", "anweisung": "Seidentofu vorsichtig in grosse Wuerfel schneiden und 1 bis 2 Minuten in leicht gesalzenem, siedendem Wasser ziehen lassen. Danach vorsichtig abgiessen.", "timer_sekunden": 90, "timer_name": "Blanchieren", "tipp": "Das macht den Tofu stabiler, sodass er spaeter nicht zerfaellt.", "basistechnik_ref": "BT11"},
+        {"schritt_nr": 2, "titel": "Hack anbraten", "anweisung": "Hack oder gehackte Pilze in heissem Oel scharf anbraten, bis sie Farbe nehmen.", "timer_sekunden": 300, "timer_name": "Anbraten", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 3, "titel": "Wuerzbasis", "anweisung": "Doubanjiang, gehackten Knoblauch, Ingwer und die schwarzen Bohnen zugeben und kurz mitroesten, bis das Oel rot wird.", "timer_sekunden": 60, "timer_name": "Paste anroesten", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 4, "titel": "Koecheln", "anweisung": "Bruehe angiessen, Tofu einlegen und 3 Minuten sanft koecheln lassen. Nicht ruehren – den Topf lieber vorsichtig schwenken.", "timer_sekunden": 180, "timer_name": "Koecheln", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 5, "titel": "Binden und abschmecken", "anweisung": "Staerke mit etwas kaltem Wasser anruehren, einruehren und kurz aufkochen. Zum Schluss Sichuanpfeffer und Fruehlingszwiebeln darueberstreuen.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 280, "protein_g": 18, "fett_g": 18, "kh_g": 9, "ballaststoffe_g": 2, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": false, "vegetarisch": false, "glutenfrei": false, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Gluten"],
+      "vorrats_tauglich": false, "grundzutaten_anteil": "mittel",
+      "quelle": "Woks of Life, Omnivore's Cookbook, Hungry Huy", "quellen_typ": "Foodblog",
+      "variationen": ["Vegan mit Shiitake statt Hack", "Schaerfer mit Chilioel"]
+    },
+    {
+      "id": "T03", "name_de": "General Tso's Tofu", "name_original": null, "kueche": "chinesisch-amerikanisch", "kategorie": "Abend", "tags": ["knusprig", "suess-scharf", "klassiker"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "mittel", "zeit_vorbereitung_min": 20, "zeit_koch_min": 15, "zeit_gesamt_min": 35, "portionen": 3, "tofu_sorte": "extra_fest",
+      "zutaten": [
+        {"name": "Extra fester Tofu", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": ["fester Naturtofu"], "kategorie": "Kuehlung"},
+        {"name": "Speisestaerke", "menge": 4, "einheit": "EL", "optional": false, "substituierbar_durch": ["Maisstaerke"], "kategorie": "Trockenware"},
+        {"name": "Sojasauce", "menge": 3, "einheit": "EL", "optional": false, "substituierbar_durch": ["Tamari"], "kategorie": "Gewuerz"},
+        {"name": "Ahornsirup oder Zucker", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Reisessig", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": ["Apfelessig"], "kategorie": "Gewuerz"},
+        {"name": "Tomatenmark oder Hoisin", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Konserve"},
+        {"name": "Chili-Knoblauch-Sauce", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": ["Sambal Oelek"], "kategorie": "Gewuerz"},
+        {"name": "Knoblauchzehen", "menge": 2, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Ingwer", "menge": 15, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu pressen", "anweisung": "Tofu pressen und in mundgerechte Wuerfel schneiden.", "timer_sekunden": 1200, "timer_name": "Pressen", "tipp": null, "basistechnik_ref": "BT01"},
+        {"schritt_nr": 2, "titel": "Panieren", "anweisung": "Tofu kurz in etwas Sojasauce wenden, dann grosszuegig mit Staerke mattieren.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": "BT04"},
+        {"schritt_nr": 3, "titel": "Knusprig braten", "anweisung": "Tofu in reichlich heissem Oel rundum knusprig braten und auf Kuechenpapier abtropfen lassen.", "timer_sekunden": 240, "timer_name": "Braten", "tipp": null, "basistechnik_ref": "BT08"},
+        {"schritt_nr": 4, "titel": "Sauce kochen", "anweisung": "Knoblauch und Ingwer kurz anbraten, restliche Saucenzutaten zugeben und aufkochen, bis die Sauce sichtbar andickt.", "timer_sekunden": 180, "timer_name": "Sauce einkochen", "tipp": "Bei Bedarf mit einem Teeloeffel angeruehrter Staerke nachbinden.", "basistechnik_ref": null},
+        {"schritt_nr": 5, "titel": "Zusammenfuehren", "anweisung": "Tofu erst kurz vor dem Servieren in der Sauce schwenken, damit die Kruste knusprig bleibt.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 340, "protein_g": 18, "fett_g": 18, "kh_g": 26, "ballaststoffe_g": 2, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": false, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Gluten"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "mittel",
+      "quelle": "Minimalist Baker, Bianca Zapatka, Omnivore's Cookbook", "quellen_typ": "Foodblog",
+      "variationen": ["Mit Brokkoli", "Als Orange Tofu mit Orangenabrieb"]
+    },
+    {
+      "id": "T04", "name_de": "Knuspriger Tofu mit Erdnusssauce", "name_original": null, "kueche": "asiatisch-fusion", "kategorie": "Mittag", "tags": ["bowl", "meal-prep", "erdnuss"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "anfaengertauglich", "zeit_vorbereitung_min": 15, "zeit_koch_min": 20, "zeit_gesamt_min": 35, "portionen": 3, "tofu_sorte": "extra_fest",
+      "zutaten": [
+        {"name": "Extra fester Tofu", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Speisestaerke", "menge": 4, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Erdnussbutter", "menge": 2.5, "einheit": "EL", "optional": false, "substituierbar_durch": ["Mandelmus", "Tahini"], "kategorie": "Trockenware"},
+        {"name": "Sojasauce", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": ["Tamari"], "kategorie": "Gewuerz"},
+        {"name": "Ahornsirup", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Limettensaft", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": ["Zitronensaft"], "kategorie": "Frischware"},
+        {"name": "Chili-Knoblauch-Sauce", "menge": 1, "einheit": "TL", "optional": true, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Sesamoel", "menge": 2, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu vorbereiten", "anweisung": "Tofu pressen, wuerfeln und mit Staerke mattieren.", "timer_sekunden": 900, "timer_name": "Pressen", "tipp": null, "basistechnik_ref": "BT01"},
+        {"schritt_nr": 2, "titel": "Backen", "anweisung": "Tofu auf ein Blech legen und bei 200 Grad 25 bis 30 Minuten backen, nach der Haelfte wenden.", "timer_sekunden": 1650, "timer_name": "Backen", "tipp": null, "basistechnik_ref": "BT06"},
+        {"schritt_nr": 3, "titel": "Sauce ruehren", "anweisung": "Erdnussbutter, Sojasauce, Ahornsirup, Limettensaft, Sesamoel und Chilisauce glatt verruehren. Mit Wasser esslloeffelweise auf giessfaehige Konsistenz bringen.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 4, "titel": "Servieren", "anweisung": "Tofu in der Sauce wenden oder die Sauce zum Dippen daneben reichen.", "timer_sekunden": null, "timer_name": null, "tipp": "Fuer Meal-Prep Sauce getrennt lagern.", "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 330, "protein_g": 18, "fett_g": 21, "kh_g": 16, "ballaststoffe_g": 3, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": false, "nussfrei": false, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Erdnuss", "Gluten"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "hoch",
+      "quelle": "Minimalist Baker, My Darling Vegan", "quellen_typ": "Foodblog",
+      "variationen": ["Als Bowl mit Reis und Gemuese", "Mit Nudeln als kalter Salat"]
+    },
+    {
+      "id": "T05", "name_de": "Pad Thai mit Tofu", "name_original": "ผัดไทย", "kueche": "thailaendisch", "kategorie": "Abend", "tags": ["nudeln", "klassiker"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "mittel", "zeit_vorbereitung_min": 20, "zeit_koch_min": 15, "zeit_gesamt_min": 35, "portionen": 3, "tofu_sorte": "fest",
+      "zutaten": [
+        {"name": "Reisbandnudeln", "menge": 200, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Fester Tofu", "menge": 250, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Tamarindenpaste", "menge": 3.5, "einheit": "EL", "optional": false, "substituierbar_durch": ["Limettensaft plus etwas Zucker"], "kategorie": "Gewuerz"},
+        {"name": "Palmzucker oder brauner Zucker", "menge": 3, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Fischsauce oder vegane Alternative", "menge": 2.5, "einheit": "EL", "optional": false, "substituierbar_durch": ["Sojasauce"], "kategorie": "Gewuerz"},
+        {"name": "Sojasprossen", "menge": 100, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Fruehlingszwiebeln", "menge": 2, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Eier", "menge": 2, "einheit": "Stueck", "optional": true, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Erdnuesse", "menge": 40, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Limette", "menge": 1, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Nudeln einweichen", "anweisung": "Reisbandnudeln in warmem Wasser einweichen, bis sie biegsam, aber noch fest sind. Danach abgiessen.", "timer_sekunden": 1200, "timer_name": "Nudeln einweichen", "tipp": "Nicht kochen – sie garen spaeter in der Pfanne fertig.", "basistechnik_ref": null},
+        {"schritt_nr": 2, "titel": "Sauce mischen", "anweisung": "Tamarindenpaste, Zucker und Fischsauce verruehren, bis sich der Zucker geloest hat.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 3, "titel": "Tofu braten", "anweisung": "Tofu wuerfeln und in heissem Oel goldbraun braten.", "timer_sekunden": 300, "timer_name": "Tofu braten", "tipp": null, "basistechnik_ref": "BT05"},
+        {"schritt_nr": 4, "titel": "Ei stocken lassen", "anweisung": "Tofu zur Seite schieben, Eier in die freie Pfannenhaelfte geben und stocken lassen.", "timer_sekunden": 60, "timer_name": "Ei stocken", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 5, "titel": "Alles schwenken", "anweisung": "Nudeln und Sauce zugeben und bei hoher Hitze schwenken, bis die Nudeln weich sind. Zum Schluss Sprossen, Fruehlingszwiebeln und Erdnuesse unterheben und mit Limette servieren.", "timer_sekunden": 240, "timer_name": "Pfanne schwenken", "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 480, "protein_g": 18, "fett_g": 16, "kh_g": 65, "ballaststoffe_g": 4, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": false, "vegetarisch": false, "glutenfrei": true, "nussfrei": false, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Erdnuss", "Ei", "Fisch"],
+      "vorrats_tauglich": false, "grundzutaten_anteil": "mittel",
+      "quelle": "Hot Thai Kitchen, Minimalist Baker", "quellen_typ": "Foodblog",
+      "variationen": ["Vegan ohne Ei und mit veganer Fischsauce"]
+    },
+    {
+      "id": "T06", "name_de": "Sundubu Jjigae (koreanischer Tofu-Eintopf)", "name_original": "순두부찌개", "kueche": "koreanisch", "kategorie": "Abend", "tags": ["eintopf", "scharf", "schnell"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "mittel", "zeit_vorbereitung_min": 10, "zeit_koch_min": 20, "zeit_gesamt_min": 30, "portionen": 2, "tofu_sorte": "seiden",
+      "zutaten": [
+        {"name": "Sundubu oder Seidentofu", "menge": 350, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Gochugaru (koreanisches Chilipulver)", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": ["mildes Paprikapulver plus Chili"], "kategorie": "Gewuerz"},
+        {"name": "Sesamoel", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Knoblauchzehen", "menge": 2, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Zwiebel", "menge": 0.5, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Kimchi", "menge": 100, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Pilze", "menge": 100, "einheit": "g", "optional": true, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Bruehe", "menge": 600, "einheit": "ml", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Ei", "menge": 1, "einheit": "Stueck", "optional": true, "substituierbar_durch": [], "kategorie": "Kuehlung"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Chiliöl ansetzen", "anweisung": "Sesamoel im Topf erhitzen und das Gochugaru kurz darin anroesten, bis es duftet. Nicht verbrennen lassen.", "timer_sekunden": 45, "timer_name": "Chili anroesten", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 2, "titel": "Aromaten", "anweisung": "Zwiebel, Knoblauch, Kimchi und Pilze zugeben und einige Minuten mitbraten.", "timer_sekunden": 240, "timer_name": "Anbraten", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 3, "titel": "Bruehe", "anweisung": "Bruehe angiessen und aufkochen lassen.", "timer_sekunden": 300, "timer_name": "Aufkochen", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 4, "titel": "Tofu einlegen", "anweisung": "Seidentofu in grossen Stuecken einlegen und 5 Minuten sanft koecheln lassen. Nur vorsichtig bewegen.", "timer_sekunden": 300, "timer_name": "Koecheln", "tipp": null, "basistechnik_ref": "BT12"},
+        {"schritt_nr": 5, "titel": "Ei", "anweisung": "Ei aufschlagen und in den heissen Eintopf gleiten lassen. Sofort servieren.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 220, "protein_g": 14, "fett_g": 13, "kh_g": 9, "ballaststoffe_g": 3, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": false, "vegetarisch": false, "glutenfrei": true, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Ei"],
+      "vorrats_tauglich": false, "grundzutaten_anteil": "mittel",
+      "quelle": "Maangchi, Korean Bapsang, Omnivore's Cookbook", "quellen_typ": "Foodblog",
+      "variationen": ["Vegan ohne Ei mit Kombu-Bruehe", "Mit Meeresfruechten", "Mit Schweinebauch"]
+    },
+    {
+      "id": "T07", "name_de": "Agedashi Tofu", "name_original": "揚げ出し豆腐", "kueche": "japanisch", "kategorie": "Snack", "tags": ["frittiert", "vorspeise"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "mittel", "zeit_vorbereitung_min": 15, "zeit_koch_min": 10, "zeit_gesamt_min": 25, "portionen": 2, "tofu_sorte": "fest",
+      "zutaten": [
+        {"name": "Tofu (medium bis fest)", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Kartoffelstaerke", "menge": 4, "einheit": "EL", "optional": false, "substituierbar_durch": ["Speisestaerke"], "kategorie": "Trockenware"},
+        {"name": "Dashi oder Kombu-Dashi", "menge": 240, "einheit": "ml", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Sojasauce", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": ["Tamari"], "kategorie": "Gewuerz"},
+        {"name": "Mirin", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Daikon, gerieben", "menge": 50, "einheit": "g", "optional": true, "substituierbar_durch": ["Rettich"], "kategorie": "Frischware"},
+        {"name": "Fruehlingszwiebel", "menge": 1, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu abtropfen", "anweisung": "Tofu 15 Minuten in Kuechenpapier abtropfen lassen, dann in gleichmaessige Wuerfel schneiden.", "timer_sekunden": 900, "timer_name": "Abtropfen", "tipp": null, "basistechnik_ref": "BT01"},
+        {"schritt_nr": 2, "titel": "In Staerke wenden", "anweisung": "Wuerfel rundum in Kartoffelstaerke wenden und ueberschuessige Staerke abklopfen.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": "BT04"},
+        {"schritt_nr": 3, "titel": "Frittieren", "anweisung": "Oel auf 175 Grad erhitzen und den Tofu goldgelb frittieren. Auf Kuechenpapier abtropfen lassen.", "timer_sekunden": 180, "timer_name": "Frittieren", "tipp": null, "basistechnik_ref": "BT08"},
+        {"schritt_nr": 4, "titel": "Sauce", "anweisung": "Dashi, Sojasauce und Mirin erwaermen, aber nicht sprudelnd kochen.", "timer_sekunden": 120, "timer_name": "Sauce erwaermen", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 5, "titel": "Anrichten", "anweisung": "Tofu in Schalen setzen, Sauce angiessen und mit geriebenem Daikon und Fruehlingszwiebeln toppen. Sofort essen, sonst weicht die Kruste auf.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 200, "protein_g": 12, "fett_g": 12, "kh_g": 12, "ballaststoffe_g": 1, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": false, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Gluten", "Fisch (bei klassischem Dashi)"],
+      "vorrats_tauglich": false, "grundzutaten_anteil": "niedrig",
+      "quelle": "Just One Cookbook, RecipeTin Japan", "quellen_typ": "Foodblog",
+      "variationen": ["Vegan mit Kombu-Dashi", "Mit Shichimi Togarashi"]
+    },
+    {
+      "id": "T08", "name_de": "Ruehrtofu", "name_original": null, "kueche": "deutsch/vegan", "kategorie": "Fruehstueck", "tags": ["schnell", "eiersatz", "protein"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "anfaengertauglich", "zeit_vorbereitung_min": 5, "zeit_koch_min": 10, "zeit_gesamt_min": 15, "portionen": 2, "tofu_sorte": "fest",
+      "zutaten": [
+        {"name": "Naturtofu", "menge": 250, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Sojajoghurt", "menge": 3.5, "einheit": "EL", "optional": false, "substituierbar_durch": ["Hafercreme", "Pflanzenmilch"], "kategorie": "Kuehlung"},
+        {"name": "Kurkuma", "menge": 0.5, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Hefeflocken", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Kala Namak (Schwarzsalz)", "menge": 0.5, "einheit": "TL", "optional": false, "substituierbar_durch": ["normales Salz, dann ohne Ei-Aroma"], "kategorie": "Gewuerz"},
+        {"name": "Zwiebel", "menge": 0.5, "einheit": "Stueck", "optional": true, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Oel", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu zerbroeseln", "anweisung": "Tofu abtropfen lassen und mit einer Gabel oder den Haenden grob zerbroeseln.", "timer_sekunden": null, "timer_name": null, "tipp": "Unterschiedlich grosse Stuecke sehen am Ende am ehesten nach Ruehrei aus.", "basistechnik_ref": "BT09"},
+        {"schritt_nr": 2, "titel": "Anbraten", "anweisung": "Oel erhitzen, Zwiebel glasig braten, dann die Tofukruemel zugeben und einige Minuten mitbraten.", "timer_sekunden": 300, "timer_name": "Anbraten", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 3, "titel": "Wuerzen", "anweisung": "Kurkuma, Hefeflocken, Paprikapulver und Pfeffer einruehren.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 4, "titel": "Cremig machen", "anweisung": "Sojajoghurt unterruehren und 2 bis 3 Minuten ziehen lassen.", "timer_sekunden": 150, "timer_name": "Ziehen lassen", "tipp": null, "basistechnik_ref": "BT10"},
+        {"schritt_nr": 5, "titel": "Abschmecken", "anweisung": "Pfanne vom Herd nehmen und erst jetzt das Kala Namak einruehren.", "timer_sekunden": null, "timer_name": null, "tipp": "Das Ei-Aroma verfliegt bei Hitze – deshalb ganz zum Schluss.", "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 180, "protein_g": 15, "fett_g": 11, "kh_g": 5, "ballaststoffe_g": 2, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": true, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "hoch",
+      "quelle": "Eat this!, Bianca Zapatka", "quellen_typ": "Foodblog",
+      "variationen": ["Mit Pilzen und Tomaten", "Cremiger mit einem Anteil Seidentofu", "Als Fuellung fuer Breakfast Burrito"]
+    },
+    {
+      "id": "T09", "name_de": "Tofu-Bolognese", "name_original": null, "kueche": "deutsch/italienisch inspiriert", "kategorie": "Abend", "tags": ["familie", "meal-prep", "hackersatz"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "anfaengertauglich", "zeit_vorbereitung_min": 10, "zeit_koch_min": 35, "zeit_gesamt_min": 45, "portionen": 4, "tofu_sorte": "fest",
+      "zutaten": [
+        {"name": "Naturtofu", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": ["Sojagranulat", "Linsen"], "kategorie": "Kuehlung"},
+        {"name": "Zwiebel", "menge": 1, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Knoblauchzehen", "menge": 2, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Karotte", "menge": 1, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Stangensellerie", "menge": 1, "einheit": "Stueck", "optional": true, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Tomatenmark", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Konserve"},
+        {"name": "Passierte Tomaten", "menge": 700, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Konserve"},
+        {"name": "Rotwein", "menge": 100, "einheit": "ml", "optional": true, "substituierbar_durch": ["Bruehe"], "kategorie": "Trockenware"},
+        {"name": "Sojasauce", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Nudeln", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu kruemeln", "anweisung": "Tofu grob zerbroeseln und in heissem Oel etwa 8 Minuten braten, bis die Kruemel trocken wirken und Roestaromen haben.", "timer_sekunden": 480, "timer_name": "Tofu anbraten", "tipp": "Diese Roestphase ist der ganze Unterschied – nicht abkuerzen.", "basistechnik_ref": "BT09"},
+        {"schritt_nr": 2, "titel": "Gemuese", "anweisung": "Zwiebel, Knoblauch, Karotte und Sellerie fein wuerfeln und mitbraten, bis sie weich sind.", "timer_sekunden": 420, "timer_name": "Gemuese braten", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 3, "titel": "Tomatenmark roesten", "anweisung": "Tomatenmark zugeben und eine Minute mitroesten.", "timer_sekunden": 60, "timer_name": "Mark roesten", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 4, "titel": "Abloeschen", "anweisung": "Mit Rotwein und Sojasauce abloeschen und kurz einkochen lassen.", "timer_sekunden": 120, "timer_name": "Einkochen", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 5, "titel": "Koecheln", "anweisung": "Passierte Tomaten angiessen und die Sauce 30 Minuten offen koecheln lassen. Zwischendurch umruehren.", "timer_sekunden": 1800, "timer_name": "Sauce koecheln", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 6, "titel": "Nudeln", "anweisung": "Nudeln in reichlich Salzwasser nach Packungsangabe kochen und mit der Sauce servieren.", "timer_sekunden": 600, "timer_name": "Nudeln kochen", "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 520, "protein_g": 24, "fett_g": 12, "kh_g": 76, "ballaststoffe_g": 8, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": false, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Gluten"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "hoch",
+      "quelle": "Kompilat deutscher Rezeptportale", "quellen_typ": "Rezeptportal",
+      "variationen": ["Mit Linsen gestreckt", "Als Lasagne-Fuellung", "Ragu bianco ohne Tomate"]
+    },
+    {
+      "id": "T10", "name_de": "Tofu Tikka Masala", "name_original": null, "kueche": "indisch", "kategorie": "Abend", "tags": ["curry", "cremig", "paneer-ersatz"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "mittel", "zeit_vorbereitung_min": 40, "zeit_koch_min": 20, "zeit_gesamt_min": 60, "portionen": 4, "tofu_sorte": "fest",
+      "zutaten": [
+        {"name": "Fester Tofu", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": ["Paneer"], "kategorie": "Kuehlung"},
+        {"name": "Pflanzlicher Joghurt", "menge": 150, "einheit": "g", "optional": false, "substituierbar_durch": ["Naturjoghurt"], "kategorie": "Kuehlung"},
+        {"name": "Ingwer-Knoblauch-Paste", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Garam Masala", "menge": 2, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Kreuzkuemmel, gemahlen", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Koriander, gemahlen", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Kurkuma", "menge": 0.5, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Kashmiri-Chilipulver", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": ["mildes Paprikapulver"], "kategorie": "Gewuerz"},
+        {"name": "Tomatenpueree", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Konserve"},
+        {"name": "Kokosmilch oder Sahne", "menge": 60, "einheit": "ml", "optional": false, "substituierbar_durch": ["Cashewcreme"], "kategorie": "Konserve"},
+        {"name": "Zwiebel", "menge": 1, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Marinieren", "anweisung": "Tofu pressen, wuerfeln und mit Joghurt, Ingwer-Knoblauch-Paste und der Haelfte der Gewuerze mischen. Mindestens 30 Minuten kuehl ziehen lassen.", "timer_sekunden": 1800, "timer_name": "Marinieren", "tipp": null, "basistechnik_ref": "BT03"},
+        {"schritt_nr": 2, "titel": "Tofu garen", "anweisung": "Tofu bei 200 Grad 20 Minuten backen oder in der Pfanne rundum braun braten.", "timer_sekunden": 1200, "timer_name": "Tofu garen", "tipp": null, "basistechnik_ref": "BT06"},
+        {"schritt_nr": 3, "titel": "Masala ansetzen", "anweisung": "Zwiebel fein wuerfeln und weich braten. Restliche Gewuerze zugeben und kurz mitroesten.", "timer_sekunden": 420, "timer_name": "Zwiebel braten", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 4, "titel": "Sauce kochen", "anweisung": "Tomatenpueree zugeben und 10 Minuten koecheln lassen, bis die Sauce dunkler wird und das Oel sich absetzt.", "timer_sekunden": 600, "timer_name": "Sauce koecheln", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 5, "titel": "Fertigstellen", "anweisung": "Kokosmilch einruehren, Tofu zugeben und 5 Minuten ziehen lassen. Mit Reis oder Naan servieren.", "timer_sekunden": 300, "timer_name": "Ziehen lassen", "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 360, "protein_g": 20, "fett_g": 22, "kh_g": 18, "ballaststoffe_g": 5, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": true, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja"],
+      "vorrats_tauglich": false, "grundzutaten_anteil": "mittel",
+      "quelle": "Holy Cow Vegan, The Plant Based School, Cook With Manali", "quellen_typ": "Foodblog",
+      "variationen": ["Mit Raeuchertofu", "Als Butter-Masala mit mehr Sahne"]
+    },
+    {
+      "id": "T11", "name_de": "Salt & Pepper Tofu", "name_original": "椒盐豆腐", "kueche": "chinesisch (kantonesisch)", "kategorie": "Snack", "tags": ["knusprig", "wuerzig", "schnell"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "mittel", "zeit_vorbereitung_min": 15, "zeit_koch_min": 15, "zeit_gesamt_min": 30, "portionen": 3, "tofu_sorte": "extra_fest",
+      "zutaten": [
+        {"name": "Extra fester Tofu", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Kartoffelstaerke", "menge": 4, "einheit": "EL", "optional": false, "substituierbar_durch": ["Speisestaerke"], "kategorie": "Trockenware"},
+        {"name": "Sichuanpfeffer, gemahlen", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Weisser Pfeffer", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Fuenf-Gewuerz-Pulver", "menge": 0.5, "einheit": "TL", "optional": true, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Knoblauchzehen", "menge": 3, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Fruehlingszwiebeln", "menge": 2, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Chili", "menge": 1, "einheit": "Stueck", "optional": true, "substituierbar_durch": [], "kategorie": "Frischware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Gewuerzsalz mischen", "anweisung": "Sichuanpfeffer, weissen Pfeffer, Fuenf-Gewuerz-Pulver und Salz in einer kleinen Schale mischen.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 2, "titel": "Tofu panieren", "anweisung": "Tofu wuerfeln, trocken tupfen und mit Staerke sowie einem Teil des Gewuerzsalzes mattieren.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": "BT04"},
+        {"schritt_nr": 3, "titel": "Knusprig garen", "anweisung": "Tofu in reichlich heissem Oel rundum knusprig braten und abtropfen lassen.", "timer_sekunden": 240, "timer_name": "Braten", "tipp": null, "basistechnik_ref": "BT08"},
+        {"schritt_nr": 4, "titel": "Aromaten", "anweisung": "In wenig Oel Knoblauch, Chili und Fruehlingszwiebeln kurz anbraten.", "timer_sekunden": 60, "timer_name": "Aromaten braten", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 5, "titel": "Schwenken", "anweisung": "Tofu zugeben, restliches Gewuerzsalz darueberstreuen und alles kurz durchschwenken.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 250, "protein_g": 16, "fett_g": 15, "kh_g": 13, "ballaststoffe_g": 2, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": true, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "mittel",
+      "quelle": "Woks of Life, Red House Spice, China Sichuan Food", "quellen_typ": "Foodblog",
+      "variationen": ["Im Airfryer", "Mit Paprikastreifen"]
+    },
+    {
+      "id": "T12", "name_de": "Miso-Suppe mit Tofu und Wakame", "name_original": "味噌汁", "kueche": "japanisch", "kategorie": "Fruehstueck", "tags": ["suppe", "schnell", "leicht"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "anfaengertauglich", "zeit_vorbereitung_min": 5, "zeit_koch_min": 15, "zeit_gesamt_min": 20, "portionen": 4, "tofu_sorte": "seiden",
+      "zutaten": [
+        {"name": "Dashi oder Kombu-Dashi", "menge": 1000, "einheit": "ml", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Miso-Paste", "menge": 4, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Seidentofu", "menge": 200, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Getrocknetes Wakame", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Fruehlingszwiebel", "menge": 1, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Dashi erhitzen", "anweisung": "Dashi in einem Topf erhitzen und einmal aufkochen lassen. Danach die Hitze ausschalten.", "timer_sekunden": 300, "timer_name": "Dashi erhitzen", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 2, "titel": "Miso einruehren", "anweisung": "Miso in einer Kelle oder einem kleinen Sieb mit etwas heisser Bruehe glattruehren und dann in den Topf geben.", "timer_sekunden": null, "timer_name": null, "tipp": "Miso nie kochen – das zerstoert Aroma und Kulturen.", "basistechnik_ref": null},
+        {"schritt_nr": 3, "titel": "Tofu zugeben", "anweisung": "Seidentofu in etwa 1,3 Zentimeter grosse Wuerfel schneiden und vorsichtig in die Suppe geben.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": "BT12"},
+        {"schritt_nr": 4, "titel": "Wakame und Lauch", "anweisung": "Wakame zugeben und 2 Minuten quellen lassen, dann Fruehlingszwiebeln darueberstreuen.", "timer_sekunden": 120, "timer_name": "Wakame quellen", "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 60, "protein_g": 5, "fett_g": 2, "kh_g": 4, "ballaststoffe_g": 1, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": false, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Gluten", "Fisch (bei klassischem Dashi)"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "mittel",
+      "quelle": "Just One Cookbook, Pickled Plum", "quellen_typ": "Foodblog",
+      "variationen": ["Mit Pilzen", "Mit Spinat", "Faustregel: ein Esslloeffel Miso pro 240 Milliliter Dashi"]
+    },
+    {
+      "id": "T13", "name_de": "Seidentofu-Schokomousse", "name_original": null, "kueche": "universell", "kategorie": "Dessert", "tags": ["dessert", "schnell", "proteinreich"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "anfaengertauglich", "zeit_vorbereitung_min": 10, "zeit_koch_min": 0, "zeit_gesamt_min": 10, "portionen": 4, "tofu_sorte": "seiden",
+      "zutaten": [
+        {"name": "Seidentofu", "menge": 340, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Dunkle Schokolade", "menge": 150, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Ahornsirup", "menge": 3.5, "einheit": "EL", "optional": false, "substituierbar_durch": ["Agavendicksaft"], "kategorie": "Trockenware"},
+        {"name": "Vanilleextrakt", "menge": 1, "einheit": "TL", "optional": true, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Salz", "menge": 1, "einheit": "Prise", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Espressopulver", "menge": 1, "einheit": "TL", "optional": true, "substituierbar_durch": [], "kategorie": "Trockenware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Schokolade schmelzen", "anweisung": "Schokolade ueber dem Wasserbad oder in kurzen Intervallen in der Mikrowelle schmelzen und kurz abkuehlen lassen.", "timer_sekunden": 300, "timer_name": "Schmelzen", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 2, "titel": "Puerieren", "anweisung": "Seidentofu mit Ahornsirup, Vanille und Salz komplett glatt puerieren – es duerfen keine Stueckchen bleiben.", "timer_sekunden": 120, "timer_name": "Puerieren", "tipp": null, "basistechnik_ref": "BT12"},
+        {"schritt_nr": 3, "titel": "Zusammenfuehren", "anweisung": "Geschmolzene Schokolade zugeben und nochmals glatt puerieren.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 4, "titel": "Kuehlen", "anweisung": "Masse in Glaeser fuellen und mindestens eine Stunde kalt stellen.", "timer_sekunden": 3600, "timer_name": "Kuehlen", "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 230, "protein_g": 7, "fett_g": 13, "kh_g": 22, "ballaststoffe_g": 3, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": true, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "mittel",
+      "quelle": "Nora Cooks, Sweet Simple Vegan, It Doesn't Taste Like Chicken", "quellen_typ": "Foodblog",
+      "variationen": ["Mit Erdnussbutter", "Mit Orangenabrieb", "Als Tortenfuellung"]
+    },
+    {
+      "id": "T14", "name_de": "Vietnamesischer Tofu in Tomatensauce", "name_original": "Đậu Sốt Cà Chua", "kueche": "vietnamesisch", "kategorie": "Mittag", "tags": ["alltagsgericht", "guenstig", "schnell"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "anfaengertauglich", "zeit_vorbereitung_min": 10, "zeit_koch_min": 15, "zeit_gesamt_min": 25, "portionen": 3, "tofu_sorte": "fest",
+      "zutaten": [
+        {"name": "Fester Tofu", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Tomaten", "menge": 4, "einheit": "Stueck", "optional": false, "substituierbar_durch": ["400 g Dosentomaten"], "kategorie": "Frischware"},
+        {"name": "Schalotte", "menge": 1, "einheit": "Stueck", "optional": false, "substituierbar_durch": ["Zwiebel"], "kategorie": "Frischware"},
+        {"name": "Knoblauchzehen", "menge": 2, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Tomatenmark", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Konserve"},
+        {"name": "Fischsauce oder Sojasauce", "menge": 1.5, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Zucker", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Fruehlingszwiebeln", "menge": 2, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu braten", "anweisung": "Tofu in Wuerfel oder Dreiecke schneiden und in heissem Oel rundum goldbraun braten. Herausnehmen.", "timer_sekunden": 360, "timer_name": "Tofu braten", "tipp": null, "basistechnik_ref": "BT05"},
+        {"schritt_nr": 2, "titel": "Aromaten", "anweisung": "Schalotte und Knoblauch fein hacken und im selben Topf anbraten.", "timer_sekunden": 120, "timer_name": "Anbraten", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 3, "titel": "Tomaten einkochen", "anweisung": "Gewuerfelte Tomaten und Tomatenmark zugeben und einkochen, bis eine saemige Sauce entsteht.", "timer_sekunden": 480, "timer_name": "Sauce einkochen", "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 4, "titel": "Abschmecken und ziehen lassen", "anweisung": "Mit Fischsauce, Zucker und Pfeffer abschmecken, Tofu einlegen und 3 Minuten ziehen lassen. Mit Fruehlingszwiebeln bestreuen.", "timer_sekunden": 180, "timer_name": "Ziehen lassen", "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 210, "protein_g": 14, "fett_g": 12, "kh_g": 11, "ballaststoffe_g": 3, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": false, "vegetarisch": false, "glutenfrei": true, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Fisch"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "hoch",
+      "quelle": "Hungry Huy, Vicky Pham", "quellen_typ": "Foodblog",
+      "variationen": ["Vegan mit Sojasauce", "Mit Hack gefuellte Tofutaschen"]
+    },
+    {
+      "id": "T15", "name_de": "Teriyaki Tofu", "name_original": "照り焼き", "kueche": "japanisch", "kategorie": "Abend", "tags": ["suess-salzig", "schnell", "klassiker"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "anfaengertauglich", "zeit_vorbereitung_min": 15, "zeit_koch_min": 15, "zeit_gesamt_min": 30, "portionen": 3, "tofu_sorte": "extra_fest",
+      "zutaten": [
+        {"name": "Extra fester Tofu", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Speisestaerke", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Sojasauce", "menge": 6, "einheit": "EL", "optional": false, "substituierbar_durch": ["Tamari"], "kategorie": "Gewuerz"},
+        {"name": "Mirin", "menge": 6, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Zucker", "menge": 3, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Ingwer", "menge": 10, "einheit": "g", "optional": true, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Sesam", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu vorbereiten", "anweisung": "Tofu pressen und in Stuecke schneiden oder mit den Haenden abreissen. Mit Staerke mattieren.", "timer_sekunden": 900, "timer_name": "Pressen", "tipp": "Abgerissene Stuecke halten die Sauce besser.", "basistechnik_ref": "BT01"},
+        {"schritt_nr": 2, "titel": "Braten", "anweisung": "Tofu 8 bis 10 Minuten in der Pfanne knusprig braten und dabei mehrfach wenden.", "timer_sekunden": 540, "timer_name": "Braten", "tipp": null, "basistechnik_ref": "BT05"},
+        {"schritt_nr": 3, "titel": "Sauce ansetzen", "anweisung": "Sojasauce, Mirin, Zucker, Wasser und Ingwer verruehren und zum Tofu geben.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 4, "titel": "Glasieren", "anweisung": "Sauce bei mittlerer Hitze einkochen lassen, bis sie glaenzend am Tofu haftet. Mit Sesam und Fruehlingszwiebeln servieren.", "timer_sekunden": 300, "timer_name": "Glasieren", "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 270, "protein_g": 17, "fett_g": 12, "kh_g": 22, "ballaststoffe_g": 2, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": false, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Gluten", "Sesam"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "mittel",
+      "quelle": "America's Test Kitchen, The Last Food Blog, Pickled Plum", "quellen_typ": "Foodblog",
+      "variationen": ["Im Ofen gebacken", "Im Airfryer", "Als Donburi auf Reis"]
+    },
+    {
+      "id": "T16", "name_de": "Tofu-Schnitzel", "name_original": null, "kueche": "deutsch", "kategorie": "Mittag", "tags": ["paniert", "familie", "hausmannskost"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "mittel", "zeit_vorbereitung_min": 20, "zeit_koch_min": 15, "zeit_gesamt_min": 35, "portionen": 2, "tofu_sorte": "fest",
+      "zutaten": [
+        {"name": "Fester Tofu", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Sojamilch", "menge": 100, "einheit": "ml", "optional": false, "substituierbar_durch": ["Haferdrink"], "kategorie": "Trockenware"},
+        {"name": "Mehl", "menge": 4, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Speisestaerke", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Paprikapulver", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Panko oder Semmelbroesel", "menge": 100, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Oel zum Braten", "menge": 4, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu pressen", "anweisung": "Tofu 20 Minuten pressen und laengs in drei Scheiben schneiden.", "timer_sekunden": 1200, "timer_name": "Pressen", "tipp": null, "basistechnik_ref": "BT01"},
+        {"schritt_nr": 2, "titel": "Batter anruehren", "anweisung": "Sojamilch, Mehl, Staerke, Paprikapulver, Salz und Pfeffer zu einem dickfluessigen Teig verruehren.", "timer_sekunden": null, "timer_name": null, "tipp": "Der Teig ersetzt das Ei in der klassischen Panade.", "basistechnik_ref": null},
+        {"schritt_nr": 3, "titel": "Panieren", "anweisung": "Tofuscheiben durch den Teig ziehen und anschliessend in Panko wenden. Panade gut andruecken.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 4, "titel": "Braten", "anweisung": "In reichlich Oel bei mittlerer Hitze etwa 5 Minuten pro Seite goldbraun braten.", "timer_sekunden": 300, "timer_name": "Pro Seite braten", "tipp": null, "basistechnik_ref": "BT05"}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 360, "protein_g": 22, "fett_g": 19, "kh_g": 26, "ballaststoffe_g": 3, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": false, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Gluten"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "hoch",
+      "quelle": "Bianca Zapatka, EDEKA, smarticular", "quellen_typ": "Foodblog",
+      "variationen": ["Als Katsu mit Tonkatsu-Sauce", "Mit eingefrorenem Tofu fuer mehr Biss (BT02)"]
+    },
+    {
+      "id": "T17", "name_de": "Buffalo Tofu", "name_original": null, "kueche": "amerikanisch", "kategorie": "Snack", "tags": ["scharf", "fingerfood", "airfryer"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "anfaengertauglich", "zeit_vorbereitung_min": 15, "zeit_koch_min": 25, "zeit_gesamt_min": 40, "portionen": 3, "tofu_sorte": "extra_fest",
+      "zutaten": [
+        {"name": "Extra fester Tofu", "menge": 400, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Speisestaerke", "menge": 3, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Oel", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Scharfe Sauce (Hot Sauce)", "menge": 80, "einheit": "ml", "optional": false, "substituierbar_durch": ["BBQ-Sauce"], "kategorie": "Gewuerz"},
+        {"name": "Vegane Butter", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": ["Oel"], "kategorie": "Kuehlung"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu vorbereiten", "anweisung": "Tofu pressen, in Wuerfel schneiden, mit Oel und Staerke mischen.", "timer_sekunden": 900, "timer_name": "Pressen", "tipp": null, "basistechnik_ref": "BT04"},
+        {"schritt_nr": 2, "titel": "Knusprig garen", "anweisung": "Bei 200 Grad im Ofen 25 Minuten backen oder 15 Minuten im Airfryer garen, dazwischen einmal wenden.", "timer_sekunden": 1500, "timer_name": "Garen", "tipp": null, "basistechnik_ref": "BT07"},
+        {"schritt_nr": 3, "titel": "Sauce", "anweisung": "Butter schmelzen und mit der scharfen Sauce verruehren.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 4, "titel": "Wenden und nachbacken", "anweisung": "Tofu in der Sauce wenden und nochmals 5 Minuten backen, damit die Sauce anzieht.", "timer_sekunden": 300, "timer_name": "Nachbacken", "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 260, "protein_g": 18, "fett_g": 17, "kh_g": 9, "ballaststoffe_g": 2, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": true, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "mittel",
+      "quelle": "Kompilat: Rabbit and Wolves, Minimalist Baker", "quellen_typ": "Foodblog",
+      "variationen": ["Als BBQ-Tofu", "In Wraps", "Auf Bowls"]
+    },
+    {
+      "id": "T18", "name_de": "Dubu Jorim (geschmorter Tofu)", "name_original": "두부조림", "kueche": "koreanisch", "kategorie": "Mittag", "tags": ["beilage", "schnell", "guenstig"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "anfaengertauglich", "zeit_vorbereitung_min": 10, "zeit_koch_min": 15, "zeit_gesamt_min": 25, "portionen": 3, "tofu_sorte": "fest",
+      "zutaten": [
+        {"name": "Fester Tofu", "menge": 500, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Sojasauce", "menge": 3, "einheit": "EL", "optional": false, "substituierbar_durch": ["Tamari"], "kategorie": "Gewuerz"},
+        {"name": "Wasser", "menge": 60, "einheit": "ml", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Sesamoel", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Knoblauchzehen", "menge": 2, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Gochugaru", "menge": 1.5, "einheit": "TL", "optional": false, "substituierbar_durch": ["Paprikapulver"], "kategorie": "Gewuerz"},
+        {"name": "Zucker", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Fruehlingszwiebeln", "menge": 2, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu schneiden", "anweisung": "Tofu in etwa 1 Zentimeter dicke Scheiben schneiden und mit Kuechenpapier trocken tupfen.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 2, "titel": "Anbraten", "anweisung": "Scheiben in Oel 3 bis 4 Minuten pro Seite goldbraun braten.", "timer_sekunden": 210, "timer_name": "Pro Seite braten", "tipp": null, "basistechnik_ref": "BT05"},
+        {"schritt_nr": 3, "titel": "Sauce mischen", "anweisung": "Sojasauce, Wasser, Sesamoel, gehackten Knoblauch, Gochugaru und Zucker verruehren.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 4, "titel": "Schmoren", "anweisung": "Sauce ueber den Tofu giessen und bei mittlerer Hitze schmoren, bis fast alle Fluessigkeit aufgesogen ist. Mit Fruehlingszwiebeln und Sesam bestreuen.", "timer_sekunden": 420, "timer_name": "Schmoren", "tipp": null, "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 200, "protein_g": 16, "fett_g": 12, "kh_g": 7, "ballaststoffe_g": 2, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": false, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Gluten", "Sesam"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "hoch",
+      "quelle": "Maangchi, Korean Bapsang", "quellen_typ": "Foodblog",
+      "variationen": ["Milder ohne Gochugaru", "Mit Zwiebelscheiben untergelegt"]
+    },
+    {
+      "id": "T19", "name_de": "Veganer Feta aus Tofu", "name_original": null, "kueche": "mediterran", "kategorie": "Aufstrich", "tags": ["meal-prep", "salat", "vorbereiten"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "anfaengertauglich", "zeit_vorbereitung_min": 10, "zeit_koch_min": 0, "zeit_gesamt_min": 10, "portionen": 6, "tofu_sorte": "fest",
+      "zutaten": [
+        {"name": "Fester Tofu", "menge": 200, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Olivenoel", "menge": 4, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Zitronensaft", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Apfelessig", "menge": 1, "einheit": "EL", "optional": false, "substituierbar_durch": ["Weissweinessig"], "kategorie": "Gewuerz"},
+        {"name": "Salz", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Oregano", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Thymian", "menge": 0.5, "einheit": "TL", "optional": true, "substituierbar_durch": [], "kategorie": "Gewuerz"},
+        {"name": "Knoblauchzehe", "menge": 1, "einheit": "Stueck", "optional": true, "substituierbar_durch": [], "kategorie": "Frischware"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu pressen", "anweisung": "Tofu gruendlich pressen und in etwa 1,5 Zentimeter grosse Wuerfel schneiden.", "timer_sekunden": 1800, "timer_name": "Pressen", "tipp": "Je trockener der Tofu, desto mehr Marinade nimmt er auf.", "basistechnik_ref": "BT01"},
+        {"schritt_nr": 2, "titel": "Marinade", "anweisung": "Olivenoel, Zitronensaft, Essig, Salz, Kraeuter und gepressten Knoblauch verruehren.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 3, "titel": "Ziehen lassen", "anweisung": "Tofu in die Marinade legen, alles gut bedecken und mindestens 12 Stunden im Kuehlschrank ziehen lassen.", "timer_sekunden": null, "timer_name": null, "tipp": "Nach ein bis zwei Tagen schmeckt er am besten.", "basistechnik_ref": null}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 90, "protein_g": 6, "fett_g": 7, "kh_g": 1, "ballaststoffe_g": 1, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": true, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "hoch",
+      "quelle": "Utopia, Vegan Heaven, Leckerschmecker", "quellen_typ": "Rezeptportal",
+      "variationen": ["In Oel eingelegt haltbarer", "Zerdrueckt als Creme", "Mit Miso fuer mehr Umami"]
+    },
+    {
+      "id": "T20", "name_de": "Tofu-Frikadellen", "name_original": null, "kueche": "deutsch", "kategorie": "Mittag", "tags": ["meal-prep", "resteverwertung", "familie"], "prioritaet": "top20", "status": "vollstaendig",
+      "schwierigkeit": "anfaengertauglich", "zeit_vorbereitung_min": 15, "zeit_koch_min": 15, "zeit_gesamt_min": 30, "portionen": 4, "tofu_sorte": "fest",
+      "zutaten": [
+        {"name": "Naturtofu", "menge": 250, "einheit": "g", "optional": false, "substituierbar_durch": [], "kategorie": "Kuehlung"},
+        {"name": "Zwiebel", "menge": 1, "einheit": "Stueck", "optional": false, "substituierbar_durch": [], "kategorie": "Frischware"},
+        {"name": "Karotte", "menge": 1, "einheit": "Stueck", "optional": true, "substituierbar_durch": ["Zucchini"], "kategorie": "Frischware"},
+        {"name": "Haferflocken oder Semmelbroesel", "menge": 3, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Hefeflocken", "menge": 2, "einheit": "EL", "optional": false, "substituierbar_durch": [], "kategorie": "Trockenware"},
+        {"name": "Kala Namak", "menge": 0.5, "einheit": "TL", "optional": true, "substituierbar_durch": ["Salz"], "kategorie": "Gewuerz"},
+        {"name": "Senf", "menge": 1, "einheit": "TL", "optional": false, "substituierbar_durch": [], "kategorie": "Gewuerz"}
+      ],
+      "schritte": [
+        {"schritt_nr": 1, "titel": "Tofu zerbroeseln", "anweisung": "Tofu abtropfen lassen und sehr fein zerbroeseln oder mit einer Gabel zerdruecken.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": "BT09"},
+        {"schritt_nr": 2, "titel": "Masse mischen", "anweisung": "Fein gewuerfelte Zwiebel, geriebene Karotte, Haferflocken, Hefeflocken, Senf und Gewuerze untermischen und 5 Minuten quellen lassen.", "timer_sekunden": 300, "timer_name": "Quellen lassen", "tipp": "Ist die Masse zu feucht, noch etwas Haferflocken zugeben.", "basistechnik_ref": null},
+        {"schritt_nr": 3, "titel": "Formen", "anweisung": "Mit feuchten Haenden acht Frikadellen formen und fest andruecken.", "timer_sekunden": null, "timer_name": null, "tipp": null, "basistechnik_ref": null},
+        {"schritt_nr": 4, "titel": "Braten", "anweisung": "In heissem Oel bei mittlerer Hitze etwa 4 Minuten pro Seite goldbraun braten.", "timer_sekunden": 240, "timer_name": "Pro Seite braten", "tipp": null, "basistechnik_ref": "BT05"}
+      ],
+      "naehrwerte_pro_portion": {"kcal": 210, "protein_g": 13, "fett_g": 12, "kh_g": 12, "ballaststoffe_g": 4, "berechnungsgrundlage": "geschaetzt aus Zutaten"},
+      "ernaehrungsform": {"vegan": true, "vegetarisch": true, "glutenfrei": false, "nussfrei": true, "sojafrei": "nicht_anwendbar"},
+      "allergene": ["Soja", "Gluten"],
+      "vorrats_tauglich": true, "grundzutaten_anteil": "hoch",
+      "quelle": "Eat this!, Kompilat deutscher Portale", "quellen_typ": "Foodblog",
+      "variationen": ["Mit Kichererbsen gestreckt", "Im Ofen bei 200 Grad, 25 Minuten", "Als Burger-Patty flacher formen"]
+    },
+
+    {"id": "T21", "name_de": "Hiyayakko (kalter Seidentofu)", "name_original": "冷奴", "kueche": "japanisch", "kategorie": "Snack", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "seiden", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 5, "quelle": "Just One Cookbook", "notiz": "Mengen und Toppings vor Livegang praezisieren"},
+    {"id": "T22", "name_de": "Tofu-Steak mit Sojabutter", "name_original": "豆腐ステーキ", "kueche": "japanisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "extra_fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 30, "quelle": "RecipeTin Japan", "notiz": null},
+    {"id": "T23", "name_de": "Dubu Kimchi", "name_original": "두부김치", "kueche": "koreanisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 25, "quelle": "Maangchi", "notiz": null},
+    {"id": "T24", "name_de": "Rotgeschmorter Tofu (Hong Shao)", "name_original": "红烧豆腐", "kueche": "chinesisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 35, "quelle": "Woks of Life", "notiz": null},
+    {"id": "T25", "name_de": "Kung Pao Tofu", "name_original": "宫保豆腐", "kueche": "chinesisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "extra_fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 30, "quelle": "Woks of Life", "notiz": "enthaelt Erdnuesse"},
+    {"id": "T26", "name_de": "Tofu-Stir-Fry mit Brokkoli", "name_original": null, "kueche": "chinesisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "extra_fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 25, "quelle": "Kompilat", "notiz": null},
+    {"id": "T27", "name_de": "Mabo Dofu (japanische Variante)", "name_original": "麻婆豆腐", "kueche": "japanisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "seiden", "schwierigkeit": "mittel", "zeit_gesamt_min": 25, "quelle": "Just One Cookbook", "notiz": "milder als die Sichuan-Variante T02"},
+    {"id": "T28", "name_de": "Inari-Sushi", "name_original": "いなり寿司", "kueche": "japanisch", "kategorie": "Snack", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "frittiert", "schwierigkeit": "mittel", "zeit_gesamt_min": 45, "quelle": "Just One Cookbook", "notiz": "Aburaage nur im Asiamarkt"},
+    {"id": "T29", "name_de": "Gruenes Curry mit Tofu", "name_original": "แกงเขียวหวาน", "kueche": "thailaendisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 30, "quelle": "Hot Thai Kitchen", "notiz": null},
+    {"id": "T30", "name_de": "Massaman-Curry mit Tofu", "name_original": null, "kueche": "thailaendisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 40, "quelle": "Kompilat", "notiz": null},
+    {"id": "T31", "name_de": "Banh Mi mit Zitronengras-Tofu", "name_original": "Bánh mì", "kueche": "vietnamesisch", "kategorie": "Mittag", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 40, "quelle": "Kompilat", "notiz": null},
+    {"id": "T32", "name_de": "Sommerrollen mit Tofu", "name_original": "Gỏi cuốn", "kueche": "vietnamesisch", "kategorie": "Snack", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 35, "quelle": "Kompilat", "notiz": null},
+    {"id": "T33", "name_de": "Tofu Bhurji", "name_original": null, "kueche": "indisch", "kategorie": "Fruehstueck", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 20, "quelle": "Kompilat", "notiz": null},
+    {"id": "T34", "name_de": "Palak Tofu", "name_original": null, "kueche": "indisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 40, "quelle": "Holy Cow Vegan", "notiz": "Paneer-Ersatz 1:1"},
+    {"id": "T35", "name_de": "Tofu Makhani", "name_original": null, "kueche": "indisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 45, "quelle": "Kompilat", "notiz": null},
+    {"id": "T36", "name_de": "Tofu-Gyros", "name_original": null, "kueche": "deutsch/griechisch", "kategorie": "Mittag", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 30, "quelle": "Kompilat", "notiz": null},
+    {"id": "T37", "name_de": "Tofu-Bowl mit Teriyaki", "name_original": null, "kueche": "fusion", "kategorie": "Mittag", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "extra_fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 35, "quelle": "Kompilat", "notiz": null},
+    {"id": "T38", "name_de": "Salat mit Raeuchertofu", "name_original": null, "kueche": "deutsch", "kategorie": "Mittag", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "raeucher", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 20, "quelle": "Kompilat", "notiz": null},
+    {"id": "T39", "name_de": "Tofu-Spiesse vom Grill", "name_original": null, "kueche": "deutsch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "extra_fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 40, "quelle": "Kompilat", "notiz": null},
+    {"id": "T40", "name_de": "Tofu-Thunfisch-Aufstrich", "name_original": null, "kueche": "deutsch", "kategorie": "Aufstrich", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 15, "quelle": "Kompilat", "notiz": null},
+    {"id": "T41", "name_de": "Crispy Tofu Nuggets", "name_original": null, "kueche": "amerikanisch", "kategorie": "Snack", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "extra_fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 35, "quelle": "Kompilat", "notiz": null},
+    {"id": "T42", "name_de": "Breakfast Burrito mit Ruehrtofu", "name_original": null, "kueche": "amerikanisch", "kategorie": "Fruehstueck", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 25, "quelle": "Kompilat", "notiz": "baut auf T08 auf"},
+    {"id": "T43", "name_de": "Suess-saurer Tofu", "name_original": null, "kueche": "chinesisch-amerikanisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "extra_fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 35, "quelle": "Bianca Zapatka", "notiz": null},
+    {"id": "T44", "name_de": "Sesam-Tofu", "name_original": null, "kueche": "chinesisch-amerikanisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "extra_fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 35, "quelle": "Kompilat", "notiz": null},
+    {"id": "T45", "name_de": "Orange Tofu", "name_original": null, "kueche": "chinesisch-amerikanisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "extra_fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 35, "quelle": "Kompilat", "notiz": "Variante von T03"},
+    {"id": "T46", "name_de": "Gochujang-Tofu-Bowl", "name_original": null, "kueche": "koreanisch", "kategorie": "Mittag", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "extra_fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 30, "quelle": "Kompilat", "notiz": null},
+    {"id": "T47", "name_de": "Tofu Katsu Curry", "name_original": "豆腐カツカレー", "kueche": "japanisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 50, "quelle": "Kompilat", "notiz": "nutzt Panade aus T16"},
+    {"id": "T48", "name_de": "Marinierter Ofen-Tofu (Meal-Prep)", "name_original": null, "kueche": "universell", "kategorie": "Mittag", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "extra_fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 45, "quelle": "Kompilat", "notiz": null},
+    {"id": "T49", "name_de": "Tofu-Feta-Melonen-Salat", "name_original": null, "kueche": "mediterran", "kategorie": "Snack", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 15, "quelle": "Kompilat", "notiz": "nutzt T19"},
+    {"id": "T50", "name_de": "Tofu-Ricotta", "name_original": null, "kueche": "italienisch inspiriert", "kategorie": "Aufstrich", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 10, "quelle": "Kompilat", "notiz": "Basis fuer Lasagne und Cannelloni"},
+    {"id": "T51", "name_de": "Tofunaise", "name_original": null, "kueche": "deutsch/vegan", "kategorie": "Aufstrich", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "seiden", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 10, "quelle": "Kompilat", "notiz": null},
+    {"id": "T52", "name_de": "Seidentofu-Cheesecake", "name_original": null, "kueche": "universell", "kategorie": "Dessert", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "seiden", "schwierigkeit": "mittel", "zeit_gesamt_min": 90, "quelle": "Kompilat", "notiz": null},
+    {"id": "T53", "name_de": "Seidentofu-Smoothie", "name_original": null, "kueche": "universell", "kategorie": "Fruehstueck", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "seiden", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 5, "quelle": "Kompilat", "notiz": null},
+    {"id": "T54", "name_de": "Tofu-Schokopudding", "name_original": null, "kueche": "universell", "kategorie": "Dessert", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "seiden", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 10, "quelle": "Kompilat", "notiz": "Kakao-Variante von T13"},
+    {"id": "T55", "name_de": "Ruehrtofu-Sandwich", "name_original": null, "kueche": "deutsch", "kategorie": "Fruehstueck", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 20, "quelle": "Kompilat", "notiz": null},
+    {"id": "T56", "name_de": "Tofu-Doener", "name_original": null, "kueche": "fusion", "kategorie": "Mittag", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 40, "quelle": "Kompilat", "notiz": null},
+    {"id": "T57", "name_de": "Mapo Tofu vegan (Pilz-Version)", "name_original": "素麻婆豆腐", "kueche": "chinesisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "seiden", "schwierigkeit": "mittel", "zeit_gesamt_min": 25, "quelle": "Woks of Life", "notiz": "Variante von T02"},
+    {"id": "T58", "name_de": "Tofu-Laab", "name_original": "ลาบเต้าหู้", "kueche": "thailaendisch", "kategorie": "Mittag", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 25, "quelle": "Kompilat", "notiz": null},
+    {"id": "T59", "name_de": "Tofu-Karaage", "name_original": "豆腐唐揚げ", "kueche": "japanisch", "kategorie": "Snack", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "fest", "schwierigkeit": "mittel", "zeit_gesamt_min": 45, "quelle": "Kompilat", "notiz": null},
+    {"id": "T60", "name_de": "Raeuchertofu-Carbonara", "name_original": null, "kueche": "deutsch/italienisch", "kategorie": "Abend", "prioritaet": "erweiterung", "status": "stub", "tofu_sorte": "raeucher", "schwierigkeit": "anfaengertauglich", "zeit_gesamt_min": 25, "quelle": "Kompilat", "notiz": "Raeuchertofu als Speckersatz"}
+  ],
+
+  "substitutionen": {
+    "tofu_ersetzt": [
+      {"ziel": "Ei (Ruehrei)", "loesung": "fester Tofu zerbroeselt plus Kala Namak", "ratio": "250 g Tofu ersetzt ca. 4 Eier", "kontext_ok": ["Ruehrei", "Fruehstueckspfanne"], "kontext_fail": ["Spiegelei", "Baiser"]},
+      {"ziel": "Ei (Bindung beim Backen)", "loesung": "Seidentofu pueriert", "ratio": "60 g pro Ei", "kontext_ok": ["Kuchen", "Brownies", "Muffins"], "kontext_fail": ["Eischnee", "Meringue"]},
+      {"ziel": "Ricotta", "loesung": "fester Tofu zerdrueckt mit Zitrone, Hefeflocken, Salz", "ratio": "1:1", "kontext_ok": ["Lasagne", "Cannelloni", "Fuellungen"], "kontext_fail": ["Cannoli-Creme"]},
+      {"ziel": "Feta", "loesung": "fester Tofu mariniert (siehe T19)", "ratio": "1:1", "kontext_ok": ["Salat", "Ofengemuese", "Bowls"], "kontext_fail": ["Ueberbacken mit Schmelzwirkung"]},
+      {"ziel": "Hackfleisch", "loesung": "Tofu gekruemelt und scharf angebraten", "ratio": "1:1", "kontext_ok": ["Bolognese", "Chili", "Fuellungen"], "kontext_fail": ["Frikadellen ohne Bindemittel"]},
+      {"ziel": "Sahne, Quark, Joghurt", "loesung": "Seidentofu pueriert", "ratio": "1:1", "kontext_ok": ["Dressings", "Desserts", "Suppen"], "kontext_fail": ["Schlagsahne"]},
+      {"ziel": "Paneer", "loesung": "fester Tofu", "ratio": "1:1", "kontext_ok": ["indische Currys"], "kontext_fail": []},
+      {"ziel": "Speck", "loesung": "Raeuchertofu gewuerfelt und knusprig gebraten", "ratio": "1:1", "kontext_ok": ["Carbonara", "Salate", "Pfannengerichte"], "kontext_fail": []}
+    ],
+    "tofu_wird_ersetzt": [
+      {"ausgang": "fester Tofu", "alternativen": ["Tempeh", "Seitan", "Kichererbsen", "Halloumi (nicht vegan)"], "hinweis": "Textur weicht ab, Garzeiten pruefen"},
+      {"ausgang": "Seidentofu (Dessert)", "alternativen": ["pueriertes Cashewmus", "Kokoscreme", "Avocado", "veganer Joghurt"], "hinweis": "Suesse und Fettgehalt anpassen"},
+      {"ausgang": "Kruemel-Tofu", "alternativen": ["Sojagranulat", "Linsen", "veganes Hack"], "hinweis": "Sojagranulat vorher einweichen"},
+      {"ausgang": "Raeuchertofu", "alternativen": ["geraeucherter Tempeh", "geraeuchertes Tofuprodukt"], "hinweis": null}
+    ]
+  },
+
+  "haeufige_zutaten_kombinationen": [
+    {"gruppe": "ostasiatisch-herzhaft", "rezepte": ["T01", "T03", "T04", "T11", "T15", "T17", "T24", "T25", "T26", "T43", "T44", "T45"], "pflicht": ["Sojasauce", "Speisestaerke", "Sesamoel", "Knoblauch", "Ingwer"], "optional": ["Hoisin", "Gochujang", "Chili-Knoblauch-Sauce", "Reisessig", "Ahornsirup"]},
+    {"gruppe": "sichuan-scharf", "rezepte": ["T02", "T57"], "pflicht": ["Doubanjiang", "Sichuanpfeffer", "Knoblauch", "Ingwer"], "optional": ["Chilioel", "fermentierte schwarze Bohnen"]},
+    {"gruppe": "japanisch", "rezepte": ["T07", "T12", "T15", "T21", "T22", "T27", "T28", "T47", "T59"], "pflicht": ["Sojasauce", "Mirin", "Dashi oder Kombu"], "optional": ["Miso", "Sake", "Kartoffelstaerke"]},
+    {"gruppe": "koreanisch", "rezepte": ["T06", "T18", "T23", "T46"], "pflicht": ["Gochugaru", "Sojasauce", "Sesamoel", "Knoblauch"], "optional": ["Gochujang", "Kimchi"]},
+    {"gruppe": "thai-vietnamesisch", "rezepte": ["T05", "T14", "T29", "T30", "T31", "T32", "T58"], "pflicht": ["Fischsauce oder vegane Alternative", "Limette", "Knoblauch"], "optional": ["Tamarindenpaste", "Kokosmilch", "Currypaste", "Erdnuesse", "Palmzucker"]},
+    {"gruppe": "indisch", "rezepte": ["T10", "T33", "T34", "T35"], "pflicht": ["Garam Masala", "Kreuzkuemmel", "Kurkuma", "Ingwer", "Knoblauch", "Tomaten"], "optional": ["Koriander", "Kashmiri-Chili", "Kokosmilch", "Joghurt"]},
+    {"gruppe": "europaeisch-deutsch", "rezepte": ["T08", "T09", "T16", "T19", "T20", "T36", "T38", "T55", "T60"], "pflicht": ["Zwiebel", "Knoblauch", "Oel", "Salz", "Pfeffer"], "optional": ["Kala Namak", "Hefeflocken", "Kurkuma", "passierte Tomaten", "Panko", "Sojajoghurt"]},
+    {"gruppe": "erdnuss", "rezepte": ["T04", "T37"], "pflicht": ["Erdnussbutter", "Sojasauce", "Limette"], "optional": ["Ahornsirup", "Chili-Knoblauch-Sauce"]},
+    {"gruppe": "dessert-seiden", "rezepte": ["T13", "T52", "T53", "T54"], "pflicht": ["Seidentofu", "Suessungsmittel"], "optional": ["Schokolade", "Kakao", "Vanille", "Fruechte"]}
+  ],
+
+  "tipps_und_tricks": [
+    {"id": "TT01", "text": "Tofu erst pressen, dann wuerzen – trockener Tofu nimmt Marinade und Kruste besser an.", "bezug": ["BT01"]},
+    {"id": "TT02", "text": "Pfanne heiss, dann Oel, dann Tofu – und dann nicht ruehren. Er loest sich von selbst, wenn die Kruste fertig ist.", "bezug": ["BT05"]},
+    {"id": "TT03", "text": "Ein Esslloeffel Staerke pro 200 Gramm Tofu ist der Unterschied zwischen goldbraun und richtig knusprig.", "bezug": ["BT04"]},
+    {"id": "TT04", "text": "Seidentofu niemals pressen oder scharf braten – er gehoert ins Mousse, in die Suppe oder ins Dressing.", "bezug": ["BT12"]},
+    {"id": "TT05", "text": "Kala Namak immer erst am Ende zugeben – das Ei-Aroma verfliegt bei Hitze.", "bezug": ["BT10", "T08"]},
+    {"id": "TT06", "text": "Eingefrorener und wieder aufgetauter Tofu wird schwammig-fleischig und saugt Marinaden auf.", "bezug": ["BT02"]},
+    {"id": "TT07", "text": "Miso nie kochen – nach dem Aufkochen die Hitze ausschalten und erst dann einruehren.", "bezug": ["T12"]},
+    {"id": "TT08", "text": "Geoeffneten Tofu in frischem Wasser lagern und das Wasser taeglich wechseln.", "bezug": []},
+    {"id": "TT09", "text": "Raeuchertofu ist der einfachste Speckersatz – wuerfeln und knusprig braten.", "bezug": ["T60"]},
+    {"id": "TT10", "text": "Fester Tofu ersetzt Paneer eins zu eins in jedem indischen Curry.", "bezug": ["T34"]},
+    {"id": "TT11", "text": "Tofu mit den Haenden abreissen statt schneiden – mehr Kanten, mehr Kruste, mehr Sauce.", "bezug": ["T15"]},
+    {"id": "TT12", "text": "Knusprigen Tofu erst kurz vor dem Servieren in die Sauce geben, sonst weicht die Kruste auf.", "bezug": ["T03"]}
+  ]
+}
