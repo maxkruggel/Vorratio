@@ -223,7 +223,8 @@ Tipp-Pop-up (alle 9 Taps) · `render(zielView?)` + Tabbar · Onboarding
 `stelleSnacksBereit`, `rezeptKarte`, `quellenBadge`, `slotHinweis`,
 `baueAusVorrat`, `starteAiGenerierung` inkl. Gegenprüfung der gelieferten
 Rezepte) · Rezept-Detail (`ersatzIdeenHtml` = Substitutions-Teaser,
-Merken-Schalter, Notiz) · Kochbuch (`renderKochbuch`, `kochbuchTrefferHtml`)
+Merken-Schalter, Notiz) · Kochbuch (`renderKochbuch`, `kochbuchTrefferHtml`,
+`zuletztGekochtHtml` = Gekochtes aus der Historie nachträglich merken)
 + Rezept-Editor (`editor`-Entwurf, `uebernehmeEditorFelder` liest sichtbare
 Felder vor jedem Neuzeichnen zurück) · Vorrat
 (`zutatTreffer`-Suche inkl. Freitext-Anlage `addBestandFrei` mit `FREI_REGELN`,
