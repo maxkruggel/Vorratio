@@ -2,15 +2,18 @@
    Achse 1: Ernährungsform (genau eine) · Achse 2: Ausschlüsse (mehrfach) ·
    Achse 3: Stil (optional, mehrfach) · Achse 4: Ziele (optional, mehrfach) */
 
+/* Reihenfolge bewusst von rein pflanzlich nach oben: vegan → vegetarisch →
+   überwiegend pflanzlich → die übrigen vegetarischen Spielarten → flexitarisch
+   → Mischkost. Eine gemeinsame Liste, keine Gruppen-Zwischenüberschriften. */
 const ERNAEHRUNGSFORMEN = [
-  { id: "mischkost",      name: "Mischkost / omnivor",      kurz: "Alles – Fleisch, Fisch, Milch, Ei" },
-  { id: "flexitarier",    name: "Flexitarisch",             kurz: "Überwiegend pflanzlich, bewusst wenig Fleisch" },
-  { id: "pescetarier",    name: "Pescetarisch",             kurz: "Pflanzlich + Fisch, Milch, Ei – kein Fleisch" },
-  { id: "ovo_lacto",      name: "Vegetarisch (ovo-lacto)",  kurz: "Pflanzlich + Milch + Ei – kein Fleisch/Fisch" },
+  { id: "vegan",          name: "Vegan",                    kurz: "Ausschließlich pflanzlich, inkl. ohne Honig" },
+  { id: "ovo_lacto",      name: "Vegetarisch",              kurz: "Pflanzlich + Milch + Ei – kein Fleisch, kein Fisch" },
+  { id: "pflanzenbasiert", name: "Überwiegend pflanzlich",  kurz: "Pflanzen im Mittelpunkt, Tierisches selten & bewusst" },
   { id: "lacto",          name: "Lacto-vegetarisch",        kurz: "Pflanzlich + Milch – kein Ei, Fleisch, Fisch" },
   { id: "ovo",            name: "Ovo-vegetarisch",          kurz: "Pflanzlich + Ei – keine Milch, Fleisch, Fisch" },
-  { id: "vegan",          name: "Vegan",                    kurz: "Ausschließlich pflanzlich, inkl. ohne Honig" },
-  { id: "pflanzenbasiert", name: "Überwiegend pflanzenbasiert", kurz: "Pflanzenzentriert, Tierprodukte selten & bewusst" },
+  { id: "pescetarier",    name: "Pescetarisch",             kurz: "Pflanzlich + Fisch, Milch, Ei – kein Fleisch" },
+  { id: "flexitarier",    name: "Flexitarisch",             kurz: "Viel pflanzlich, bewusst wenig Fleisch" },
+  { id: "mischkost",      name: "Mischkost / omnivor",      kurz: "Alles – Fleisch, Fisch, Milch, Ei" },
 ];
 
 // Welche Rezept-Tags (kruggel-recipe-db/v1: vegan | vegetarisch | pescetarisch |

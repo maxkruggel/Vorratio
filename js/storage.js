@@ -10,6 +10,7 @@ const DEFAULT_STATE = {
     name: "",
     ernaehrungsform: null,   // Achse 1 (genau eine)
     ausschluesse: [],        // Achse 2 (Allergien/Intoleranzen + halal/koscher)
+    eigeneAusschluesse: [],  // Achse 2, frei eingetragen ("Rosenkohl", "Koriander")
     stile: [],               // Achse 3 (optional)
     ziele: [],               // Achse 4 (optional, wissenschaftlich rückgekoppelt)
     onboarded: false,
@@ -32,8 +33,21 @@ const DEFAULT_STATE = {
     letzter: null,           // letztes Crawl-Ergebnis (gilt eine Kalenderwoche)
   },
   aiRezepte: [],             // AI-generierte Rezepte (kruggel-recipe-db/v1-kompatibel)
+  /* Tipp-Dosierung: Tipps kommen nach und nach statt alle auf einmal.
+     `klicks` zählt die Interaktionen bis zum nächsten Pop-up, `gesehen`
+     merkt sich die schon gezeigten Tipps, damit sie rotieren. */
+  tipps: { klicks: 0, gesehen: [] },
   settings: { erstellt: null, apiKey: null },
 };
+
+/* Felder, die in älteren Sicherungen fehlen können. */
+function migriere(s) {
+  s.profil.ziele ||= [];
+  s.profil.eigeneAusschluesse ||= [];
+  s.tipps ||= { klicks: 0, gesehen: [] };
+  s.tipps.gesehen ||= [];
+  return s;
+}
 
 let state = null;
 const listeners = [];
@@ -42,8 +56,7 @@ function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      state = { ...structuredClone(DEFAULT_STATE), ...JSON.parse(raw) };
-      state.profil.ziele ||= [];   // Migration: Sicherungen vor Achse 4
+      state = migriere({ ...structuredClone(DEFAULT_STATE), ...JSON.parse(raw) });
     }
   } catch (e) {
     console.warn("Vorratio: Ladefehler, starte frisch.", e);
@@ -91,8 +104,7 @@ function importJson(file) {
         if (!data || typeof data !== "object" || !("profil" in data)) {
           throw new Error("Keine gültige Vorratio-Sicherung.");
         }
-        state = { ...structuredClone(DEFAULT_STATE), ...data };
-        state.profil.ziele ||= [];   // Migration: Sicherungen vor Achse 4
+        state = migriere({ ...structuredClone(DEFAULT_STATE), ...data });
         save();
         resolve(state);
       } catch (e) { reject(e); }

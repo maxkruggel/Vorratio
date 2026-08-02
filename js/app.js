@@ -11,7 +11,7 @@ import {
   zielTreffer, tagesSeed, bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
 } from "./engine.js";
 import { angebotsCrawl, isoWoche, liveKonfiguriert } from "./angebote.js";
-import { generiereRezepte, scanBon } from "./ai.js";
+import { generiereRezepte, scanBon, leseBarcodeVomFoto } from "./ai.js";
 import { lookupBarcode, vorschlagZutat, kameraVerfuegbar, starteKameraScan } from "./scan.js";
 import { SUB_KATEGORIEN, SUB_ANWENDUNGEN } from "./data/substitutionen.js";
 import { subsFiltern, ersatzVorschlaege, produkteSortiert } from "./substitution.js";
@@ -46,6 +46,22 @@ function h(html) {
   const t = document.createElement("template");
   t.innerHTML = html.trim();
   return t.content;
+}
+
+/* -------------------------------------------------------- Bildschirmwechsel
+   Jede Interaktion zeichnet ihren Screen komplett neu. Würde dabei jedes Mal
+   die Einblendung neu starten, flackert die Oberfläche bei jedem Tap – genau
+   das wirkte ruppig. Darum bekommt nur der echte Wechsel eine (ruhige)
+   Einblendung; ein Neuzeichnen desselben Screens tauscht still den Inhalt und
+   behält die Scrollposition. */
+let letzterScreen = null;
+
+function zeigeApp(html, key) {
+  const gleicherScreen = key === letzterScreen;
+  letzterScreen = key;
+  const frag = h(html);
+  if (gleicherScreen) frag.firstElementChild?.classList.remove("fade-in");
+  app.replaceChildren(frag);
 }
 
 /* -------------------------------------------------- Dialoge & Bestätigungen
@@ -93,15 +109,77 @@ function toast(text, art = "ok") {
   }, 2600);
 }
 
+/* ------------------------------------------------------------ Tipp-Pop-up
+   Alle Tipps auf einmal liest niemand. Darum meldet sich alle paar Taps einer
+   von allein – immer einer, den man noch nicht gesehen hat, und erst wenn
+   gerade nichts Wichtigeres offen ist (kein Kochschritt, kein Dialog). */
+const KLICKS_BIS_TIPP = 9;
+let tippPopOffen = false;
+let tippPopTimer = null;
+
+function naechsterUngesehenerTipp() {
+  const s = getState();
+  const gesehen = new Set(s.tipps.gesehen);
+  const offen = tippReihenfolge().filter((t) => !gesehen.has(t.id));
+  if (offen.length) return offen[0];
+  // Alles gesehen: von vorn, aber in neuer Runde
+  s.tipps.gesehen = [];
+  return tippReihenfolge()[0] || null;
+}
+
+function zeigeTippPop() {
+  const t = naechsterUngesehenerTipp();
+  if (!t) return;
+  const s = getState();
+  if (!s.tipps.gesehen.includes(t.id)) s.tipps.gesehen.push(t.id);
+  save();
+
+  const { titel, body } = teileTitel(t.text);
+  tippPopOffen = true;
+  const box = document.createElement("div");
+  box.className = "tipp-pop";
+  box.setAttribute("role", "status");
+  box.innerHTML = `
+    ${icon(t.symbol, 22)}
+    <div class="tipp-body">${titel ? `<b>${esc(titel)}</b>` : "<b>Küchentipp</b>"}${esc(body)}</div>
+    <button class="icon-btn tipp-zu" aria-label="Tipp schließen">${icon("x", 20)}</button>`;
+  const weg = () => {
+    clearTimeout(tippPopTimer);
+    box.classList.add("weg");
+    setTimeout(() => { box.remove(); tippPopOffen = false; }, 320);
+  };
+  box.querySelector("button").addEventListener("click", weg);
+  document.body.append(box);
+  tippPopTimer = setTimeout(weg, 11000);
+}
+
+/* Jeder Tap auf einen Bedienpunkt zählt – Scrollen und Tippen im Text nicht. */
+document.addEventListener("click", (e) => {
+  const s = getState();
+  if (!s?.profil?.onboarded) return;
+  if (!e.target.closest("button, .chip, .choice, .tappable, .tab")) return;
+  if (e.target.closest(".tipp-pop")) return;
+  s.tipps.klicks = (s.tipps.klicks || 0) + 1;
+  if (s.tipps.klicks < KLICKS_BIS_TIPP) { save(); return; }
+  s.tipps.klicks = 0;
+  save();
+  // Nicht mitten in einen Kochschritt oder einen offenen Dialog platzen
+  if (cook || tippPopOffen || document.querySelector("dialog[open]")) return;
+  zeigeTippPop();
+});
+
 function render() {
   const s = getState();
+  const vorher = letzterScreen;
   if (!s.profil.onboarded) { tabbar.hidden = true; renderOnboarding(); return; }
   tabbar.hidden = false;
   tabbar.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   if (cook) { renderKochmodus(); return; }
   if (detailRezept) { renderRezeptDetail(detailRezept); return; }
   ({ heute: renderHeute, vorrat: renderVorrat, einkauf: renderEinkauf, wissen: renderWissen, profil: renderProfil }[view] || renderHeute)();
-  window.scrollTo(0, 0);
+  // Nur beim echten Wechsel nach oben springen – sonst reißt es einen beim
+  // Antippen mitten in der Liste an den Seitenanfang.
+  if (letzterScreen !== vorher) window.scrollTo(0, 0);
 }
 
 tabbar.addEventListener("click", async (e) => {
@@ -120,7 +198,8 @@ tabbar.addEventListener("click", async (e) => {
 });
 
 /* ------------------------------------------------------------ Onboarding */
-let ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [], ziele: [] };
+const leeresOb = () => ({ step: 0, name: "", form: null, ausschluesse: [], eigene: [], stile: [], ziele: [] });
+let ob = leeresOb();
 
 const OB_STEPS = [obWelcome, obName, obForm, obAusschluesse, obStile, obZiele, obToleranz];
 
@@ -131,9 +210,13 @@ function progressBar(done, total) {
 
 function renderOnboarding() {
   const welcome = ob.step === 0;
-  const bar = welcome ? "" : progressBar(ob.step + 1, OB_STEPS.length);
-  app.replaceChildren(h(`
-    <div class="fade-in ${welcome ? "onboard-welcome" : "onboard-step"}">${bar}${OB_STEPS[ob.step]()}</div>`));
+  /* Jeder Schritt ist korrigierbar: Zurück steht über dem Fortschrittsbalken. */
+  const kopf = welcome ? "" : `
+    <button class="backlink" data-ob="back">${icon("zurueck", 20)}Zurück</button>
+    ${progressBar(ob.step + 1, OB_STEPS.length)}`;
+  zeigeApp(`
+    <div class="fade-in ${welcome ? "onboard-welcome" : "onboard-step"}">${kopf}${OB_STEPS[ob.step]()}</div>`,
+  `onboarding:${ob.step}`);
   bindOnboarding();
 }
 
@@ -146,7 +229,7 @@ function obWelcome() {
       <p>Kennt deinen Vorrat. Schlägt vor, was du daraus kochst. Bucht ab, was du verbrauchst.</p>
     </div>
     <button class="btn" data-ob="next">Los geht's</button>
-    <p class="centered-note">Sechs kurze Schritte · ca. 2 Minuten</p>
+    <p class="centered-note">Sechs kurze Schritte · ca. 3 Minuten</p>
     <div class="spacer"></div>
     <div class="foot-note">${icon("lokal", 18)}<span>Alles bleibt lokal auf deinem iPhone.<br>Kein Konto, kein Server.</span></div>`;
 }
@@ -170,6 +253,26 @@ function obForm() {
     <button class="btn" data-ob="next" ${ob.form ? "" : "disabled"}>Weiter</button>`;
 }
 
+/* Achse 2: Allergien, Intoleranzen und persönliche No-Gos. Neben den EU-14
+   lässt sich alles frei eintragen – die Freitext-Einträge filtern in
+   engine.js über Rezept- und Zutatennamen genauso hart wie die Standards. */
+function eigeneAusschluesseHtml(liste) {
+  return `
+    <div class="section-gap">
+      <h2>Etwas dabei, das hier fehlt?</h2>
+      ${liste.length ? `
+        <div class="chip-wrap" style="margin-bottom:10px">
+          ${liste.map((t, i) => `
+            <button class="chip selected" data-eigen-weg="${i}">${esc(t)}<span class="chip-x">×</span></button>`).join("")}
+        </div>` : ""}
+      <div class="add-row">
+        <input type="text" id="eigen-input" placeholder="z. B. Rosenkohl" autocomplete="off">
+        <button class="btn small-btn" id="eigen-add" aria-label="Eintragen">${icon("plus", 20)}</button>
+      </div>
+      <p class="subtle small" style="margin-top:8px">Was du hier einträgst, taucht in keinem Vorschlag mehr auf.</p>
+    </div>`;
+}
+
 function obAusschluesse() {
   const gruppe = (g, titel) => `
     <div class="section-gap">
@@ -180,42 +283,61 @@ function obAusschluesse() {
       </div>
     </div>`;
   return `
-    <div class="screen-header"><h1>was fliegt raus?</h1><p class="subtle">Harte Filter – Rezepte damit siehst du nie. Alles optional, mehrere möglich.</p></div>
+    <div class="screen-header"><h1>was verträgst du nicht?</h1><p class="subtle">Allergien, Unverträglichkeiten und alles, was bei dir grundsätzlich nicht auf den Teller kommt. Alles optional.</p></div>
     ${gruppe("allergie", "Allergien &amp; Intoleranzen")}
     ${gruppe("religioes", "Religiös-kulturell")}
+    ${eigeneAusschluesseHtml(ob.eigene)}
     <button class="btn" data-ob="next">Weiter</button>`;
 }
 
 function obStile() {
   return `
-    <div class="screen-header"><h1>worauf hast du lust?</h1><p class="subtle">Weiche Vorlieben – passende Rezepte kommen weiter nach oben, verboten wird nichts.</p></div>
-    <div class="chip-wrap">
-      ${STILE.map((s) => `<button class="chip ${ob.stile.includes(s.id) ? "selected" : ""}" data-stil="${s.id}">${esc(s.name)}</button>`).join("")}
+    <div class="screen-header"><h1>worauf hast du lust?</h1><p class="subtle">Deine Lieblingsrichtungen. Was dazu passt, rutscht in den Vorschlägen nach oben – der Rest bleibt trotzdem sichtbar.</p></div>
+    <div class="choice-list">
+      ${STILE.map((s) => {
+        const aktiv = ob.stile.includes(s.id);
+        return `
+        <button class="choice ${aktiv ? "selected" : ""}" data-stil="${s.id}"><b>${esc(s.name)}</b></button>
+        ${aktiv && s.hinweis ? `
+          <div class="inline-hint warn">${icon("achtung", 20)}
+            <div class="hint-body"><b>Ehrlich dazu gesagt</b>${esc(s.hinweis)}</div>
+          </div>` : ""}`;
+      }).join("")}
     </div>
-    ${ob.stile.map((id) => STILE.find((s) => s.id === id)).filter((s) => s?.hinweis).map((s) => `
-      <div class="card hint-card warn" style="margin-top:12px">${icon("achtung", 22)}
-        <div class="hint-body"><b>${esc(s.name)}</b>${esc(s.hinweis)}</div>
-      </div>`).join("")}
     <button class="btn" data-ob="next">Weiter</button>`;
 }
 
-/* Achse 4: Ziele – nur wissenschaftlich belegte, über Ernährung beeinflussbare
-   Ziele; jede Auswahl zeigt sofort ehrlich die Evidenzlage (inkl. dem, was
-   NICHT belegt ist). Rückkopplung: Vorschlags-Score + AI-Rezeptgenerierung. */
+/* Achse 4: Ziele – nur über Ernährung beeinflussbare Ziele; jede Auswahl klappt
+   direkt darunter auf, was dazu wirklich belegt ist (inkl. dem, was NICHT
+   belegt ist). Rückkopplung: Vorschlags-Score + AI-Rezeptgenerierung. */
+const belegBadge = (z) => z.evidenz === "hoch"
+  ? '<span class="badge">gut untersucht</span>'
+  : '<span class="badge neutral">teils untersucht</span>';
+
+/* Ziel-Karte + aufgeklappter Hinweis – gleiche Bausteine im Onboarding und im
+   Profil, damit der Hinweis überall direkt am Ziel hängt statt am Seitenende. */
+function zielListeHtml(gewaehlt, attr = "data-ziel") {
+  return `
+    <div class="choice-list">
+      ${ZIELE.map((z) => {
+        const aktiv = gewaehlt.includes(z.id);
+        return `
+        <button class="choice ${aktiv ? "selected" : ""}" ${attr}="${z.id}">
+          <b>${esc(z.name)} ${belegBadge(z)}</b>
+          <span class="subtle">${esc(z.kurz)}</span>
+        </button>
+        ${aktiv ? `
+          <div class="inline-hint">${icon("ziel", 20)}
+            <div class="hint-body"><b>Was dazu wirklich belegt ist</b>${esc(z.hinweis)}</div>
+          </div>` : ""}`;
+      }).join("")}
+    </div>`;
+}
+
 function obZiele() {
   return `
-    <div class="screen-header"><h1>was willst du erreichen?</h1><p class="subtle">Optional, mehrere möglich – passende Rezepte kommen nach oben, verboten wird nichts. Nur Ziele, die nachweislich über Ernährung beeinflussbar sind.</p></div>
-    <div class="choice-list">
-      ${ZIELE.map((z) => `
-        <button class="choice ${ob.ziele.includes(z.id) ? "selected" : ""}" data-ziel="${z.id}">
-          <b>${esc(z.name)} ${z.evidenz === "hoch" ? '<span class="badge">Evidenz: hoch</span>' : '<span class="badge neutral">Evidenz: begrenzt</span>'}</b>
-          <span class="subtle">${esc(z.kurz)}</span>
-        </button>`).join("")}
-    </div>
-    ${ob.ziele.map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean).map((z) => `
-      <div class="card hint-card" style="margin-top:12px">${icon("ziel", 22)}
-        <div class="hint-body"><b>${esc(z.name)} – was die Wissenschaft sagt</b>${esc(z.hinweis)}</div>
-      </div>`).join("")}
+    <div class="screen-header"><h1>was willst du erreichen?</h1><p class="subtle">Optional, mehrere möglich. Passende Rezepte kommen nach oben – verboten wird nichts. Zu jedem Ziel siehst du direkt, was dazu belegt ist.</p></div>
+    ${zielListeHtml(ob.ziele)}
     <button class="btn" data-ob="next">${ob.ziele.length ? "Weiter" : "Ohne Ziele weiter"}</button>`;
 }
 
@@ -226,7 +348,7 @@ function obToleranz() {
     "Stimmt mal was nicht, korrigierst du es in zwei Taps.",
   ];
   return `
-    <div class="screen-header"><h1>eine sache noch</h1><p class="subtle">Damit du weißt, warum hier nirgends krumme Zahlen stehen.</p></div>
+    <div class="screen-header"><h1>eine sache noch</h1><p class="subtle">Kurz erklärt, warum du hier nie eine Waage brauchst.</p></div>
     <div class="card hint-card" style="flex-direction:column;padding:22px;border-radius:18px">
       <h3 style="color:var(--accent-deep)">Toleranz statt Scheinpräzision</h3>
       <p style="font-size:15px;line-height:1.6">Beim Kochen bucht vorratio den Verbrauch mit ±10–15 % Spielraum ab. Du kochst aus der Hüfte, die App rechnet mit.</p>
@@ -247,6 +369,14 @@ function bindOnboarding() {
   app.querySelectorAll("[data-aus]").forEach((b) => b.addEventListener("click", () => { toggle(ob.ausschluesse, b.dataset.aus); renderOnboarding(); }));
   app.querySelectorAll("[data-stil]").forEach((b) => b.addEventListener("click", () => { toggle(ob.stile, b.dataset.stil); renderOnboarding(); }));
   app.querySelectorAll("[data-ziel]").forEach((b) => b.addEventListener("click", () => { toggle(ob.ziele, b.dataset.ziel); renderOnboarding(); }));
+  bindEigeneAusschluesse(ob.eigene, renderOnboarding);
+  app.querySelector('[data-ob="back"]')?.addEventListener("click", () => {
+    // Name-Eingabe beim Zurückgehen nicht verlieren
+    const feld = app.querySelector("#ob-name");
+    if (feld) ob.name = feld.value.trim();
+    ob.step = Math.max(0, ob.step - 1);
+    renderOnboarding();
+  });
   app.querySelector('[data-ob="next"]')?.addEventListener("click", () => { ob.step++; renderOnboarding(); });
   app.querySelector('[data-ob="name"]')?.addEventListener("click", () => {
     ob.name = app.querySelector("#ob-name").value.trim();
@@ -255,11 +385,31 @@ function bindOnboarding() {
   });
   app.querySelector('[data-ob="fertig"]')?.addEventListener("click", () => {
     const s = getState();
-    s.profil = { name: ob.name, ernaehrungsform: ob.form, ausschluesse: ob.ausschluesse, stile: ob.stile, ziele: ob.ziele, onboarded: true };
+    s.profil = {
+      name: ob.name, ernaehrungsform: ob.form, ausschluesse: ob.ausschluesse,
+      eigeneAusschluesse: ob.eigene, stile: ob.stile, ziele: ob.ziele, onboarded: true,
+    };
     save();
     view = "vorrat";
     render();
   });
+}
+
+/* Freitext-Ausschlüsse hinzufügen/entfernen – geteilt von Onboarding und Profil. */
+function bindEigeneAusschluesse(liste, danach) {
+  const feld = app.querySelector("#eigen-input");
+  const uebernehmen = () => {
+    const wert = (feld?.value || "").trim();
+    if (wert.length < 2) return;
+    if (!liste.some((t) => t.toLowerCase() === wert.toLowerCase())) liste.push(wert);
+    danach();
+  };
+  app.querySelector("#eigen-add")?.addEventListener("click", uebernehmen);
+  feld?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); uebernehmen(); } });
+  app.querySelectorAll("[data-eigen-weg]").forEach((b) => b.addEventListener("click", () => {
+    liste.splice(Number(b.dataset.eigenWeg), 1);
+    danach();
+  }));
 }
 
 function toggle(arr, val) {
@@ -361,7 +511,7 @@ function renderHeute() {
   const gruss = s.profil.name ? `moin, ${esc(s.profil.name)}` : "moin";
   const leererBestand = s.bestand.length === 0;
 
-  app.replaceChildren(h(`
+  zeigeApp(`
     <div class="fade-in">
       <div class="screen-header card-row">
         <div>
@@ -398,7 +548,7 @@ function renderHeute() {
       </div>
 
       <p class="centered-note">Vorschläge um 8:00, 11:30 und 17:30 – liegen beim Öffnen bereit.<br>Snacks laufen außerhalb der Zeiten.</p>
-    </div>`));
+    </div>`, "heute");
 
   app.querySelectorAll("[data-rezept]").forEach((c) => c.addEventListener("click", () => {
     detailRezept = findRezept(c.dataset.rezept);
@@ -444,7 +594,7 @@ function renderRezeptDetail(rezept) {
   // Sichtbare Rückkopplung Achse 4: auf welche gewählten Ziele zahlt das Rezept ein?
   const zielePassend = zielTreffer(rezept, s.profil.ziele || []).filter((t) => t.fit > 0).map((t) => t.ziel.name);
 
-  app.replaceChildren(h(`
+  zeigeApp(`
     <div class="fade-in">
       <button class="backlink" id="zurueck">${icon("zurueck", 20)}Heute</button>
       <div class="screen-header" style="margin-top:10px">
@@ -475,7 +625,7 @@ function renderRezeptDetail(rezept) {
         <button class="btn" id="einkauf-starten">${ab.fehlt.length === 1 ? "1 Sache" : `${ab.fehlt.length} Sachen`} auf die Einkaufsliste</button>
         <button class="btn secondary" id="kochen-trotzdem">Trotzdem kochen</button>`
         : `<button class="btn" id="kochen">Jetzt kochen</button>`}
-    </div>`));
+    </div>`, `rezept:${rezept.id}`);
 
   app.querySelector("#zurueck").addEventListener("click", () => { detailRezept = null; render(); });
   app.querySelector("#kochen")?.addEventListener("click", () => startKochen(rezept));
@@ -553,7 +703,7 @@ function renderKochmodus() {
     const vorschau = rezept.zutaten.filter((z) => z.menge != null).slice(0, 3)
       .map((z) => `${Math.round(z.menge * faktor * 10) / 10} ${z.einheit === "Stk" ? "×" : z.einheit} ${z.zutat_name}`)
       .join(" · ");
-    app.replaceChildren(h(`
+    zeigeApp(`
       <div class="fade-in">
         <button class="backlink" id="abbrechen">${icon("zurueck", 20)}Abbrechen</button>
         <div class="screen-header" style="margin-top:10px"><h1>${esc(rezept.name)}</h1><p class="subtle">Für wie viele kochst du?</p></div>
@@ -571,7 +721,7 @@ function renderKochmodus() {
             <span>${esc(vorschau)}</span>
           </div>` : ""}
         <button class="btn" id="los">Los kochen</button>
-      </div>`));
+      </div>`, "kochen-portionen");
     app.querySelector("#abbrechen").addEventListener("click", () => { cook = null; render(); });
     app.querySelector("#p-minus").addEventListener("click", () => { cook.portionen = Math.max(1, cook.portionen - 1); renderKochmodus(); });
     app.querySelector("#p-plus").addEventListener("click", () => { cook.portionen++; renderKochmodus(); });
@@ -587,7 +737,7 @@ function renderKochmodus() {
     ? { name: s.timer_name || "Timer", typ: s.timer_typ || "", total: s.dauer_sekunden, rest: s.dauer_sekunden, laeuft: false, gestartet: false, fertig: false, ende: null }
     : null;
 
-  app.replaceChildren(h(`
+  zeigeApp(`
     <div class="fade-in cook-screen">
       <div class="cook-head">
         <button class="backlink" id="abbrechen">${icon("zurueck", 20)}Abbrechen</button>
@@ -602,7 +752,7 @@ function renderKochmodus() {
         ${step > 0 ? `<button class="btn secondary icon-only" id="prev" aria-label="Zurück">${icon("zurueck", 20)}</button>` : ""}
         <button class="btn" id="next">${step === rezept.schritte.length - 1 ? "Fertig" : "Weiter"}</button>
       </div>
-    </div>`));
+    </div>`, `kochen:${step}`);
 
   app.querySelector("#abbrechen").addEventListener("click", async () => {
     if (await bestaetige({
@@ -713,7 +863,7 @@ function fmtZeit(sek) {
 /* Abschluss: Abhaken → Validierung → Abbuchung (Kap. 4.6) */
 function renderValidierung() {
   const { rezept, portionen } = cook;
-  app.replaceChildren(h(`
+  zeigeApp(`
     <div class="fade-in">
       <div style="margin-bottom:20px">
         ${icon("geschafft", 44, "ic-accent")}
@@ -729,7 +879,7 @@ function renderValidierung() {
       </div>
       <button class="btn" id="buchen">Abhaken &amp; abbuchen</button>
       <button class="btn secondary" id="ohne">Fertig ohne Abbuchung</button>
-    </div>`));
+    </div>`, "kochen-fertig");
   app.querySelector("#buchen").addEventListener("click", () => {
     const s = getState();
     const gebucht = abbuchen(rezept, s.bestand, portionen);
@@ -753,7 +903,7 @@ function renderVorrat() {
   const gruppen = {};
   for (const item of s.bestand) (gruppen[item.kategorie] ||= []).push(item);
 
-  app.replaceChildren(h(`
+  zeigeApp(`
     <div class="fade-in">
       <div class="screen-header">
         <div class="card-row" style="align-items:center">
@@ -763,11 +913,11 @@ function renderVorrat() {
             <button class="pill-btn" id="add-toggle">${vorratAddOffen ? icon("x", 19) : icon("plus", 19)}${vorratAddOffen ? "Schließen" : "Erfassen"}</button>
           </div>
         </div>
-        <p class="subtle small">${s.bestand.length} Artikel · Mengen sind Näherungen</p>
+        <p class="subtle small">${s.bestand.length} ${s.bestand.length === 1 ? "Artikel" : "Artikel"}</p>
       </div>
       ${scanPanel ? barcodeUi() : ""}
       ${vorratAddOffen ? vorratAddForm() : ""}
-      ${s.bestand.length === 0 && !vorratAddOffen ? vorratLeerHtml() : ""}
+      ${s.bestand.length === 0 && !vorratAddOffen && !scanPanel ? vorratLeerHtml() : ""}
       ${Object.entries(KATEGORIE_NAMEN).filter(([k]) => gruppen[k]?.length).map(([k, titel]) => `
         <div class="section-gap">
           <h2>${titel}</h2>
@@ -776,7 +926,7 @@ function renderVorrat() {
           </div>
         </div>`).join("")}
       ${s.bestand.length ? '<p class="centered-note">Tippe einen Artikel an, um die Menge zu korrigieren.</p>' : ""}
-    </div>`));
+    </div>`, "vorrat");
 
   app.querySelector("#add-toggle").addEventListener("click", () => { vorratAddOffen = !vorratAddOffen; renderVorrat(); });
   app.querySelector("#scan-toggle").addEventListener("click", () => {
@@ -786,7 +936,18 @@ function renderVorrat() {
   });
   bindVorratAdd();
   bindBarcode();
-  app.querySelector("#vorrat-leer-cta")?.addEventListener("click", () => { vorratAddOffen = true; renderVorrat(); });
+  /* Die drei Wege hinein führen jeweils direkt in ihren Ablauf. */
+  app.querySelectorAll("[data-weg]").forEach((b) => b.addEventListener("click", () => {
+    const weg = b.dataset.weg;
+    if (weg === "erfassen") { vorratAddOffen = true; renderVorrat(); return; }
+    if (weg === "barcode") { scanPanel = { status: "start" }; renderVorrat(); return; }
+    // Kassenbon: liegt im Einkauf. Der Klick zählt noch als Nutzergeste,
+    // darum öffnet der Dateidialog (= Kamera auf dem iPhone) direkt mit.
+    view = "einkauf";
+    render();
+    app.querySelector("#bon-start")?.click();
+    app.querySelector("#bon-key")?.scrollIntoView({ block: "center" });
+  }));
   app.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => renderVorratEdit(b.dataset.edit)));
 }
 
@@ -806,12 +967,13 @@ function vorratZeile(item) {
     </div>`;
 }
 
-/* Leerer Vorrat (Design 15): Erklärkarte + die drei Wege hinein. */
+/* Leerer Vorrat (Design 15): Erklärkarte + die drei Wege hinein. Die drei Wege
+   sind echte Buttons – sie sahen vorher tippbar aus, waren es aber nicht. */
 function vorratLeerHtml() {
   const wege = [
-    ["erfassen", "Aus der Liste tippen", `${ZUTATEN.length} gängige Zutaten vorbereitet`],
-    ["barcode", "Barcode scannen", "Produktdaten von Open Food Facts"],
-    ["kamera", "Kassenbon fotografieren", "Claude liest ihn aus"],
+    ["erfassen", "Aus der Liste tippen"],
+    ["barcode", "Barcode scannen"],
+    ["kamera", "Kassenbon fotografieren"],
   ];
   return `
     <div class="empty-state">
@@ -821,13 +983,13 @@ function vorratLeerHtml() {
     </div>
     <div class="section-gap">
       <h2>Drei Wege hinein</h2>
-      ${wege.map(([ic, titel, text]) => `
-        <div class="card" style="display:flex;align-items:center;gap:13px;padding:15px">
+      ${wege.map(([ic, titel]) => `
+        <button class="card weg-karte" data-weg="${ic}">
           ${icon(ic, 24)}
-          <div class="grow"><span class="name">${titel}</span><span class="subtle small" style="display:block">${text}</span></div>
-        </div>`).join("")}
-    </div>
-    <button class="btn" id="vorrat-leer-cta">Ersten Artikel erfassen</button>`;
+          <span class="grow"><span class="name">${titel}</span></span>
+          ${icon("weiter", 20)}
+        </button>`).join("")}
+    </div>`;
 }
 
 /* -------------------------------------------- Barcode-Scan (Kap. 6.3)
@@ -840,18 +1002,27 @@ function stoppeKamera() { kamera?.stop?.(); kamera = null; }
 function barcodeUi() {
   const p = scanPanel;
   if (p.status === "start") {
+    /* Der Kamera-Weg ist immer da: wo der Browser Strichcodes selbst erkennt,
+       läuft der Live-Scan; sonst wird der Code fotografiert und Claude liest
+       die Ziffern darunter ab. Erst ohne beides bleibt nur das Eintippen. */
+    const live = kameraVerfuegbar();
+    const foto = !live && !!getState().settings.apiKey;
     return `
       <div class="section-gap">
         <div class="section-head"><h2>Barcode</h2><button class="backlink" id="ean-abbrechen">Abbrechen</button></div>
-        ${kameraVerfuegbar() ? `
+        ${live || foto ? `
           <button class="scan-view" id="ean-kamera" style="width:100%">
             <span style="width:210px;height:110px;border-radius:12px;border:2px solid rgba(255,253,248,.85)"></span>
-            <span>Strichcode ins Feld halten</span>
+            <span>${live ? "Strichcode ins Feld halten" : "Strichcode fotografieren"}</span>
           </button>
-          <div class="or-line"><span>oder Nummer eintippen</span></div>` : ""}
+          ${foto ? '<input type="file" id="ean-foto" accept="image/*" capture="environment" hidden>' : ""}
+          <div class="or-line"><span>oder Nummer eintippen</span></div>` : `
+          <div class="card hint-card">${icon("kamera", 20)}
+            <div class="hint-body"><b>Kamera-Scan braucht deinen Claude-Key</b>Dieser Browser erkennt Strichcodes nicht selbst. Mit hinterlegtem Key fotografierst du den Code einfach – Claude liest die Nummer ab. Solange tippst du sie ein.</div>
+          </div>`}
         <input type="text" id="ean-input" inputmode="numeric" placeholder="z. B. 4311501659286">
         <button class="btn" id="ean-suchen">Nachschlagen</button>
-        <p class="centered-note">Produktdaten von Open Food Facts (ODbL). Die Nummer steht unter dem Strichcode.${kameraVerfuegbar() ? "" : "<br>Kamera-Scan ist auf diesem Browser nicht verfügbar (iOS Safari)."}</p>
+        <p class="centered-note">Produktdaten von Open Food Facts (ODbL). Die Nummer steht unter dem Strichcode.</p>
       </div>`;
   }
   if (p.status === "kamera") return `
@@ -859,6 +1030,7 @@ function barcodeUi() {
       <div class="scan-view"><video id="scan-video" playsinline muted></video></div>
       <button class="btn secondary" id="ean-kamera-stopp">Abbrechen</button>
     </div>`;
+  if (p.status === "foto") return `<div class="card"><p class="subtle small">Claude liest den Strichcode …</p></div>`;
   if (p.status === "laden") return `<div class="card"><p class="subtle small">Suche ${esc(p.ean)} bei Open Food Facts …</p></div>`;
   if (p.status === "fehler") return `
     <div class="card hint-card warn">${icon("achtung", 20)}<span class="hint-body">${esc(p.msg)}</span></div>
@@ -925,12 +1097,30 @@ function bindBarcode() {
     if (e.key === "Enter") { const ean = e.target.value.trim(); if (ean) suche(ean); }
   });
   app.querySelector("#ean-kamera")?.addEventListener("click", async () => {
+    // Ohne BarcodeDetector (iOS Safari) wird fotografiert statt live gescannt.
+    const fotoFeld = app.querySelector("#ean-foto");
+    if (fotoFeld) { fotoFeld.click(); return; }
     scanPanel = { status: "kamera" };
     renderVorrat();
     const video = app.querySelector("#scan-video");
     kamera = await starteKameraScan(video,
       (ean) => { kamera = null; suche(ean); },
       () => { kamera = null; scanPanel = { status: "fehler", msg: "Kamera nicht verfügbar oder Zugriff abgelehnt." }; renderVorrat(); });
+  });
+  app.querySelector("#ean-foto")?.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    scanPanel = { status: "foto" };
+    renderVorrat();
+    try {
+      const base64 = await dateiAlsBase64(file);
+      const ean = await leseBarcodeVomFoto(getState().settings.apiKey, base64, file.type || "image/jpeg");
+      if (ean) suche(ean);
+      else { scanPanel = { status: "fehler", msg: "Auf dem Foto war keine Strichcode-Nummer zu lesen. Nochmal näher ran – oder die Nummer eintippen." }; renderVorrat(); }
+    } catch (err) {
+      scanPanel = { status: "fehler", msg: err.message };
+      renderVorrat();
+    }
   });
   app.querySelector("#ean-kamera-stopp")?.addEventListener("click", () => { stoppeKamera(); scanPanel = { status: "start" }; renderVorrat(); });
   app.querySelectorAll("#ean-zurueck, #ean-verwerfen").forEach((b) => b.addEventListener("click", () => { scanPanel = { status: "start" }; renderVorrat(); }));
@@ -949,43 +1139,121 @@ function bindBarcode() {
   });
 }
 
+/* Zutatensuche: erst wörtliche Treffer, dann klanglich nahe Einträge
+   ("Rahmspinat" findet auch "Blattspinat"). Bleibt beides leer, wird die
+   Eingabe als eigener Artikel angelegt – die Liste ist ein Startpunkt,
+   kein Käfig. */
+function zutatTreffer(suche, imBestand) {
+  const frei = ZUTATEN.filter((z) => !imBestand.has(z.id));
+  if (!suche) return { direkt: frei.slice(0, 12), aehnlich: [] };
+  const q = suche.toLowerCase().trim();
+  const direkt = frei.filter((z) => z.name.toLowerCase().includes(q));
+  const gefunden = new Set(direkt.map((z) => z.id));
+  const nah = vorschlagZutat(suche);
+  const aehnlich = direkt.length ? [] : frei.filter((z) => {
+    if (gefunden.has(z.id)) return false;
+    if (nah && z.id === nah.id) return true;
+    // Wortstämme vergleichen: "rahmspinat" ↔ "blattspinat"
+    return z.name.toLowerCase().split(/[^a-zäöüß]+/).some((w) => w.length >= 4 && (q.includes(w) || w.includes(q)));
+  }).slice(0, 6);
+  return { direkt: direkt.slice(0, 12), aehnlich };
+}
+
+function trefferChips({ direkt, aehnlich }, suche) {
+  if (direkt.length) return direkt.map((z) => `<button class="chip" data-add="${z.id}">${esc(z.name)}</button>`).join("");
+  const eigen = suche.trim()
+    ? `<button class="chip chip-neu" data-add-frei="1">${icon("plus", 16)}„${esc(suche.trim())}" anlegen</button>` : "";
+  if (!aehnlich.length) {
+    return eigen || '<span class="subtle small">Tipp etwas ein – oder leg dir einen eigenen Artikel an.</span>';
+  }
+  return `${eigen}${aehnlich.map((z) => `<button class="chip" data-add="${z.id}">${esc(z.name)}<span class="chip-note">ähnlich</span></button>`).join("")}`;
+}
+
 function vorratAddForm() {
   const s = getState();
   const imBestand = new Set(s.bestand.map((b) => b.zutat_id));
-  const treffer = ZUTATEN
-    .filter((z) => !imBestand.has(z.id))
-    .filter((z) => !vorratSuche || z.name.toLowerCase().includes(vorratSuche.toLowerCase()))
-    .slice(0, 12);
+  const treffer = zutatTreffer(vorratSuche, imBestand);
   return `
     <div class="section-gap">
-      <input type="text" id="add-suche" placeholder="z. B. Mehl, Reis, Eier …" value="${esc(vorratSuche)}">
+      <input type="text" id="add-suche" placeholder="z. B. Mehl, Reis, Rahmspinat …" value="${esc(vorratSuche)}" autocomplete="off">
       <h2 class="section-gap">${vorratSuche ? "Treffer" : "Häufig erfasst"}</h2>
-      <div class="chip-wrap">
-        ${treffer.map((z) => `<button class="chip" data-add="${z.id}">${esc(z.name)}</button>`).join("") || '<span class="subtle small">Kein Treffer in der Zutatenliste.</span>'}
-      </div>
+      <div class="chip-wrap">${trefferChips(treffer, vorratSuche)}</div>
       <div class="card hint-card" style="margin-top:16px">${icon("tipp", 20)}
-        <span class="hint-body">Erst grob alles antippen, was da ist. Die Mengen kannst du danach in Ruhe schätzen.</span>
+        <span class="hint-body">Erst grob alles antippen, was da ist. Die Mengen kannst du danach in Ruhe schätzen. Was nicht in der Liste steht, tippst du einfach ein und legst es an.</span>
       </div>
     </div>`;
 }
 
 function bindVorratAdd() {
   const suche = app.querySelector("#add-suche");
+  const bindeChips = (wrap) => {
+    wrap.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => addBestand(b.dataset.add)));
+    wrap.querySelector("[data-add-frei]")?.addEventListener("click", () => addBestandFrei(vorratSuche));
+  };
   if (suche) {
     suche.addEventListener("input", () => {
       vorratSuche = suche.value;
       // Nur Chip-Liste neu zeichnen, Fokus behalten
       const wrap = app.querySelector(".chip-wrap");
-      const s = getState();
-      const imBestand = new Set(s.bestand.map((b) => b.zutat_id));
-      const treffer = ZUTATEN.filter((z) => !imBestand.has(z.id))
-        .filter((z) => !vorratSuche || z.name.toLowerCase().includes(vorratSuche.toLowerCase())).slice(0, 12);
-      wrap.innerHTML = treffer.map((z) => `<button class="chip" data-add="${z.id}">${esc(z.name)}</button>`).join("")
-        || '<span class="subtle small">Kein Treffer in der Zutatenliste.</span>';
-      wrap.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => addBestand(b.dataset.add)));
+      const imBestand = new Set(getState().bestand.map((b) => b.zutat_id));
+      wrap.innerHTML = trefferChips(zutatTreffer(vorratSuche, imBestand), vorratSuche);
+      bindeChips(wrap);
+    });
+    suche.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const imBestand = new Set(getState().bestand.map((b) => b.zutat_id));
+      const { direkt } = zutatTreffer(vorratSuche, imBestand);
+      direkt.length ? addBestand(direkt[0].id) : addBestandFrei(vorratSuche);
     });
   }
-  app.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => addBestand(b.dataset.add)));
+  bindeChips(app);
+}
+
+/* Eigener Artikel aus freier Eingabe: Kategorie und Führungsart werden aus dem
+   Namen abgeleitet, damit der Mengen-Screen direkt die richtige Bedienung
+   zeigt (Stepper, Füllstandsregler oder da/leer). */
+const FREI_REGELN = [
+  { kat: "tk",      art: "schuettgut", packung: 450, muster: /tk|tiefkühl|gefroren|rahmspinat|eis\b/ },
+  { kat: "gewuerz", art: "pauschal",   muster: /gewürz|pulver|pfeffer|salz|paprika|curry|zimt|kümmel|muskat|chili/ },
+  { kat: "konserve", art: "zaehlbar",  einheit: "Dose", muster: /dose|konserve|glas\b/ },
+  { kat: "kuehl",   art: "schuettgut", packung: 250, muster: /käse|quark|joghurt|sahne|milch|butter|wurst|schinken|tofu|fleisch|hack|fisch|filet|creme|dip/ },
+  { kat: "frisch",  art: "zaehlbar",   muster: /salat|kohl|obst|gemüse|frisch|kraut|beere|apfel|birne|zwiebel|kürbis|paprika|gurke/ },
+  { kat: "trocken", art: "schuettgut", packung: 500, muster: /mehl|reis|nudel|pasta|müsli|flocken|zucker|linsen|bohnen|kerne|nüsse|nuss/ },
+];
+
+function freieZutatDaten(name) {
+  const n = name.toLowerCase();
+  const regel = FREI_REGELN.find((r) => r.muster.test(n));
+  return {
+    kategorie: regel?.kat || "trocken",
+    art: regel?.art || "schuettgut",
+    einheit: regel?.einheit || (regel?.art === "zaehlbar" ? "Stk" : "g"),
+    packung: regel?.packung || (regel?.art === "schuettgut" || !regel ? 500 : null),
+  };
+}
+
+function addBestandFrei(rohName) {
+  const name = rohName.trim().replace(/\s+/g, " ");
+  if (name.length < 2) return;
+  const s = getState();
+  const zutatId = `frei_${name.toLowerCase().replace(/[^a-z0-9äöüß]+/g, "_").replace(/^_|_$/g, "")}`;
+  const vorhanden = s.bestand.find((b) => b.zutat_id === zutatId);
+  if (vorhanden) { vorratSuche = ""; renderVorratEdit(vorhanden.id); return; }
+  const daten = freieZutatDaten(name);
+  const item = {
+    id: `b_${Date.now()}_${Math.floor(Math.random() * 1e4)}`,
+    zutat_id: zutatId,
+    name: name.charAt(0).toUpperCase() + name.slice(1),
+    kategorie: daten.kategorie, art: daten.art, einheit: daten.einheit, packung: daten.packung,
+    menge: daten.art === "pauschal" ? null : daten.art === "zaehlbar" ? 1 : daten.packung,
+    eigen: true,
+    updated: new Date().toISOString(),
+  };
+  s.bestand.push(item);
+  vorratSuche = "";
+  save();
+  renderVorratEdit(item.id);
 }
 
 function addBestand(zutatId) {
@@ -1073,7 +1341,7 @@ function renderVorratEdit(itemId) {
       </div>`;
   }
 
-  app.replaceChildren(h(`
+  zeigeApp(`
     <div class="fade-in">
       <button class="backlink" id="zurueck">${icon("zurueck", 20)}Vorrat</button>
       <div class="screen-header" style="margin-top:10px">
@@ -1084,7 +1352,7 @@ function renderVorratEdit(itemId) {
       ${fussnote}
       <button class="btn" id="sichern">Sichern</button>
       <button class="btn danger" id="entfernen">Aus dem Vorrat entfernen</button>
-    </div>`));
+    </div>`, `vorrat-edit:${itemId}`);
 
   const stempel = () => { item.updated = new Date().toISOString(); save(); };
 
@@ -1147,7 +1415,7 @@ function renderEinkauf() {
 
   const rezeptErledigt = s.einkauf.rezept.filter((e) => e.erledigt).length;
 
-  app.replaceChildren(h(`
+  zeigeApp(`
     <div class="fade-in">
       <div class="screen-header"><h1>einkauf</h1><p class="subtle small">Kurz und fokussiert – nur was fehlt.</p></div>
 
@@ -1193,7 +1461,7 @@ function renderEinkauf() {
         ${bonScanUi()}
       </div>
       ${angebotsSektion(s)}
-    </div>`));
+    </div>`, "einkauf");
 
   bindAngebote(s);
 
@@ -1255,8 +1523,7 @@ function bonScanUi() {
   if (!bon) {
     return `
       <button class="btn secondary" id="bon-start">${icon("kamera", 21)}Kassenbon fotografieren</button>
-      <input type="file" id="bon-file" accept="image/*" capture="environment" hidden>
-      <p class="centered-note">Claude liest den Bon und füllt den Bestand auf – auch Zusatzkäufe.</p>`;
+      <input type="file" id="bon-file" accept="image/*" capture="environment" hidden>`;
   }
   if (bon.status === "laden") return `<div class="card"><p class="subtle small">Claude liest den Bon …</p></div>`;
   if (bon.status === "fehler") return `
@@ -1393,56 +1660,79 @@ function angebotsSektion(s) {
   if (crawlLaeuft) {
     inhalt = `
       <div class="card" style="text-align:center">
-        <p><b>Crawl läuft …</b></p>
+        <p><b>Angebote werden verglichen …</b></p>
         <p class="subtle small" id="crawl-progress">${crawlLaeuft.done}/${crawlLaeuft.total}</p>
       </div>`;
   } else if (erg) {
     inhalt = `
-      ${aktuell ? "" : `<div class="card hint-card">${icon("achtung", 20)}<div class="hint-body"><b>Ergebnis aus KW ${esc(erg.kw.slice(-2))}</b>Die Angebote sind wahrscheinlich abgelaufen – einmal neu checken.</div></div>`}
+      ${aktuell ? "" : `<div class="card hint-card">${icon("achtung", 20)}<div class="hint-body"><b>Ergebnis aus KW ${esc(erg.kw.slice(-2))}</b>Die Angebote sind wahrscheinlich abgelaufen – einmal neu suchen.</div></div>`}
       ${angebotsErgebnisHtml(erg)}
-      <button class="btn secondary" id="crawl-start" ${liste.length ? "" : "disabled"}>Angebote neu checken</button>`;
+      <button class="btn secondary" id="crawl-start" ${liste.length ? "" : "disabled"}>Angebote neu suchen</button>`;
   } else {
     inhalt = `
-      <button class="btn" id="crawl-start" ${liste.length ? "" : "disabled"}>Besten Markt für ${liste.length || "deine"} Punkte finden</button>
-      ${liste.length ? "" : '<p class="subtle small" style="text-align:center;margin-top:6px">Sobald etwas auf der Liste steht, kann der Crawl loslegen.</p>'}`;
+      <button class="btn" id="crawl-start" ${liste.length ? "" : "disabled"}>${liste.length ? `Günstigsten Markt für ${liste.length} ${liste.length === 1 ? "Punkt" : "Punkte"} suchen` : "Günstigsten Markt suchen"}</button>
+      ${liste.length ? "" : '<p class="subtle small" style="text-align:center;margin-top:6px">Sobald etwas auf der Liste steht, kann die Suche losgehen.</p>'}`;
   }
 
   return `
     <hr class="divider">
     <div class="section-head">
-      <h2>Angebots-Crawl</h2>
+      <h2>Angebote der Woche</h2>
       <button class="btn ghost small-btn" id="crawl-setup">${crawlSetupOffen ? "Schließen" : "Einstellungen"}</button>
     </div>
-    <p class="subtle small" style="margin:2px 0 10px">Einmal wöchentlich, z. B. freitags: Welcher Markt deckt deine Liste am besten ab? Quelle: ${live ? `Marktguru (PLZ ${esc(a.plz)})` : "Demo-Daten"}</p>
+    <p class="subtle small" style="margin:2px 0 10px">Einmal pro Woche, am besten freitags: In welchem Markt bekommst du deine Liste am günstigsten?</p>
     ${crawlSetupOffen ? angebotsSetupHtml(a) : ""}
+    ${!live && !crawlSetupOffen ? `
+      <div class="card hint-card">${icon("achtung", 20)}
+        <div class="hint-body"><b>Läuft gerade mit Beispielangeboten</b>Du siehst, wie der Vergleich funktioniert – die Preise sind aber erfunden. Echte Prospektpreise schaltest du unter „Einstellungen“ frei.</div>
+      </div>` : ""}
     ${crawlFehler ? `
       <div class="card hint-card warn">${icon("achtung", 20)}
-        <div class="hint-body"><b>Crawl fehlgeschlagen: ${esc(crawlFehler)}</b>
-        Typische Ursachen: Keys abgelaufen, CORS blockiert (dann Proxy eintragen) oder offline. Der Demo-Modus geht immer.</div>
+        <div class="hint-body"><b>Die Angebote ließen sich nicht laden</b>
+        Prüf kurz deine Internetverbindung. Bleibt es dabei, sind wahrscheinlich die Zugangsdaten unter „Einstellungen → Für Fortgeschrittene“ abgelaufen. Mit Beispielangeboten geht es immer weiter.
+        <span class="small mute" style="display:block;margin-top:6px">Technisch: ${esc(crawlFehler)}</span></div>
       </div>` : ""}
     ${inhalt}`;
 }
 
+/* Einstellungen: Für den Normalfall reicht die Postleitzahl. Alles, wofür man
+   Entwicklertools öffnen müsste, liegt zugeklappt unter „Für Fortgeschrittene" –
+   vorher stand das Zeug ungefragt mitten im Einkauf. */
+let crawlExpertenOffen = false;
+
 function angebotsSetupHtml(a) {
+  const live = liveKonfiguriert(a) && !a.demo;
   return `
     <div class="card">
-      <label class="field">Postleitzahl (Standort für die Angebote)
+      <label class="field">Deine Postleitzahl
         <input type="text" id="crawl-plz" inputmode="numeric" maxlength="5" placeholder="z. B. 20095" value="${esc(a.plz)}"></label>
-      <label class="field">Marktguru x-apikey
-        <input type="text" id="crawl-apikey" autocomplete="off" placeholder="aus marktguru.de kopieren" value="${esc(a.apikey)}"></label>
-      <label class="field">Marktguru x-clientkey
-        <input type="text" id="crawl-clientkey" autocomplete="off" value="${esc(a.clientkey)}"></label>
-      <label class="field">CORS-Proxy (optional, Präfix vor der API-URL)
-        <input type="text" id="crawl-proxy" autocomplete="off" placeholder="leer = direkt" value="${esc(a.proxy)}"></label>
-      <button class="chip ${a.demo ? "selected" : ""}" id="crawl-demo">Demo-Modus erzwingen</button>
-      <p class="subtle small" style="margin-top:10px">Keys holen: marktguru.de im Desktop-Browser öffnen → Entwicklertools → Netzwerk → eine Anfrage an api.marktguru.de anklicken → Request-Header <code>x-apikey</code> und <code>x-clientkey</code> kopieren. Ohne Keys läuft der Crawl mit Demo-Daten. Details: docs/angebots-crawl.md.</p>
-      <button class="btn small-btn" id="crawl-speichern" style="margin-top:8px">Speichern</button>
+      <p class="subtle small" style="margin:-6px 0 12px">Damit vorratio weiß, welche Märkte überhaupt in deiner Nähe sind.</p>
+
+      <div class="card-row" style="align-items:center">
+        <span class="small">${live ? "Echte Prospektpreise sind freigeschaltet." : "Zurzeit: Beispielangebote."}</span>
+        <span class="badge${live ? "" : " neutral"}">${live ? "echt" : "Beispiel"}</span>
+      </div>
+
+      <button class="btn ghost small-btn" id="crawl-experten" style="margin-top:10px">${crawlExpertenOffen ? "Für Fortgeschrittene schließen" : "Für Fortgeschrittene öffnen"}</button>
+      ${crawlExpertenOffen ? `
+        <div style="margin-top:12px;border-top:1px solid var(--line-soft);padding-top:14px">
+          <p class="subtle small" style="margin-bottom:12px">Echte Prospektpreise kommen von Marktguru. Dafür braucht es zwei Zugangsschlüssel, die man sich am Computer aus dem Browser kopiert – nichts, was man nebenbei macht. Ohne sie funktioniert alles andere ganz normal weiter.</p>
+          <label class="field">Zugangsschlüssel 1 (x-apikey)
+            <input type="text" id="crawl-apikey" autocomplete="off" placeholder="von marktguru.de" value="${esc(a.apikey)}"></label>
+          <label class="field">Zugangsschlüssel 2 (x-clientkey)
+            <input type="text" id="crawl-clientkey" autocomplete="off" value="${esc(a.clientkey)}"></label>
+          <label class="field">Zwischenserver (nur falls nötig)
+            <input type="text" id="crawl-proxy" autocomplete="off" placeholder="leer lassen" value="${esc(a.proxy)}"></label>
+          <button class="chip ${a.demo ? "selected" : ""}" id="crawl-demo">Immer Beispielangebote nutzen</button>
+          <p class="subtle small" style="margin-top:10px">Schritt für Schritt erklärt in docs/angebots-crawl.md.</p>
+        </div>` : ""}
+      <button class="btn small-btn" id="crawl-speichern" style="margin-top:12px">Speichern</button>
     </div>`;
 }
 
 function angebotsErgebnisHtml(erg) {
   const datum = new Date(erg.datum).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" });
-  const quelle = erg.quelle === "demo" ? "Demo-Daten" : `Marktguru, PLZ ${esc(erg.plz)}`;
+  const quelle = erg.quelle === "demo" ? "Beispielangebote" : `Prospektpreise für PLZ ${esc(erg.plz)}`;
   const fuss = `<p class="subtle small" style="text-align:center;margin-top:4px">Stand ${datum} (KW ${esc(erg.kw.slice(-2))}) · Quelle: ${quelle}</p>`;
 
   if (!erg.maerkte.length) {
@@ -1495,16 +1785,32 @@ function bindAngebote(s) {
     save();
     e.target.classList.toggle("selected", s.angebote.demo);
   });
+  app.querySelector("#crawl-experten")?.addEventListener("click", () => {
+    // Eingetipptes nicht verlieren, wenn der Fortgeschrittenen-Teil zuklappt
+    uebernehmeCrawlFelder(s);
+    crawlExpertenOffen = !crawlExpertenOffen;
+    renderEinkauf();
+  });
   app.querySelector("#crawl-speichern")?.addEventListener("click", () => {
-    s.angebote.plz = (app.querySelector("#crawl-plz").value.match(/\d{5}/) || [""])[0];
-    s.angebote.apikey = app.querySelector("#crawl-apikey").value.trim();
-    s.angebote.clientkey = app.querySelector("#crawl-clientkey").value.trim();
-    s.angebote.proxy = app.querySelector("#crawl-proxy").value.trim();
+    uebernehmeCrawlFelder(s);
     save();
     crawlSetupOffen = false;
+    toast("Einstellungen gespeichert");
     renderEinkauf();
   });
   app.querySelector("#crawl-start")?.addEventListener("click", () => starteCrawl(s));
+}
+
+/* Nur die Felder übernehmen, die gerade sichtbar sind. */
+function uebernehmeCrawlFelder(s) {
+  const wert = (sel) => app.querySelector(sel)?.value.trim();
+  const plz = wert("#crawl-plz");
+  if (plz != null) s.angebote.plz = (plz.match(/\d{5}/) || [""])[0];
+  for (const [sel, feld] of [["#crawl-apikey", "apikey"], ["#crawl-clientkey", "clientkey"], ["#crawl-proxy", "proxy"]]) {
+    const v = wert(sel);
+    if (v != null) s.angebote[feld] = v;
+  }
+  save();
 }
 
 async function starteCrawl(s) {
@@ -1594,27 +1900,57 @@ function teileTitel(text) {
   return { titel: null, body: text };
 }
 
+/* Tipps und Ideen sind dasselbe Versprechen: etwas, das du noch nicht wusstest.
+   Sie liegen darum in einem Pool – nur die Bebilderung unterscheidet sie. */
+const TIPP_POOL = [
+  ...TIPPS.map((t) => ({ ...t, symbol: "tipp" })),
+  ...IDEEN.map((i) => ({ ...i, symbol: "idee" })),
+];
+const TIPPS_PRO_RUNDE = 4;
+
+/* Reihenfolge einmal pro Gerät festgelegt (Zufall, aber stabil), damit die
+   Tipps beim Blättern nicht springen. */
+function tippReihenfolge() {
+  const s = getState();
+  s.tipps.reihenfolge ||= TIPP_POOL.map((t) => t.id).sort(() => Math.random() - 0.5);
+  // Neu dazugekommene Tipps hinten anhängen
+  for (const t of TIPP_POOL) if (!s.tipps.reihenfolge.includes(t.id)) s.tipps.reihenfolge.push(t.id);
+  return s.tipps.reihenfolge.map((id) => TIPP_POOL.find((t) => t.id === id)).filter(Boolean);
+}
+
+let tippSeite = 0;
+
+function tippKarteHtml(t, neu) {
+  const { titel, body } = teileTitel(t.text);
+  return `
+    <div class="card" style="display:flex;gap:12px">${icon(t.symbol, 22, "ic-accent")}
+      <div class="grow">
+        ${titel ? `<span class="name">${esc(titel)}</span>${neu ? ' <span class="badge">neu</span>' : ""}` : ""}
+        <span class="subtle small" style="display:block${titel ? ";margin-top:4px" : ""}">${esc(body)}</span>
+      </div>
+    </div>`;
+}
+
+function tippsTabHtml() {
+  const s = getState();
+  const alle = tippReihenfolge();
+  const seiten = Math.max(1, Math.ceil(alle.length / TIPPS_PRO_RUNDE));
+  tippSeite = ((tippSeite % seiten) + seiten) % seiten;
+  const start = tippSeite * TIPPS_PRO_RUNDE;
+  const runde = alle.slice(start, start + TIPPS_PRO_RUNDE);
+  const gesehen = new Set(s.tipps.gesehen);
+  return `
+    <p class="subtle small" style="margin-bottom:12px">Ein paar auf einmal – der Rest kommt nach und nach, auch zwischendurch beim Kochen.</p>
+    ${runde.map((t) => tippKarteHtml(t, !gesehen.has(t.id))).join("")}
+    <button class="btn secondary" id="tipps-weiter">${icon("wuerfeln", 19)}Weitere Tipps</button>
+    <p class="centered-note">${start + runde.length} von ${alle.length}</p>`;
+}
+
 function renderWissen() {
   const tabs = { tipps: "Tipps", ersatz: "Ersatz", preps: "Zubereitung", bases: "Grundrezepte", techniken: "Techniken" };
   const inhalt = {
     ersatz: () => ersatzTabHtml(getState()),
-    /* Tipps als Karten mit Glühbirne, Ideen als Soft-Karten mit Stern (Design 25). */
-    tipps: () => TIPPS.map((t) => {
-      const { titel, body } = teileTitel(t.text);
-      return `
-        <div class="card" style="display:flex;gap:12px">${icon("tipp", 22)}
-          <div class="grow">${titel ? `<span class="name">${esc(titel)}</span>` : ""}
-          <span class="subtle small" style="display:block${titel ? ";margin-top:4px" : ""}">${esc(body)}</span></div>
-        </div>`;
-    }).join("")
-      + (IDEEN.length ? '<h2 class="section-gap">Ideen aus deinem Bestand</h2>' : "")
-      + IDEEN.map((i) => {
-        const { titel, body } = teileTitel(i.text);
-        return `
-          <div class="card hint-card">${icon("idee", 22)}
-            <div class="hint-body">${titel ? `<b>${esc(titel)}</b>` : ""}${esc(body)}</div>
-          </div>`;
-      }).join(""),
+    tipps: tippsTabHtml,
     preps: () => `<div class="card">${PREPS.map((p) => `
       <div class="list-item" style="flex-direction:column;align-items:stretch;gap:5px">
         <div class="card-row" style="align-items:center"><span class="name">${esc(p.name)}</span><span class="badge neutral">${p.dauer_min} Min</span></div>
@@ -1630,21 +1966,124 @@ function renderWissen() {
       <div class="card"><h3>${esc(t.name)}</h3><p class="subtle small" style="margin-top:6px">${esc(t.text)}</p></div>`).join(""),
   };
 
-  app.replaceChildren(h(`
+  zeigeApp(`
     <div class="fade-in">
-      <div class="screen-header"><h1>wissen</h1><p class="subtle small">Grundtechniken und Küchentipps – anfängertauglich.</p></div>
+      <div class="screen-header"><h1>wissen</h1><p class="subtle small">Grundtechniken und Küchentipps.</p></div>
       <div class="chip-wrap chip-nav" style="margin-bottom:16px">
         ${Object.entries(tabs).map(([id, name]) => `<button class="chip ${wissenTab === id ? "selected" : ""}" data-wtab="${id}">${name}</button>`).join("")}
       </div>
       ${inhalt[wissenTab]()}
-    </div>`));
+    </div>`, "wissen");
 
   app.querySelectorAll("[data-wtab]").forEach((b) => b.addEventListener("click", () => { wissenTab = b.dataset.wtab; renderWissen(); }));
+  app.querySelector("#tipps-weiter")?.addEventListener("click", () => {
+    // Was man gerade gelesen hat, gilt als gesehen – "neu" bleibt ehrlich.
+    const s = getState();
+    const alle = tippReihenfolge();
+    const start = tippSeite * TIPPS_PRO_RUNDE;
+    for (const t of alle.slice(start, start + TIPPS_PRO_RUNDE)) {
+      if (!s.tipps.gesehen.includes(t.id)) s.tipps.gesehen.push(t.id);
+    }
+    tippSeite++;
+    save();
+    renderWissen();
+  });
   app.querySelectorAll("[data-ekat]").forEach((b) => b.addEventListener("click", () => { ersatzKat = b.dataset.ekat || null; renderWissen(); }));
   app.querySelectorAll("[data-eanw]").forEach((b) => b.addEventListener("click", () => { ersatzAnw = b.dataset.eanw || null; renderWissen(); }));
 }
 
-/* ------------------------------------------------------------------ Profil */
+/* ------------------------------------------------------------------ Profil
+   Die Übersicht zeigt nur, was dein Profil tatsächlich ausmacht – nicht den
+   ganzen Katalog. Hinzufügen läuft über „+", Entfernen über das × am Eintrag;
+   die volle Auswahlliste klappt nur auf, solange man sie braucht. */
+let profilOffen = { form: false, aus: false, stile: false, ziele: false };
+
+/* Kopfzeile eines Profil-Abschnitts. Der Schalter rechts erscheint nur, wenn er
+   etwas zu sagen hat: „Fertig" beim offenen Abschnitt, „Ändern" bei der
+   Ernährungsform (die kein „+"-Chip hat). Sonst öffnet der +-Chip darunter. */
+function profilKopf(titel, schluessel, label = null) {
+  const offen = profilOffen[schluessel];
+  const schalter = offen ? "Fertig" : label;
+  return `
+    <div class="section-head section-gap">
+      <h2>${titel}</h2>
+      ${schalter ? `<button class="btn ghost small-btn" data-popen="${schluessel}">${schalter}</button>` : ""}
+    </div>`;
+}
+
+function profilFormHtml(s, form) {
+  const offen = profilOffen.form;
+  return `
+    ${profilKopf("Ernährungsform", "form", "Ändern")}
+    ${offen ? `
+      <div class="choice-list">
+        ${ERNAEHRUNGSFORMEN.map((f) => `
+          <button class="choice ${s.profil.ernaehrungsform === f.id ? "selected" : ""}" data-pform="${f.id}">
+            <b>${esc(f.name)}</b><span class="subtle">${esc(f.kurz)}</span>
+          </button>`).join("")}
+      </div>` : `
+      <div class="card">
+        <div class="list-item" style="border-bottom:none">
+          <div class="grow"><span class="name">${esc(form?.name || "Noch nicht gewählt")}</span>
+          ${form ? `<span class="subtle small" style="display:block">${esc(form.kurz)}</span>` : ""}</div>
+        </div>
+      </div>`}`;
+}
+
+function profilAusschluesseHtml(s) {
+  const gewaehlt = AUSSCHLUESSE.filter((a) => s.profil.ausschluesse.includes(a.id));
+  const eigene = s.profil.eigeneAusschluesse || [];
+  const offen = profilOffen.aus;
+  const leer = !gewaehlt.length && !eigene.length;
+  return `
+    ${profilKopf("Ausschlüsse", "aus")}
+    ${offen ? `
+      <div class="chip-wrap">
+        ${AUSSCHLUESSE.map((a) => `<button class="chip ${s.profil.ausschluesse.includes(a.id) ? "selected" : ""}" data-paus="${a.id}">${esc(a.name)}</button>`).join("")}
+      </div>
+      ${eigeneAusschluesseHtml(eigene)}` : `
+      <div class="chip-wrap">
+        ${gewaehlt.map((a) => `<button class="chip selected" data-paus="${a.id}">${esc(a.name)}<span class="chip-x">×</span></button>`).join("")}
+        ${eigene.map((t, i) => `<button class="chip selected" data-eigen-weg="${i}">${esc(t)}<span class="chip-x">×</span></button>`).join("")}
+        <button class="chip chip-plus" data-popen="aus">${icon("plus", 16)}${leer ? "Ausschluss hinzufügen" : "Hinzufügen"}</button>
+      </div>`}`;
+}
+
+function profilStileHtml(s) {
+  const gewaehlt = STILE.filter((st) => s.profil.stile.includes(st.id));
+  const offen = profilOffen.stile;
+  return `
+    ${profilKopf("Stil-Präferenzen", "stile")}
+    ${offen ? `
+      <div class="chip-wrap">
+        ${STILE.map((st) => `<button class="chip ${s.profil.stile.includes(st.id) ? "selected" : ""}" data-pstil="${st.id}">${esc(st.name)}</button>`).join("")}
+      </div>` : `
+      <div class="chip-wrap">
+        ${gewaehlt.map((st) => `<button class="chip selected" data-pstil="${st.id}">${esc(st.name)}<span class="chip-x">×</span></button>`).join("")}
+        <button class="chip chip-plus" data-popen="stile">${icon("plus", 16)}${gewaehlt.length ? "Hinzufügen" : "Stil hinzufügen"}</button>
+      </div>`}
+    ${gewaehlt.filter((st) => st.hinweis).map((st) => `
+      <div class="inline-hint warn" style="margin-top:10px">${icon("achtung", 20)}
+        <div class="hint-body"><b>${esc(st.name)}</b>${esc(st.hinweis)}</div>
+      </div>`).join("")}`;
+}
+
+function profilZieleHtml(s) {
+  const ziele = s.profil.ziele || [];
+  const gewaehlt = ZIELE.filter((z) => ziele.includes(z.id));
+  return `
+    ${profilKopf("Ziele", "ziele")}
+    ${profilOffen.ziele ? zielListeHtml(ziele, "data-pziel") : `
+      <div class="chip-wrap">
+        ${gewaehlt.map((z) => `<button class="chip selected" data-pziel="${z.id}">${esc(z.name)}<span class="chip-x">×</span></button>`).join("")}
+        <button class="chip chip-plus" data-popen="ziele">${icon("plus", 16)}${gewaehlt.length ? "Hinzufügen" : "Ziel hinzufügen"}</button>
+      </div>
+      ${gewaehlt.map((z) => `
+        <div class="inline-hint" style="margin-top:10px">${icon("ziel", 20)}
+          <div class="hint-body"><b>${esc(z.name)} – was dazu belegt ist</b>${esc(z.hinweis)}</div>
+        </div>`).join("")}`}`;
+}
+
 function renderProfil() {
   const s = getState();
   const form = ERNAEHRUNGSFORMEN.find((f) => f.id === s.profil.ernaehrungsform);
@@ -1653,7 +2092,7 @@ function renderProfil() {
   const stilNamen = (s.profil.stile || []).map((id) => STILE.find((st) => st.id === id)?.name).filter(Boolean);
   const initial = (s.profil.name || "?").trim().charAt(0).toUpperCase() || "?";
 
-  app.replaceChildren(h(`
+  zeigeApp(`
     <div class="fade-in">
       <div class="profile-head">
         <div class="avatar">${esc(initial)}</div>
@@ -1663,33 +2102,10 @@ function renderProfil() {
         </div>
       </div>
 
-      <h2>Ernährungsform</h2>
-      <div class="choice-list">
-        ${ERNAEHRUNGSFORMEN.map((f) => `
-          <button class="choice ${s.profil.ernaehrungsform === f.id ? "selected" : ""}" data-pform="${f.id}">
-            <b>${esc(f.name)}</b><span class="subtle">${esc(f.kurz)}</span>
-          </button>`).join("")}
-      </div>
-
-      <h2 class="section-gap">Ausschlüsse</h2>
-      <div class="chip-wrap">
-        ${AUSSCHLUESSE.map((a) => `<button class="chip ${s.profil.ausschluesse.includes(a.id) ? "selected" : ""}" data-paus="${a.id}">${esc(a.name)}</button>`).join("")}
-      </div>
-
-      <h2 class="section-gap">Stil-Präferenzen</h2>
-      <div class="chip-wrap">
-        ${STILE.map((st) => `<button class="chip ${s.profil.stile.includes(st.id) ? "selected" : ""}" data-pstil="${st.id}">${esc(st.name)}</button>`).join("")}
-      </div>
-
-      <h2 class="section-gap">Ziele</h2>
-      <p class="subtle small" style="margin-bottom:8px">Passende Rezepte werden bevorzugt (Vorschläge + AI-Generierung), nichts wird verboten.</p>
-      <div class="chip-wrap">
-        ${ZIELE.map((z) => `<button class="chip ${(s.profil.ziele || []).includes(z.id) ? "selected" : ""}" data-pziel="${z.id}">${esc(z.name)}</button>`).join("")}
-      </div>
-      ${(s.profil.ziele || []).map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean).map((z) => `
-        <div class="card hint-card" style="margin-top:12px">${icon("ziel", 20)}
-          <div class="hint-body"><b>${esc(z.name)} – was die Wissenschaft sagt</b>${esc(z.hinweis)}</div>
-        </div>`).join("")}
+      ${profilFormHtml(s, form)}
+      ${profilAusschluesseHtml(s)}
+      ${profilStileHtml(s)}
+      ${profilZieleHtml(s)}
 
       <h2 class="section-gap">Hinweise zu deiner Ernährungsform</h2>
       ${hinweise.map((t) => `<div class="card hint-card">${icon("tipp", 20)}<span class="hint-body">${esc(t)}</span></div>`).join("")}
@@ -1727,12 +2143,24 @@ function renderProfil() {
       <p class="subtle small" style="margin-top:10px">Alles liegt lokal auf diesem Gerät. Der Export ist dein Backup (auch gegen iOS-Speicherbereinigung) – regelmäßig sichern.</p>
       <button class="btn danger" id="reset">Alle Daten zurücksetzen</button>
       <p class="centered-note" style="margin-top:20px">vorratio v1 · lokal &amp; privat · ersetzt keine Ernährungs- oder ärztliche Beratung</p>
-    </div>`));
+    </div>`, "profil");
 
-  app.querySelectorAll("[data-pform]").forEach((b) => b.addEventListener("click", () => { s.profil.ernaehrungsform = b.dataset.pform; save(); renderProfil(); }));
+  app.querySelectorAll("[data-popen]").forEach((b) => b.addEventListener("click", () => {
+    const k = b.dataset.popen;
+    profilOffen[k] = !profilOffen[k];
+    renderProfil();
+  }));
+  app.querySelectorAll("[data-pform]").forEach((b) => b.addEventListener("click", () => {
+    s.profil.ernaehrungsform = b.dataset.pform;
+    profilOffen.form = false;      // eine Form, eine Entscheidung – Liste schließt sich
+    save();
+    renderProfil();
+  }));
   app.querySelectorAll("[data-paus]").forEach((b) => b.addEventListener("click", () => { toggle(s.profil.ausschluesse, b.dataset.paus); save(); renderProfil(); }));
   app.querySelectorAll("[data-pstil]").forEach((b) => b.addEventListener("click", () => { toggle(s.profil.stile, b.dataset.pstil); save(); renderProfil(); }));
   app.querySelectorAll("[data-pziel]").forEach((b) => b.addEventListener("click", () => { s.profil.ziele ||= []; toggle(s.profil.ziele, b.dataset.pziel); save(); renderProfil(); }));
+  s.profil.eigeneAusschluesse ||= [];
+  bindEigeneAusschluesse(s.profil.eigeneAusschluesse, () => { save(); renderProfil(); });
   app.querySelector("#api-key-save").addEventListener("click", () => {
     s.settings.apiKey = app.querySelector("#api-key").value.trim() || null;
     save();
@@ -1761,7 +2189,7 @@ function renderProfil() {
       titel: "Wirklich alles löschen?",
       text: "Vorrat, Profil, Historie und Einkaufslisten werden entfernt. Ohne vorherigen Export ist das endgültig.",
       bestaetigen: "Alles löschen", danger: true, symbol: "achtung",
-    })) { resetAll(); ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [], ziele: [] }; render(); }
+    })) { resetAll(); ob = leeresOb(); profilOffen = { form: false, aus: false, stile: false, ziele: false }; render(); }
   });
 }
 

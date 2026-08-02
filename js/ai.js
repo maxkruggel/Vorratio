@@ -251,4 +251,35 @@ Pfand, Rabatte und Summenzeilen sind KEINE Artikel.`,
   });
 }
 
-export { generiereRezepte, scanBon, MODEL };
+/* ------------------------------------------------------------ Barcode-Foto
+   iOS Safari hat keinen BarcodeDetector – dort wäre der Kamera-Button tot.
+   Fallback: Foto vom Strichcode, Claude liest die Ziffernfolge darunter ab.
+   Danach läuft alles wie beim Live-Scan weiter (Open-Food-Facts-Lookup). */
+const EAN_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["ean"],
+  properties: { ean: { type: ["string", "null"] } },
+};
+
+async function leseBarcodeVomFoto(apiKey, imageBase64, mediaType) {
+  const data = await anfrage(apiKey, {
+    model: MODEL,
+    max_tokens: 300,
+    output_config: { format: { type: "json_schema", schema: EAN_SCHEMA } },
+    system: `Du liest Strichcodes auf Lebensmittelverpackungen.
+Gib ausschließlich die Ziffernfolge zurück, die unter dem Strichcode gedruckt steht (EAN-13, EAN-8 oder UPC-A).
+Nur Ziffern, keine Leer- oder Trennzeichen. Ist kein Strichcode erkennbar oder die Ziffern sind unleserlich: ean = null.`,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
+        { type: "text", text: "Welche Nummer steht unter diesem Strichcode?" },
+      ],
+    }],
+  });
+  const ean = String(data.ean || "").replace(/\D/g, "");
+  return ean.length >= 8 ? ean : null;
+}
+
+export { generiereRezepte, scanBon, leseBarcodeVomFoto, MODEL };

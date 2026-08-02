@@ -37,6 +37,15 @@ function rezeptErlaubt(rezept, profil) {
       if (allergene.includes("krebstiere") || allergene.includes("weichtiere")) return false;
     }
   }
+
+  // Selbst eingetragene Ausschlüsse ("Rosenkohl", "Koriander"): Freitext gegen
+  // Rezeptname und Zutatennamen prüfen – gleiche Härte wie die Standardfilter.
+  for (const eigen of profil.eigeneAusschluesse || []) {
+    const begriff = String(eigen).trim().toLowerCase();
+    if (begriff.length < 3) continue;
+    if (rezept.name.toLowerCase().includes(begriff)) return false;
+    if (rezept.zutaten.some((z) => String(z.zutat_name || "").toLowerCase().includes(begriff))) return false;
+  }
   return true;
 }
 
