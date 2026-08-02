@@ -17,6 +17,49 @@ python3 -m http.server 8080
 
 Auf dem iPhone: in Safari öffnen → Teilen → „Zum Home-Bildschirm“.
 
+Rezeptdatenbank prüfen (vor jedem Commit an den Daten):
+
+```bash
+node tools/validate-db.mjs
+```
+
+## Stand (v3)
+
+Neu gegenüber v2.1:
+
+- **Rezeptdatenbank von 39 auf 235 Rezepte ausgebaut.** Der bisherige Kernblock war ein
+  Startdatensatz zum Testen der Engine – Ø 3,9 Schritte, kein Rezept über 5 Schritte,
+  Schwierigkeitsstufe „fortgeschritten" komplett unbelegt. Dazu kommen jetzt vier Blöcke:
+  - `js/data/rezepte-komplex.js` – **42 komplexe Rezepte** mit 8–14 Schritten und echten
+    Ruhe-, Schmor- und Gehzeiten: Lasagne al forno, Risotto milanese, Rindergulasch,
+    Coq au Vin, Bœuf Bourguignon, Moussaka, handgemachte Gnocchi und Pasta, Paella,
+    Rouladen, Sauerteigbrot, Shoyu-Ramen mit Ajitama, Butter Chicken, Pho Bo, Maki-Sushi,
+    Pizza Napoletana mit 24-h-Gare, Baklava, Cassoulet, Osso buco, Ravioli, Hefezopf.
+    Nutzt endlich die Techniken, die in `TECHNIKEN` schon standen (Schmoren, Pochieren,
+    Frittieren, Fermentiertes).
+  - `js/data/rezepte-tofu.js` – **55 Rezepte rund um Tofu, Tempeh, Seitan und Sojaprodukte.**
+    Alle tragen `vegan`/`vegetarisch` und werden damit nach `FORM_ERLAUBT` *jeder*
+    Ernährungsform vorgeschlagen, auch Mischkost. Zusätzlich trägt jedes Fleischrezept der
+    Datenbank eine konkrete pflanzliche Substitution – der Umstieg ist damit nie eine
+    Verzichtsentscheidung, sondern eine Zeile im selben Rezept.
+  - `js/data/rezepte-welt.js` – **55 Weltküchen-Rezepte** über 25 Küchen, inkl. der bislang
+    fast leeren Fisch-Ecke (BfR 17/2024: kleine Fische statt großer Raubfische).
+  - `js/data/rezepte-alltag.js` – **44 Alltagsrezepte**: Frühstück (von 14 auf 30 Rezepte),
+    schnelle Feierabendgerichte, Resteverwertung und Snacks.
+  - **91 neue Zutaten** (Tofu-Varianten, Tempeh, Seitan, Schmorfleisch, Fisch, Risottoreis,
+    Filoteig, Weinessig, Gewürze) – die Datenbank umfasst jetzt 249 Zutaten.
+- **Vorrats-Generator (offline)** – `js/generator.js`, Button „Aus Vorrat bauen" auf dem
+  Heute-Screen: kombiniert den *tatsächlichen* Bestand nach sieben festen Küchenmustern
+  (Pfanne, Eintopf, Ofenblech, Suppe, Pasta, Bowl, Salat) zu neuen, vollständigen Rezepten
+  im Schema `kruggel-recipe-db/v1` – mit Timern, Kerntemperaturen, Allergendeklaration und
+  Profilfilter, aber **ohne API-Key und ohne Netz**. Jeder Klick würfelt neu (Seed-basiert,
+  deterministisch). Ohne hinterlegten Key fällt „Claude fragen" automatisch hierauf zurück,
+  statt eine Fehlermeldung zu zeigen.
+- **Datenbank-Validator** – `node tools/validate-db.mjs` prüft die gesamte Rezeptdatenbank
+  gegen das Schema: doppelte IDs, unbekannte `zutat_id`, Timer-Konsistenz, Schrittnummern
+  und Plausibilität der Ernährungsform (z. B. „vegan" trotz Sahne) sowie fehlende
+  Allergendeklarationen. Exit-Code 1 bei Fehlern.
+
 ## Stand (v2.1)
 
 Neu gegenüber v2:
@@ -89,7 +132,7 @@ Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
   1 Empfehlung + 2 Alternativen). Quelle Marktguru (PLZ + Keys in den Einstellungen),
   ohne Keys Demo-Modus; Details in [docs/angebots-crawl.md](docs/angebots-crawl.md).
 - **Wissen**: 18 Grundtechniken, 15 Produktzubereitungen, 9 Grundrezepte, Tipps & Ideen aus
-  der Kern-Rezept-DB (Schema `kruggel-recipe-db/v1`, 28 Vollrezepte + 11 Snacks strukturiert).
+  der Kern-Rezept-DB (Schema `kruggel-recipe-db/v1`, 235 Rezepte strukturiert).
 - **Persistenz** (Kap. 6.4): Auto-Save je Aktion (localStorage), JSON-Export/-Import als
   Backup; offlinefähig per Service Worker.
 
@@ -106,13 +149,23 @@ js/icons.js           Duotone-Icon-Set (24er-Raster, Strich 1,6 px)
 js/engine.js          Rezept-Engine: Profilfilter, Bestandsabgleich, Abbuchung
 js/angebote.js        Angebots-Crawl: Marktguru-Client, Suchprofile, Matching, Markt-Ranking
 js/ai.js              Claude API: Rezeptgenerierung + Bon-Scan (strukturierte Ausgaben)
+js/generator.js       Vorrats-Generator: baut offline Rezepte aus dem Bestand
 js/scan.js            Barcode: Open-Food-Facts-Lookup, Zutat-Matching, Kamera-Scan
 js/storage.js         Auto-Save, JSON-Export/-Import
-js/data/kerndb.js     Kern-DB nach kruggel-recipe-db/v1 (Rezepte, Preps, Techniken …)
+js/data/kerndb.js     Zutaten, Kernrezepte, Preps, Grundrezepte, Techniken, Tipps
+js/data/rezepte-komplex.js  Aufbaublock 1: komplexe Küche (8–14 Schritte)
+js/data/rezepte-tofu.js     Aufbaublock 2: Tofu, Tempeh, Seitan & Sojaprodukte
+js/data/rezepte-welt.js     Aufbaublock 3: Weltküche über 25 Küchen
+js/data/rezepte-alltag.js   Aufbaublock 4: Frühstück, Alltag, Snacks
 js/data/profil.js     Ernährungsprofil-Achsen + DGE/BfR-Hinweise
 js/data/angebote-demo.js  Demo-Angebote für den Crawl (offline testbar)
+tools/validate-db.mjs Schema-Validator für die Rezeptdatenbank
 docs/                 Projektdoku, fünf Recherchen (Daten, Snacks, Picnic-Recht) + Angebots-Crawl-Doku
 ```
+
+Die vier Rezeptblöcke werden in `kerndb.js` zu einer flachen `REZEPTE`-Liste
+zusammengeführt; die Herkunft steckt im ID-Präfix (`RCP-`/`SNK-` Kern, `KMX-` komplex,
+`TOF-` Tofu & Co., `WLT-` Weltküche, `ALL-` Alltag, `GEN-` aus dem Vorrat gebaut).
 
 ## Design
 

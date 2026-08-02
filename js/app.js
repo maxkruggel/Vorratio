@@ -12,15 +12,21 @@ import {
 } from "./engine.js";
 import { angebotsCrawl, isoWoche, liveKonfiguriert } from "./angebote.js";
 import { generiereRezepte, scanBon, leseBarcodeVomFoto } from "./ai.js";
+import { generiereAusVorrat, vorratsTiefe } from "./generator.js";
 import { lookupBarcode, vorschlagZutat, kameraVerfuegbar, starteKameraScan } from "./scan.js";
 import { SUB_KATEGORIEN, SUB_ANWENDUNGEN } from "./data/substitutionen.js";
 import { subsFiltern, ersatzVorschlaege, produkteSortiert } from "./substitution.js";
 import { icon, logoMark } from "./icons.js";
 
-/* Kern-DB + AI-generierte Rezepte als gemeinsamer Pool. */
-const alleRezepte = () => [...REZEPTE, ...(getState().aiRezepte || [])];
+/* Kern-DB + AI-generierte + aus dem Vorrat kombinierte Rezepte als ein Pool. */
+const alleRezepte = () => [
+  ...REZEPTE,
+  ...(getState().aiRezepte || []),
+  ...(getState().vorratRezepte || []),
+];
 const findRezept = (id) => alleRezepte().find((r) => r.id === id);
 const istAi = (r) => r.quelle_typ === "ai_generiert";
+const istVorrat = (r) => r.quelle_typ === "vorrat_generiert";
 
 const app = document.getElementById("app");
 const tabbar = document.getElementById("tabbar");
@@ -171,8 +177,14 @@ document.addEventListener("click", (e) => {
 function render() {
   const s = getState();
   const vorher = letzterScreen;
-  if (!s.profil.onboarded) { tabbar.hidden = true; renderOnboarding(); return; }
+  if (!s.profil.onboarded) {
+    tabbar.hidden = true;
+    document.body.classList.add("onboarding");   // kein Tabbar-Platz im Onboarding
+    renderOnboarding();
+    return;
+  }
   tabbar.hidden = false;
+  document.body.classList.remove("onboarding");
   tabbar.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   if (cook) { renderKochmodus(); return; }
   if (detailRezept) { renderRezeptDetail(detailRezept); return; }
@@ -234,11 +246,17 @@ function obWelcome() {
     <div class="foot-note">${icon("lokal", 18)}<span>Alles bleibt lokal auf deinem iPhone.<br>Kein Konto, kein Server.</span></div>`;
 }
 
+/* Name und Ernährungsform sind Pflicht: ohne sie kann die App weder ansprechen
+   noch filtern. Beide Schritte lassen sich darum nicht überspringen – der
+   Button bleibt gesperrt und sagt darüber, woran es hängt. Alles Weitere
+   (Unverträglichkeiten, Stile, Ziele) bleibt ausdrücklich optional. */
 function obName() {
+  const bereit = ob.name.trim().length > 0;
   return `
     <div class="screen-header"><h1>wie heißt du?</h1><p class="subtle">Nur für die Begrüßung. Der Name bleibt auf dem Gerät.</p></div>
-    <label class="field"><input type="text" id="ob-name" placeholder="Dein Name" value="${esc(ob.name)}" autocomplete="given-name"></label>
-    <button class="btn" data-ob="name">Weiter</button>`;
+    <label class="field"><input type="text" id="ob-name" placeholder="Dein Name" value="${esc(ob.name)}" autocomplete="given-name" enterkeyhint="next"></label>
+    <p class="pflicht-note" id="ob-name-hinweis"${bereit ? " hidden" : ""}>Ohne Namen geht es nicht weiter – ein Spitzname reicht.</p>
+    <button class="btn" data-ob="name"${bereit ? "" : " disabled"}>Weiter</button>`;
 }
 
 function obForm() {
@@ -250,6 +268,7 @@ function obForm() {
           <b>${esc(f.name)}</b><span class="subtle">${esc(f.kurz)}</span>
         </button>`).join("")}
     </div>
+    ${ob.form ? "" : '<p class="pflicht-note">Wähl eine Form – sie entscheidet, was dir überhaupt vorgeschlagen wird.</p>'}
     <button class="btn" data-ob="next" ${ob.form ? "" : "disabled"}>Weiter</button>`;
 }
 
@@ -377,13 +396,49 @@ function bindOnboarding() {
     ob.step = Math.max(0, ob.step - 1);
     renderOnboarding();
   });
-  app.querySelector('[data-ob="next"]')?.addEventListener("click", () => { ob.step++; renderOnboarding(); });
+  app.querySelector('[data-ob="next"]')?.addEventListener("click", () => {
+    if (OB_STEPS[ob.step] === obForm && !ob.form) return;   // Ernährungsform ist Pflicht
+    ob.step++;
+    renderOnboarding();
+  });
+
+  /* Der Weiter-Button des Namensschritts folgt der Eingabe live – ohne
+     Neuzeichnen, sonst springt bei jedem Buchstaben die Tastatur zu. */
+  const nameFeld = app.querySelector("#ob-name");
+  if (nameFeld) {
+    const weiter = app.querySelector('[data-ob="name"]');
+    const hinweis = app.querySelector("#ob-name-hinweis");
+    const pruefe = () => {
+      const ok = nameFeld.value.trim().length > 0;
+      weiter.disabled = !ok;
+      if (hinweis) hinweis.hidden = ok;
+      return ok;
+    };
+    nameFeld.addEventListener("input", pruefe);
+    nameFeld.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      if (pruefe()) weiter.click();
+    });
+  }
+
   app.querySelector('[data-ob="name"]')?.addEventListener("click", () => {
-    ob.name = app.querySelector("#ob-name").value.trim();
+    const wert = app.querySelector("#ob-name").value.trim();
+    if (!wert) return;
+    ob.name = wert;
     ob.step++;
     renderOnboarding();
   });
   app.querySelector('[data-ob="fertig"]')?.addEventListener("click", () => {
+    /* Letzte Sicherung: Pflichtangaben fehlen (z. B. nach einem Rücksprung),
+       also zurück auf den Schritt, an dem es hängt – statt ein halbes Profil
+       zu speichern. */
+    if (!ob.name.trim() || !ob.form) {
+      ob.step = OB_STEPS.indexOf(ob.name.trim() ? obForm : obName);
+      renderOnboarding();
+      toast(ob.name.trim() ? "Wähl noch deine Ernährungsform." : "Trag noch deinen Namen ein.", "warn");
+      return;
+    }
     const s = getState();
     s.profil = {
       name: ob.name, ernaehrungsform: ob.form, ausschluesse: ob.ausschluesse,
@@ -420,6 +475,15 @@ function toggle(arr, val) {
 /* ------------------------------------------------------------------ Heute */
 let aiLaeuft = false;
 let aiFehler = null;
+let genHinweis = null;      // Rückmeldung des Offline-Generators
+let vorratWurf = 0;         // zählt die Würfe, damit jeder Klick neue Rezepte bringt
+
+/* Klartextnamen der Bausteine, die der Generator im Vorrat sucht. */
+const BAUSTEIN_NAMEN = {
+  protein: "eine Proteinquelle (Hülsenfrüchte, Tofu, Ei, Fleisch oder Fisch)",
+  gemuese: "Gemüse", basis: "eine Sättigungsbeilage (Reis, Nudeln, Kartoffeln)",
+  aroma: "Aromaten (Zwiebel, Knoblauch, Ingwer)", fluessig: "etwas Flüssiges (Brühe, Tomaten, Kokosmilch)",
+};
 
 /* Push-Fallback (Kap. 7.1): Web Push braucht einen Push-Server – ohne ihn
    greift der dokumentierte Fallback: die Vorschläge für den aktuellen Slot
@@ -479,6 +543,7 @@ function rezeptKarte(v, meta, gedimmt = false) {
   const tags = gedimmt ? "" : `
     <div class="card-tags">
       ${istAi(v.rezept) ? `<span class="badge">${icon("claude", 14)}von claude</span>` : ""}
+      ${istVorrat(v.rezept) ? `<span class="badge">${icon("vorrat", 14)}aus deinem Vorrat</span>` : ""}
       ${fehlt.length === 0
         ? `<span class="badge">${icon("check", 18)}alles da</span>`
         : `<span class="badge warn">${fehlt.length === 1 ? "1 fehlt" : `${fehlt.length} fehlen`}</span>
@@ -531,8 +596,10 @@ function renderHeute() {
       ${vs.map((v) => rezeptKarte(v, `${esc(v.rezept.cuisine)} · ${esc(v.rezept.schwierigkeit)} · ${portionenText(v.rezept.portionen)}`, leererBestand)).join("")}
       <div class="btn-row">
         <button class="btn secondary" id="wuerfeln">${icon("wuerfeln", 19)}Neu würfeln</button>
+        <button class="btn secondary" id="vorrat-generieren" ${leererBestand ? "disabled" : ""}>${icon("vorrat", 19)}Aus Vorrat bauen</button>
         <button class="btn" id="ai-generieren" ${aiLaeuft ? "disabled" : ""}>${icon("claude", 19)}${aiLaeuft ? "Claude kocht …" : "Claude fragen"}</button>
       </div>
+      ${genHinweis ? `<p class="small subtle" style="text-align:center;margin-top:8px">${esc(genHinweis)}</p>` : ""}
       ${aiFehler ? `<p class="small warn-text" style="text-align:center;margin-top:8px">${esc(aiFehler)}</p>` : ""}
 
       <hr class="divider">
@@ -558,15 +625,52 @@ function renderHeute() {
   app.querySelector("#snack-wuerfeln").addEventListener("click", () => { stelleSnacksBereit(true); render(); });
   app.querySelector("#ai-generieren").addEventListener("click", () => starteAiGenerierung(slot));
   app.querySelector("#ai-snacks").addEventListener("click", () => starteAiGenerierung("snack"));
+  app.querySelector("#vorrat-generieren").addEventListener("click", () => baueAusVorrat(slot));
   app.querySelector('[data-go="vorrat"]')?.addEventListener("click", (e) => { e.stopPropagation(); view = "vorrat"; render(); });
+}
+
+/* Offline-Generator (generator.js): kombiniert den tatsächlichen Bestand nach
+   festen Küchenmustern zu neuen Rezepten – ohne API-Key und ohne Netz.
+   Jeder Klick würfelt neu, die Ergebnisse landen im gemeinsamen Rezeptpool. */
+function baueAusVorrat(slot, prefix = "") {
+  const s = getState();
+  aiFehler = null;
+  if (slot === "snack") {
+    // Der Generator baut Hauptmahlzeiten – Snacks brauchen eigene Muster
+    // (Gefrieren, Dörren) und kommen aus der Datenbank oder von Claude.
+    genHinweis = prefix + "Der Vorrats-Generator baut Hauptmahlzeiten. Snack-Ideen kommen aus der Rezeptdatenbank oder von Claude.";
+    render();
+    return;
+  }
+  const tiefe = vorratsTiefe(s.bestand);
+  if (tiefe.belegt < 3) {
+    genHinweis = prefix + `Dafür ist der Vorrat noch zu dünn (${tiefe.belegt} von ${tiefe.gesamt} Bausteinen). `
+      + "Es fehlt vor allem: " + tiefe.fehlend.map((f) => BAUSTEIN_NAMEN[f] || f).join(", ") + ".";
+    render();
+    return;
+  }
+  vorratWurf += 1;
+  const neue = generiereAusVorrat(s.profil, s.bestand, slot, 3, tagesSeed(heuteStr(), vorratWurf));
+  if (!neue.length) {
+    genHinweis = prefix + "Aus diesem Bestand ließ sich gerade nichts bauen, das zu deinem Profil passt.";
+    render();
+    return;
+  }
+  s.vorratRezepte = [...neue, ...(s.vorratRezepte || []).filter((r) => !neue.some((n) => n.id === r.id))].slice(0, 24);
+  save();
+  if (slot === "snack") stelleSnacksBereit(true); else stelleVorschlaegeBereit(true);
+  genHinweis = prefix + `${neue.length} Rezepte aus deinem Bestand gebaut – erkennbar am Vorrats-Etikett.`;
+  render();
 }
 
 /* AI-Rezeptgenerierung (Kap. 4.3): 3 frische Vorschläge aus dem Bestand. */
 async function starteAiGenerierung(slot) {
   const s = getState();
   if (!s.settings.apiKey) {
-    aiFehler = "Kein API-Key hinterlegt – einmalig im Profil unter 'Claude API' eintragen.";
-    render();
+    // Ohne Key nicht ins Leere laufen lassen: der Offline-Generator kann
+    // dasselbe Versprechen einlösen, nur ohne freie Rezeptideen.
+    baueAusVorrat(slot, "Kein API-Key hinterlegt, deshalb offline aus dem Vorrat gebaut. "
+      + "Für freie Rezeptideen von Claude den Key einmalig im Profil eintragen. ");
     return;
   }
   aiLaeuft = true;
@@ -748,7 +852,7 @@ function renderKochmodus() {
       <p class="cook-step">${esc(s.text)}</p>
       <div id="timer-slot">${timerBoxHtml()}</div>
       ${hatTimer ? '<p class="centered-note">Der Timer läuft weiter, solange die App offen bleibt.</p>' : ""}
-      <div class="btn-row" style="margin-top:20px">
+      <div class="btn-row">
         ${step > 0 ? `<button class="btn secondary icon-only" id="prev" aria-label="Zurück">${icon("zurueck", 20)}</button>` : ""}
         <button class="btn" id="next">${step === rezept.schritte.length - 1 ? "Fertig" : "Weiter"}</button>
       </div>
@@ -2158,6 +2262,15 @@ function renderProfil() {
           <button class="btn ghost small-btn" id="ai-loeschen">Löschen</button></div>` : ""}
       </div>
 
+      <h2 class="section-gap">Aus dem Vorrat gebaute Rezepte</h2>
+      <div class="card">
+        <p class="subtle small">Der Vorrats-Generator kombiniert deinen tatsächlichen Bestand nach festen Küchenmustern zu neuen Rezepten – offline, ohne API-Key. Zu finden über „Aus Vorrat bauen“ auf der Heute-Seite.</p>
+        ${(s.vorratRezepte || []).length ? `
+          <hr class="divider" style="margin:14px 0">
+          <div class="card-row" style="align-items:center"><span class="small">${s.vorratRezepte.length} Vorrats-Rezepte gespeichert</span>
+          <button class="btn ghost small-btn" id="vorrat-loeschen">Löschen</button></div>` : ""}
+      </div>
+
       <h2 class="section-gap">Daten</h2>
       <div class="btn-row">
         <button class="btn secondary" id="export">Export</button>
@@ -2197,6 +2310,13 @@ function renderProfil() {
       text: `${s.aiRezepte.length} von Claude generierte Rezepte werden entfernt. Die Kern-Rezepte bleiben.`,
       bestaetigen: "Löschen", danger: true, symbol: "achtung",
     })) { s.aiRezepte = []; save(); renderProfil(); }
+  });
+  app.querySelector("#vorrat-loeschen")?.addEventListener("click", async () => {
+    if (await bestaetige({
+      titel: "Vorrats-Rezepte löschen?",
+      text: `${s.vorratRezepte.length} aus deinem Bestand gebaute Rezepte werden entfernt. Die Kern-Rezepte bleiben.`,
+      bestaetigen: "Löschen", danger: true, symbol: "achtung",
+    })) { s.vorratRezepte = []; save(); renderProfil(); }
   });
   app.querySelector("#export").addEventListener("click", exportJson);
   app.querySelector("#import").addEventListener("click", () => app.querySelector("#import-file").click());

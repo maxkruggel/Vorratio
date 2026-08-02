@@ -33,6 +33,7 @@ const DEFAULT_STATE = {
     letzter: null,           // letztes Crawl-Ergebnis (gilt eine Kalenderwoche)
   },
   aiRezepte: [],             // AI-generierte Rezepte (kruggel-recipe-db/v1-kompatibel)
+  vorratRezepte: [],         // offline aus dem Bestand kombinierte Rezepte (generator.js)
   /* Tipp-Dosierung: Tipps kommen nach und nach statt alle auf einmal.
      `klicks` zählt die Interaktionen bis zum nächsten Pop-up, `gesehen`
      merkt sich die schon gezeigten Tipps, damit sie rotieren. */
@@ -60,6 +61,7 @@ function migriere(s) {
   s.bestand = liste(s.bestand);
   s.historie = liste(s.historie);
   s.aiRezepte = liste(s.aiRezepte);
+  s.vorratRezepte = liste(s.vorratRezepte);
   s.profil.ausschluesse = liste(s.profil.ausschluesse);
   s.profil.eigeneAusschluesse = liste(s.profil.eigeneAusschluesse);
   s.profil.stile = liste(s.profil.stile);
