@@ -189,8 +189,8 @@ p + p { margin-top: 8px; }
   margin-bottom: 12px;
 }
 /* Reine Listenkarten sitzen enger am Rand (Design: 4 px 16 px). */
-.card:has(> .list-item:first-child) { padding-top: 5px; }
-.card:has(> .list-item:last-child) { padding-bottom: 5px; }
+.card:has(> .list-item:first-child), .card:has(> .swipe-zeile:first-child) { padding-top: 5px; }
+.card:has(> .list-item:last-child), .card:has(> .swipe-zeile:last-child) { padding-bottom: 5px; }
 
 .card.tappable { cursor: pointer; transition: transform 0.06s ease; }
 .card.tappable:active { transform: scale(0.985); }
@@ -702,6 +702,31 @@ input[type="range"]::-moz-range-thumb {
 .list-item .name { font-weight: 600; }
 .list-item .value { font-size: 15px; color: var(--ink-soft); flex: none; }
 
+/* Wisch-Löschen in der Bestandsliste: Zeile nach links schieben legt den
+   Entfernen-Knopf frei. Der Trennstrich wandert auf den Wrapper, sonst wäre
+   jede Zeile ein :last-child ihres Wisch-Containers und verlöre ihn. */
+.swipe-zeile { position: relative; overflow: hidden; border-bottom: 1px solid var(--line-soft); }
+.swipe-zeile:last-child { border-bottom: none; }
+.swipe-zeile .list-item { border-bottom: none; }
+.swipe-inhalt { position: relative; background: var(--surface); transition: transform 0.18s ease; }
+.swipe-zeile.offen .swipe-inhalt { transform: translateX(-100px); }
+.swipe-entfernen {
+  --duo: rgba(255, 253, 248, 0.2);
+  position: absolute;
+  top: 6px; right: 0; bottom: 6px;
+  width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 12px;
+  background: var(--warn);
+  color: var(--on-warn);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 /* Check-Kreis: gefüllt = erledigt/vorhanden, leer = offen/fehlt */
 .check {
   width: 24px; height: 24px;
@@ -1136,6 +1161,7 @@ dialog.sheet[open]::backdrop { animation: sheetFade 0.22s ease; }
 
 @media (prefers-reduced-motion: reduce) {
   .inline-hint, .tipp-pop { animation: none; }
+  .swipe-inhalt { transition: none; }
 }
 
 /* Profil-Kopf */

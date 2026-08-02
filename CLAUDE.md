@@ -239,7 +239,8 @@ Merken-Schalter, Notiz) · Kochbuch (`renderKochbuch`, `kochbuchTrefferHtml`,
 + Rezept-Editor (`editor`-Entwurf, `uebernehmeEditorFelder` liest sichtbare
 Felder vor jedem Neuzeichnen zurück) · Vorrat
 (`zutatTreffer`-Suche inkl. Freitext-Anlage `addBestandFrei` mit `FREI_REGELN`,
-`renderVorratEdit` je `art`, eigene Artikel mit Kategorie-Wahl) · Barcode-UI
+`renderVorratEdit` je `art`, eigene Artikel mit Kategorie-Wahl,
+Wisch-Löschen in der Liste via `bindWischLoeschen`) · Barcode-UI
 (`scanPanel`-Statusmaschine: start→kamera/foto→laden→treffer/kein_treffer/fehler;
 ohne Katalog-Treffer ist der Standard „eigener Artikel unterm Produktnamen",
 keine Vorauswahl) · Diktat-UI

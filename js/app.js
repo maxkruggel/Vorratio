@@ -1393,13 +1393,86 @@ function renderVorrat() {
      Enter und Leertaste reagieren, sonst sind sie für Tastatur und Schaltersteuerung
      zwar anspringbar, aber nicht auslösbar. */
   app.querySelectorAll("[data-edit]").forEach((b) => {
-    b.addEventListener("click", () => renderVorratEdit(b.dataset.edit));
+    b.addEventListener("click", () => {
+      /* Nach einem Wisch ist der Tap ein Zuklappen, kein Öffnen des Artikels. */
+      const zeile = b.closest(".swipe-zeile");
+      if (zeile && (zeile.classList.contains("offen") || zeile.dataset.gewischt)) {
+        zeile.classList.remove("offen");
+        zeile.querySelector(".swipe-inhalt").style.transform = "";
+        return;
+      }
+      renderVorratEdit(b.dataset.edit);
+    });
     b.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" && e.key !== " ") return;
       e.preventDefault();
       renderVorratEdit(b.dataset.edit);
     });
   });
+  bindWischLoeschen();
+}
+
+/* Wisch-Löschen (nur Touch): Bestandszeile nach links schieben legt „Entfernen"
+   frei – Aufräumen ohne den Umweg über den Mengen-Screen. Senkrechtes Wischen
+   bleibt Scrollen; entschieden wird an der ersten deutlichen Richtung.
+   Tastatur und Maus löschen weiter über den Mengen-Screen. */
+const WISCH_WEITE = 100;
+
+function bindWischLoeschen() {
+  let offeneZeile = null;
+  const zuklappen = () => {
+    if (!offeneZeile) return;
+    offeneZeile.classList.remove("offen");
+    offeneZeile.querySelector(".swipe-inhalt").style.transform = "";
+    offeneZeile = null;
+  };
+  app.querySelectorAll(".swipe-zeile").forEach((zeile) => {
+    const inhalt = zeile.querySelector(".swipe-inhalt");
+    let startX = 0;
+    let startY = 0;
+    let dx = 0;
+    let richtung = null;
+    let offsetStart = 0;
+    zeile.addEventListener("touchstart", (e) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      dx = offsetStart = zeile.classList.contains("offen") ? -WISCH_WEITE : 0;
+      richtung = null;
+      if (offeneZeile && offeneZeile !== zeile) zuklappen();
+    }, { passive: true });
+    zeile.addEventListener("touchmove", (e) => {
+      const mx = e.touches[0].clientX - startX;
+      const my = e.touches[0].clientY - startY;
+      if (!richtung) {
+        if (Math.abs(mx) < 9 && Math.abs(my) < 9) return;
+        richtung = Math.abs(mx) > Math.abs(my) ? "x" : "y";
+        if (richtung === "x") inhalt.style.transition = "none";
+      }
+      if (richtung !== "x") return;
+      dx = Math.min(0, Math.max(-WISCH_WEITE, offsetStart + mx));
+      inhalt.style.transform = `translateX(${dx}px)`;
+    }, { passive: true });
+    zeile.addEventListener("touchend", () => {
+      if (richtung !== "x") return;
+      inhalt.style.transition = "";
+      const offen = dx < -WISCH_WEITE / 2;
+      zeile.classList.toggle("offen", offen);
+      inhalt.style.transform = offen ? `translateX(${-WISCH_WEITE}px)` : "";
+      offeneZeile = offen ? zeile : (offeneZeile === zeile ? null : offeneZeile);
+      /* Der Browser feuert nach dem Wisch noch einen Click – der darf den
+         Mengen-Screen nicht öffnen. */
+      zeile.dataset.gewischt = "1";
+      setTimeout(() => delete zeile.dataset.gewischt, 350);
+    });
+  });
+  app.querySelectorAll("[data-entfernen]").forEach((b) => b.addEventListener("click", () => {
+    const s = getState();
+    const item = s.bestand.find((x) => x.id === b.dataset.entfernen);
+    s.bestand = s.bestand.filter((x) => x.id !== b.dataset.entfernen);
+    save();
+    toast(`${item ? item.name : "Artikel"} entfernt`);
+    renderVorrat();
+  }));
 }
 
 /* Bestandszeile: Schüttgut bekommt den Füllstandsbalken der Übergabe (Design 14),
@@ -1412,9 +1485,14 @@ function vorratZeile(item) {
   const zweitzeile = item.art === "schuettgut"
     ? `<span class="subtle small" style="display:block">${mengeAnzeige(item)}</span>` : "";
   return `
-    <div class="list-item tappable" data-edit="${item.id}" role="button" tabindex="0">
-      <div class="grow"><span class="name">${esc(item.name)}</span>${zweitzeile}</div>
-      ${meter}
+    <div class="swipe-zeile">
+      <button class="swipe-entfernen" data-entfernen="${item.id}" tabindex="-1" aria-hidden="true">${icon("x", 18)}Entfernen</button>
+      <div class="swipe-inhalt">
+        <div class="list-item tappable" data-edit="${item.id}" role="button" tabindex="0">
+          <div class="grow"><span class="name">${esc(item.name)}</span>${zweitzeile}</div>
+          ${meter}
+        </div>
+      </div>
     </div>`;
 }
 
