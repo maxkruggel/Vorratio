@@ -563,6 +563,16 @@ pruefe("Zählbares: gezählte Stückzahl gilt, ungezähltes wird nachgefragt", (
   wahr(offen.nachfragen, "verdeckt gestapelt → nachfragen");
 });
 
+pruefe("Mehrere Schüttgut-Packungen werden gezählt statt geschätzt", () => {
+  // 3 Tuben à 500 g (Testpackung): ganze zählen, die offene gilt als voll
+  const [drei] = fotoEintraege([gesehen({ anzahl: 3 })], freiTest);
+  gleich(drei.menge, 1500, "3 × 500 g: ");
+  falsch(drei.nachfragen, "gezählte Packungen sind keine Rückfrage");
+  // Zählung + sichtbarer Füllstand der offenen: 2 ganze + 0,5
+  const [halb] = fotoEintraege([gesehen({ anzahl: 3, fuellstand: 0.5 })], freiTest);
+  gleich(halb.menge, 1250, "2 ganze + halbe offene: ");
+});
+
 pruefe("Pauschale Zutaten bekommen nie eine Menge angedichtet", () => {
   const [e] = fotoEintraege([gesehen({ name: "Sesamöl", zutat_id: "ing_sesamoel", fuellstand: 0.4 })], freiTest);
   gleich(e.art, "pauschal");

@@ -179,7 +179,11 @@ Datumsstempel für Tagesvorschläge kommen aus `lokalesDatum()` (Ortszeit, nicht
   Mensch die Menge. Was das Foto nicht hergibt (blickdichte Packung, verdeckter
   Stapel), kommt als `nachfragen: true` zurück, zeigt „?" statt einer Zahl und
   bringt in der Zeile gleich das Bedienelement der Führungsart mit (Stepper /
-  Viertel-Raster / da-leer). Ein Tap darauf löst die Markierung. Füllstände
+  Silhouetten-Regler mit Viertel-Raster / da-leer). Ein Tap darauf löst die
+  Markierung. Führungsart und Packungsgröße sind je Zeile korrigierbar (vier
+  Päckchen sind eine Stückzahl, kein „¾ voll"); lesbare Etiketten-Größen
+  („500 g") liefert das Modell als `packung_menge`/`packung_einheit` mit und
+  sie stechen den Katalog-Standard aus. Füllstände
   liefert das Modell nur bei sichtbarem Inhalt – Prompt-Regel, nicht Zufall.
   **Setzt** den Stand wie das Diktat. Ohne Claude-Key gibt es diesen Weg nicht:
   Bilder lassen sich, anders als ein Diktat, nicht lokal auswerten.
@@ -245,8 +249,11 @@ Merken-Schalter, Notiz) · Kochbuch (`renderKochbuch`, `kochbuchTrefferHtml`,
 + Rezept-Editor (`editor`-Entwurf, `uebernehmeEditorFelder` liest sichtbare
 Felder vor jedem Neuzeichnen zurück) · Vorrat
 (`zutatTreffer`-Suche inkl. Freitext-Anlage `addBestandFrei` mit `FREI_REGELN`,
-`renderVorratEdit` je `art`) · Barcode-UI (`scanPanel`-Statusmaschine:
-start→kamera/foto→laden→treffer/kein_treffer/fehler) · Diktat-UI
+`renderVorratEdit` je `art`, eigene Artikel mit Kategorie-Wahl,
+Wisch-Löschen in der Liste via `bindWischLoeschen`) · Barcode-UI
+(`scanPanel`-Statusmaschine: start→kamera/foto→laden→treffer/kein_treffer/fehler;
+ohne Katalog-Treffer ist der Standard „eigener Artikel unterm Produktnamen",
+keine Vorauswahl) · Diktat-UI
 (`diktat`-Statusmaschine: start→hoeren→lesen→ergebnis/fehler; `werteDiktatAus`
 = Claude oder lokaler Parser, `uebernehmeDiktat`, `diktatMenge` = diktierte
 Angabe → Bestandsmenge) · Schrankfoto-UI (`foto`-Statusmaschine:
@@ -315,8 +322,11 @@ Form liefert `leseDiktat` aus ai.js. Rein lokal: `ZAHLWORT`, `EINHEIT_WORT`,
 `ANTEIL_MUSTER`, `LEER_MUSTER`, `ALIAS` (Kurzform → zutat_id), `findeZutat`
 (Wortstamm-Matching, von der genannten Einheit geschärft), `diktatAnzeige`.
 **Dreistufige Zerlegung** – wer hier etwas ändert, belegt es in
-`tools/test-diktat.mjs`: `segmente()` (Komma/„und"/Punkt) → `gruppenAusZeile()`
-(jede genannte Menge beginnt einen Artikel, auch ohne Satzzeichen) →
+`tools/test-diktat.mjs`: `segmente()` (Komma/„und"/Punkt; ein „und" im
+Produktnamen wie „Erbsen und Möhren" wird geschützt, wenn Katalog oder eigener
+Bestand den Namen so führen) → `gruppenAusZeile()`
+(jede genannte Menge beginnt einen Artikel, auch ohne Satzzeichen; Mal-Wörter
+sind Stückzahlen und „zweimal 700 ml" ist EINE Angabe, 2 × 700) →
 `teileArtikel()` (Fenster von max. 3 Wörtern gegen den Katalog; bei Gleichstand
 gewinnt das kürzere, und der Treffer muss am ersten Wort des Fensters hängen –
 sonst zieht er sich Vorgänger ein). Füll- und Zustandswörter hängen am zuletzt
