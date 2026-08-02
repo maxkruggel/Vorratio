@@ -20,7 +20,7 @@ automatische Abbuchung mit Toleranz → Einkauf füllt den Bestand wieder auf.
 - Lokal starten: `python3 -m http.server 8080` (statisch servieren reicht) – zum Entwickeln,
   nicht zum Installieren
 - Prüfen: `node tools/validate-db.mjs` (Rezeptdaten) + `node tools/test-engine.mjs`
-  (Engine). Beides läuft in der CI (`.github/workflows/ci.yml`), ohne
+  (Engine) + `node tools/test-diktat.mjs` (Diktat-Parser). Alles läuft in der CI (`.github/workflows/ci.yml`), ohne
   Abhängigkeiten. Dazu `node tools/pr-aktuell.mjs` (Branch-Stand vor einer PR,
   s. u.). Kein Linter, kein Build-Schritt.
 - Sprache durchgehend Deutsch (Code-Bezeichner, Kommentare, UI)
@@ -61,6 +61,7 @@ js/data/substitutionen.js  Substitutions-DB (vorratio-substitutions-db/v1): SUBS
 js/data/angebote-demo.js   DEMO_ANGEBOTE für den Crawl ohne API-Keys
 tools/validate-db.mjs      Datenbank-Validator (Schema, IDs, Allergen-Deklaration) – Exit 1 bei Fehlern
 tools/test-engine.mjs      Engine-Tests ohne Framework – Filter, Toleranzband, Abbuchung, Abdeckung
+tools/test-diktat.mjs      Diktat-Tests ohne Framework – Zerlegung ohne Satzzeichen, Mengen, Anteile, Zuordnung
 tools/browsertest.mjs      Browser-Rauchtest (Onboarding→Tabs→Kochmodus→Neuladen). Nicht in der CI,
                            braucht einmalig `npm install --no-save playwright-core`
 tools/pr-aktuell.mjs       PR-Aktualitätsprüfung gegen main (node tools/pr-aktuell.mjs)
@@ -268,6 +269,13 @@ jeder Sprechpause von allein weiter), `parseDiktat(text, bestand)` → Einträge
 Form liefert `leseDiktat` aus ai.js. Rein lokal: `ZAHLWORT`, `EINHEIT_WORT`,
 `ANTEIL_MUSTER`, `LEER_MUSTER`, `ALIAS` (Kurzform → zutat_id), `findeZutat`
 (Wortstamm-Matching, von der genannten Einheit geschärft), `diktatAnzeige`.
+**Dreistufige Zerlegung** – wer hier etwas ändert, belegt es in
+`tools/test-diktat.mjs`: `segmente()` (Komma/„und"/Punkt) → `gruppenAusZeile()`
+(jede genannte Menge beginnt einen Artikel, auch ohne Satzzeichen) →
+`teileArtikel()` (Fenster von max. 3 Wörtern gegen den Katalog; bei Gleichstand
+gewinnt das kürzere, ein Fenster startet nur auf einem Wort, das im Katalog
+vorkommt). Füll- und Zustandswörter hängen am zuletzt erkannten Artikel –
+sonst landet „fast leer" beim falschen.
 
 **angebote.js** – `angebotsCrawl(liste, cfg, opts)` → Ergebnisobjekt
 {kw, items, maerkte, empfehlung (max. 3), ohneAngebot, fehler}. `SUCHPROFILE`
