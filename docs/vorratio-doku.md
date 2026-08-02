@@ -189,12 +189,16 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 
 - **Branding:** **umgesetzt** – Variante 2A „Papier & Tanne" aus der
   Claude-Design-Übergabe liegt seit 08/2026 über der App. Farbwelt, Typografie,
-  Icon-Set, App-Icon und Dark Mode: siehe
+  Icon-Set und App-Icon: siehe
   `docs/design-handoff/UEBERGABE-CLAUDE-DESIGN.md` (Auftrag) und `css/style.css`
   (`:root` = Token-Übergabepunkt).
 - **Farbwelt:** Papier `#f3efe5` · Fläche `#fffdf8` · Tanne `#2c5b43` ·
   Tanne soft `#dfe9e0` · Terrakotta `#b4552d` · Tinte `#1c231e`.
-  Dark Mode über `@media (prefers-color-scheme: dark)`.
+- **Kein Dark Mode:** „Papier & Tanne" ist als **eine** Farbwelt geliefert. Eine
+  dunkle Zweitpalette wäre ein zweites, nicht abgestimmtes Farbdesign – die App
+  bleibt in jeder Systemeinstellung auf den Sheet-Werten (`color-scheme: light`,
+  `theme-color` = Papier). Wenn Dark Mode kommen soll, gehört er aus dem Design
+  heraus entworfen, nicht im Code abgeleitet.
 - **Typografie:** Bricolage Grotesque 600/700 (Display, Tracking −0,03 em,
   Überschriften klein gesetzt) + Figtree 400–600 (Text). Beide lokal als
   variable WOFF2 in `fonts/` – kein CDN, die PWA bleibt offlinefähig.

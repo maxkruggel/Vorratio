@@ -66,29 +66,12 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #101410;
-    --surface: #171d18;
-    --ink: #eef1ec;
-    --ink-soft: #a6b0a7;
-    --ink-mute: #7d8a81;
-    --line: #26302a;
-    --line-soft: #232c26;
-    --line-strong: #3c473f;
-    --accent: #8fc6a4;
-    --accent-deep: #8fc6a4;
-    --accent-soft: rgba(143, 198, 164, 0.16);
-    --accent-light: #173125;
-    --on-accent: #101410;
-    --warn: #e0956e;
-    --warn-ink: #e0956e;
-    --warn-soft: rgba(214, 124, 80, 0.18);
-    --on-warn: #101410;
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-    --shadow-lift: 0 4px 16px rgba(0, 0, 0, 0.4);
-  }
-}
+/* Kein Dark-Schema: „Papier & Tanne" ist als eine Farbwelt geliefert – Papier,
+   Fläche, Tanne, Tanne soft, Terrakotta, Tinte. Eine dunkle Zweitpalette wäre
+   ein zweites, nicht abgestimmtes Farbdesign; die App bleibt deshalb in jeder
+   Systemeinstellung auf den Sheet-Werten. `color-scheme: light` sorgt dafür,
+   dass iOS auch Formularelemente, Scrollbars und Overlays hell rendert. */
+:root { color-scheme: light; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -261,10 +244,6 @@ p + p { margin-top: 8px; }
 .badge.warn { background: var(--warn-soft); color: var(--warn-ink); font-weight: 600; font-size: 13px; }
 .badge.neutral { background: var(--bg); color: var(--ink-soft); font-weight: 600; }
 
-@media (prefers-color-scheme: dark) {
-  .badge.neutral { background: #212a23; color: var(--ink-soft); }
-}
-
 /* ------------------------------------------------------------ Buttons */
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
 
@@ -407,11 +386,6 @@ select {
   background-size: 18px 18px;
   background-repeat: no-repeat;
   padding-right: 44px;
-}
-@media (prefers-color-scheme: dark) {
-  select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 9.5l6 6 6-6' stroke='%23a6b0a7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  }
 }
 
 label.field { display: block; margin-bottom: 14px; font-size: 13px; color: var(--ink-mute); }
@@ -638,11 +612,6 @@ input[type="range"]::-moz-range-thumb {
 .timer-box.done .timer-name { color: var(--warn-ink); }
 .timer-box.done .timer-display { font-size: 52px; color: var(--ink); }
 .timer-box.done .timer-actions button { background: var(--accent); color: var(--on-accent); }
-
-@media (prefers-color-scheme: dark) {
-  .timer-name { color: var(--accent-light); }
-  .accent-card p { opacity: 0.7; }
-}
 
 /* ------------------------------------------------------------- Listen */
 .list-item {

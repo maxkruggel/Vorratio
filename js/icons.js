@@ -2,7 +2,7 @@
    Duotone auf 24er-Raster, Strich 1,6 px, Duotone-Fläche = --duo.
    Die Strichfarbe erbt über currentColor, die Flächen bekommen Klassen
    (.duo/.ring/.on/.warnfill) – so schaltet ein Kontext (Tabbar aktiv,
-   Akzentfläche, Hinweiskarte, Dark Mode) alles über eine Variable um.
+   Akzentfläche, Hinweiskarte) alles über eine Variable um.
    Ersetzt die Unicode-Platzhalter der neutralen Ausbaustufe. */
 
 const PFADE = {
