@@ -283,6 +283,17 @@ const ZUTATEN = [
   { id: "ing_schnittlauch",         name: "Schnittlauch",            kategorie: "frisch",   art: "pauschal",   einheit: "Bund" },
   { id: "ing_salbei",               name: "Salbei",                  kategorie: "frisch",   art: "pauschal",   einheit: "Bund" },
   { id: "ing_backpflaumen",         name: "Backpflaumen",            kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 200 },
+
+  // -------------------------------------------------------------------------
+  // Erweiterung Tofu-Schiene: die vier Zutaten, für die es in der Kern-DB
+  // keinen tragfähigen Ersatz gab. Bewusst KEIN basis:true – wer sie nicht
+  // hat, soll das in der Bestandsdeckung sehen (Kala Namak ist der Unterschied
+  // zwischen Rührtofu und Rührei-Gefühl, nicht Beiwerk).
+  // -------------------------------------------------------------------------
+  { id: "ing_kala_namak",           name: "Kala Namak (Schwarzsalz)", kategorie: "gewuerz", art: "pauschal",   einheit: "g" },
+  { id: "ing_sichuanpfeffer",       name: "Sichuanpfeffer",          kategorie: "gewuerz",  art: "pauschal",   einheit: "g" },
+  { id: "ing_tamarinde",            name: "Tamarindenpaste",         kategorie: "konserve", art: "pauschal",   einheit: "g" },
+  { id: "ing_kimchi",               name: "Kimchi",                  kategorie: "kuehl",    art: "schuettgut", einheit: "g",  packung: 400 },
   { id: "ing_mayonnaise_vegan",     name: "Vegane Mayonnaise",       kategorie: "kuehl",    art: "pauschal",   einheit: "g" },
 ];
 
@@ -1203,6 +1214,48 @@ const PREPS = [
   { id: "PREP-015", name: "Möhren dämpfen", kategorie: "Gemüse", zutat_id: "ing_moehre",
     kurz: "Scheiben oder Stifte im Siebeinsatz über kochendem Wasser 8–10 Min dämpfen – schonender als Kochen, erhält Vitamine und Farbe.",
     dauer_min: 12, ernaehrungsform: ["vegan"] },
+
+  /* Tofu-Basistechniken. Zwei davon entscheiden über Gelingen oder Misserfolg:
+     Wasser raus (PREP-016) und Stärke drauf (PREP-019). Ohne beides bleibt
+     Tofu labberig – das ist der häufigste Anfängerfehler, nicht die Würzung.
+     Die Rezepte im TOF-Block wiederholen die Schritte im Klartext, damit der
+     Kochmodus für sich steht; hier stehen sie einmal zum Nachschlagen. */
+  { id: "PREP-016", name: "Tofu pressen", kategorie: "Tofu/Fleischalternativen", zutat_id: "ing_tofu_fest",
+    kurz: "Block in Küchenpapier oder ein sauberes Tuch wickeln, Brett darauf, mit einer Pfanne beschweren, 15–30 Min stehen lassen – je länger, desto knuspriger wird er später. Für Suppen und Eintöpfe entfällt das Pressen, dort soll er Flüssigkeit ziehen. Seidentofu wird nie gepresst.",
+    dauer_min: 20, ernaehrungsform: ["vegan"], allergene: ["soja"] },
+  { id: "PREP-017", name: "Tofu einfrieren für Fleischtextur", kategorie: "Tofu/Fleischalternativen", zutat_id: "ing_tofu_natur",
+    kurz: "Naturtofu im Block einfrieren (auch angebrochen), auftauen, Wasser kräftig ausdrücken. Das Eis sprengt die Struktur: Der Tofu wird porös und schwammig, saugt Marinade auf und beißt sich fleischiger. Haltbarkeit im Froster 3–6 Monate, Aufgetautes nicht wieder einfrieren. Für Seidentofu ungeeignet.",
+    dauer_min: 15, ernaehrungsform: ["vegan"], allergene: ["soja"] },
+  { id: "PREP-018", name: "Tofu marinieren", kategorie: "Tofu/Fleischalternativen", zutat_id: "ing_tofu_fest",
+    kurz: "Erst pressen, dann würfeln oder in Scheiben schneiden und mindestens 15–30 Min salzig-umami einlegen (Sojasauce, Knoblauch, Ingwer, Sesamöl, Essig). Marinade dringt kaum ein – Oberfläche vergrößern hilft mehr als lange Wartezeit. Vor dem Panieren oder Braten trocken tupfen.",
+    dauer_min: 30, ernaehrungsform: ["vegan"], allergene: ["soja"] },
+  { id: "PREP-019", name: "Stärke-Coating (knusprige Kruste)", kategorie: "Tofu/Fleischalternativen", zutat_id: "ing_speisestaerke",
+    kurz: "Rund 1 EL Stärke auf 200 g trockenen Tofu, bis jede Fläche matt bestäubt ist. Speise-/Maisstärke wird knusprig und bleibt neutral, Kartoffelstärke gibt die feinste Kruste. Pfeilwurzstärke ist hier die falsche Wahl, sie wird in Saucen schleimig.",
+    dauer_min: 5, ernaehrungsform: ["vegan"], allergene: ["soja"] },
+  { id: "PREP-020", name: "Tofu im Ofen backen", kategorie: "Tofu/Fleischalternativen", zutat_id: "ing_tofu_fest",
+    kurz: "Gewürfelt und mit Öl und Stärke gemischt bei 200 °C 25–30 Min backen, nach der Hälfte einmal wenden. Weniger Aufsicht als die Pfanne, gleichmäßiger, aber nie ganz so knusprig. Blech nicht überladen – dann dünstet er.",
+    dauer_min: 30, ernaehrungsform: ["vegan"], allergene: ["soja"] },
+  { id: "PREP-021", name: "Tofu in der Heißluftfritteuse", kategorie: "Tofu/Fleischalternativen", zutat_id: "ing_tofu_fest",
+    kurz: "200 °C, etwa 15 Min, nach 8 Min einmal durchschütteln. Braucht am wenigsten Öl und liefert die trockenste Kruste – der Weg, wenn es schnell und knusprig sein soll.",
+    dauer_min: 15, ernaehrungsform: ["vegan"], allergene: ["soja"] },
+  { id: "PREP-022", name: "Tofu frittieren", kategorie: "Tofu/Fleischalternativen", zutat_id: "ing_tofu_fest",
+    kurz: "Öl auf 170–180 °C bringen, Würfel portionsweise 2–4 Min goldbraun ausbacken, auf Küchenpapier abtropfen. Zu kaltes Öl macht ihn fettig, zu viel auf einmal lässt die Temperatur einbrechen. Tofu muss trocken sein, sonst spritzt es.",
+    dauer_min: 15, ernaehrungsform: ["vegan"], allergene: ["soja"] },
+  { id: "PREP-023", name: "Tofu krümeln als Hackersatz", kategorie: "Tofu/Fleischalternativen", zutat_id: "ing_tofu_natur",
+    kurz: "Tofu mit der Gabel oder den Händen unregelmäßig zerbröseln (unterschiedlich große Krümel sehen echter aus) und scharf anbraten, bis die Feuchtigkeit weg ist und Röstaromen entstehen. Basis für Bolognese, Chili und Bhurji. Vorher eingefroren (PREP-017) wird der Biss noch fleischiger.",
+    dauer_min: 12, ernaehrungsform: ["vegan"], allergene: ["soja"] },
+  { id: "PREP-024", name: "Rührtofu würzen", kategorie: "Tofu/Fleischalternativen", zutat_id: "ing_tofu_natur",
+    kurz: "Zerbröselten Tofu anbraten, mit Kurkuma (Farbe) und Hefeflocken (Umami) würzen, für Cremigkeit 2–3 EL Sojajoghurt unterrühren. Kala Namak kommt IMMER erst am Ende – sein Ei-Aroma stammt von Schwefelverbindungen und verfliegt bei Hitze.",
+    dauer_min: 10, ernaehrungsform: ["vegan"], allergene: ["soja"] },
+  { id: "PREP-025", name: "Tofu blanchieren", kategorie: "Tofu/Fleischalternativen", zutat_id: "ing_tofu_seiden",
+    kurz: "Würfel 1–2 Min in leicht gesalzenem, nicht sprudelndem Wasser ziehen lassen. Festigt die Oberfläche und würzt leicht – der Grund, warum Tofu im Mapo oder in Eintöpfen ganz bleibt statt zu zerfallen.",
+    dauer_min: 5, ernaehrungsform: ["vegan"], allergene: ["soja"] },
+  { id: "PREP-026", name: "Seidentofu verarbeiten", kategorie: "Tofu/Fleischalternativen", zutat_id: "ing_tofu_seiden",
+    kurz: "Nicht pressen, nicht scharf braten – er zerfällt. Entweder direkt aus der Packung vorsichtig würfeln und in Suppen gleiten lassen, oder glatt pürieren für Mousse, Cheesecake, Dressings und Mayo. Seidentofu ist keine weichere Variante von festem Tofu, sondern eine eigene Zutat.",
+    dauer_min: 5, ernaehrungsform: ["vegan"], allergene: ["soja"] },
+  { id: "PREP-027", name: "Tofu anbraten ohne Ankleben", kategorie: "Tofu/Fleischalternativen", zutat_id: "ing_tofu_fest",
+    kurz: "Reihenfolge entscheidet: erst die Pfanne heiß werden lassen, dann Öl, dann Tofu – einlagig, mit Abstand. 2–3 Min pro Seite liegen lassen und nicht rühren. Der Tofu löst sich von selbst, sobald die Kruste fertig ist; wer früher wendet, lässt sie in der Pfanne.",
+    dauer_min: 12, ernaehrungsform: ["vegan"], allergene: ["soja"] },
 ];
 
 // ---------------------------------------------------------------------------
@@ -1265,6 +1318,16 @@ const TIPPS = [
   { id: "TIP-012", text: "Dörr-Trockentest (Fruchtleder): fertig, wenn es durchscheinend und nur leicht klebrig ist und beim Daumendruck KEINE Dellen bleiben. Warm mit dem Backpapier aufrollen, luftdicht lagern (NCHFP-Empfehlung: bei 60–65 °C trocknen)." },
   { id: "TIP-013", text: "Geröstete Kichererbsen bleiben nur knusprig, wenn sie offen lagern – nie luftdicht verpacken. Und: Gewürze immer erst NACH dem Rösten dazu, im Ofen verbrennen sie bitter." },
   { id: "TIP-014", text: "Sorbet-Faustformel: 4 Teile Fruchtpüree auf 1 Teil Zucker plus Spritzer Zitrone. Der Zucker ist Strukturgeber (hält das Sorbet weich) – wer ihn stark kürzt, bekommt einen Eisblock." },
+  { id: "TIP-015", text: "Tofusorte ist keine Feinheit, sondern die halbe Miete: Fest/extra fest für alles Gebratene, Panierte, Marinierte. Seidentofu für Mousse, Cremes, Dressings und Suppen. Räuchertofu, wo es würzig sein soll (Salat, Pfanne, Carbonara). Wer Seidentofu brät, bekommt Brei, wer festen Tofu püriert, bekommt Grieß." },
+  { id: "TIP-016", text: "Zwei Handgriffe entscheiden über knusprigen Tofu: Wasser raus (15–30 Min pressen) und Stärke drauf (ca. 1 EL auf 200 g). Ohne beides wird er labberig – das ist der häufigste Fehler, nicht zu wenig Würze." },
+  { id: "TIP-017", text: "Tofu klebt in der Pfanne? Reihenfolge prüfen: erst Pfanne heiß, dann Öl, dann Tofu – und dann nicht rühren. Nach 2–3 Min löst er sich von selbst; wer früher wendet, lässt die Kruste in der Pfanne." },
+  { id: "TIP-018", text: "Kala Namak (Schwarzsalz) macht aus Rührtofu ein Rührei-Erlebnis. Das Ei-Aroma kommt von Schwefelverbindungen im Salz – deshalb IMMER erst am Ende zugeben, bei Hitze verfliegt es." },
+  { id: "TIP-019", text: "Angebrochener Tofu hält im Kühlschrank 2–3 Tage, wenn er in frischem Wasser liegt und das Wasser täglich gewechselt wird. Räuchertofu braucht kein Wasserbad und hält gut 5 Tage. Ungeöffnet gilt schlicht das Mindesthaltbarkeitsdatum, oft ein paar Tage darüber hinaus – Nase und Augen entscheiden." },
+  { id: "TIP-020", text: "Tofu ist verdorben bei saurem, gärigem Geruch, schmierigem Belag, gelblicher oder rosa Verfärbung, Bläschen in der Lake oder gewölbter Packung. Im Zweifel entsorgen – bei einem Produkt für 1–2 Euro lohnt kein Risiko." },
+  { id: "TIP-021", text: "Tofu einfrieren verändert ihn absichtlich: aufgetaut und ausgedrückt ist er porös und schwammig, saugt Marinade auf und beißt sich fleischiger. 3–6 Monate haltbar. Seidentofu verträgt das nicht." },
+  { id: "TIP-022", text: "Räuchertofu ist der unkomplizierteste Speckersatz: würfeln, knusprig braten, über Salat, Kartoffeln oder Pasta. Fester Tofu wiederum ersetzt Paneer 1:1 in jedem indischen Curry." },
+  { id: "TIP-023", text: "Miso nie kochen: Suppe aufkochen, Hitze AUS, dann die Paste durch ein Sieb oder in der Kelle einrühren. Kochendes Miso verliert Aroma und die lebenden Kulturen. Dasselbe gilt für Seidentofu in der Suppe – ziehen lassen, nicht sprudeln." },
+  { id: "TIP-024", text: "Klassisches Kimchi enthält oft Fischsauce oder Garnelenpaste. Wer vegan oder vegetarisch isst, prüft die Zutatenliste – vegane Sorten stehen inzwischen in den meisten Supermärkten." },
 ];
 
 const IDEEN = [

@@ -759,6 +759,93 @@ const SUBSTITUTIONEN = [
         ], prioritaet: 1 },
     ], stand: SUB_STAND,
   },
+
+  // ------------------------------------------------------- Tofu (Gegenrichtung)
+  /* Diese drei Datensätze verlassen bewusst das Grundmuster "pflanzlich statt
+     tierisch": Sie beantworten die andere Frage, nämlich was man kocht, wenn
+     das Rezept Tofu verlangt und keiner im Kühlschrank liegt. Ohne sie bleibt
+     der Ersatz-Teaser im Rezept-Detail bei jedem Tofu-Rezept leer.
+     Wichtig ist die Sortentrennung: Fester Tofu und Seidentofu sind
+     unterschiedliche Zutaten und untereinander KEIN Ersatz (siehe TIP-015). */
+  {
+    id: "sub_tofu_fest", original_zutat: "Tofu (fest/extra fest)", kategorie: "sonstiges",
+    zutat_ids: ["ing_tofu_fest", "ing_tofu_natur"],
+    alternativen: [
+      { alternative_name: "Tempeh", basis: "tempeh", verhaeltnis: "1:1",
+        geeignet_fuer: ["braten", "kochen_erhitzen"], ungeeignet_fuer: ["kalt_dessert"],
+        hinweise: "Fester Biss, nussig-herber Eigengeschmack. Vor dem Braten 10 Min dämpfen oder blanchieren nimmt die Bitterkeit. Braucht kein Pressen.",
+        naehrwert_hinweis: "Mehr Protein und Ballaststoffe als Tofu (~19 g/100 g), weil die ganze Bohne fermentiert wird.",
+        handelsprodukte_beispiele: [
+          { produkt: "Tempeh Natur", marke: "Alnatura", laeden: ["dm", "Alnatura", "Edeka"], eigenmarke: true },
+          { produkt: "Bio-Tempeh", marke: "Lord of Tofu / Vantastic Foods", laeden: ["Bioladen", "Online"], eigenmarke: false },
+        ], prioritaet: 1 },
+      { alternative_name: "Räuchertofu", basis: "tofu", verhaeltnis: "1:1",
+        geeignet_fuer: ["braten", "kochen_erhitzen"], ungeeignet_fuer: ["kalt_dessert"],
+        hinweise: "Fester und würziger als Naturtofu, muss nicht gepresst werden. Bringt Rauchgeschmack mit – in mild gewürzten Gerichten dominiert er.",
+        handelsprodukte_beispiele: [
+          { produkt: "Räuchertofu Natur", marke: "Taifun", laeden: ["Rewe", "Edeka", "dm", "Bioladen"], eigenmarke: false },
+          { produkt: "Vemondo Räuchertofu", marke: "Vemondo", laeden: ["Lidl"], eigenmarke: true },
+        ], prioritaet: 2 },
+      { alternative_name: "Seitan", basis: "weizen_seitan", verhaeltnis: "1:1",
+        geeignet_fuer: ["braten", "kochen_erhitzen"], ungeeignet_fuer: ["kalt_dessert"],
+        hinweise: "Der fleischigste Biss von allen, saugt Marinade gut auf. Enthält Gluten – bei Zöliakie ausgeschlossen.",
+        naehrwert_hinweis: "Sehr proteinreich (~25 g/100 g), aber arm an Lysin.",
+        handelsprodukte_beispiele: [
+          { produkt: "Seitan Natur", marke: "Wheaty", laeden: ["Bioladen", "Rewe"], eigenmarke: false },
+        ], prioritaet: 3 },
+      { alternative_name: "Kichererbsen", basis: "sonstiges", verhaeltnis: "1 Dose (240 g Abtropfgewicht) für 200 g Tofu",
+        geeignet_fuer: ["braten", "kochen_erhitzen"], ungeeignet_fuer: [],
+        hinweise: "Der Vorratsjoker: kein Kühlschrank nötig. Andere Textur, aber in Currys, Pfannen und Bowls ein vollwertiger Proteinträger. Abgespült und trocken getupft werden sie im Ofen knusprig.",
+        handelsprodukte_beispiele: [
+          { produkt: "Kichererbsen aus der Dose", marke: "Eigenmarken", laeden: ["Aldi", "Lidl", "Rewe", "Edeka", "Penny"], eigenmarke: true },
+        ], prioritaet: 4 },
+    ], stand: SUB_STAND,
+  },
+  {
+    id: "sub_tofu_seiden", original_zutat: "Seidentofu", kategorie: "sonstiges",
+    zutat_ids: ["ing_tofu_seiden"],
+    alternativen: [
+      { alternative_name: "Cashewcreme (eingeweicht, püriert)", basis: "cashew", verhaeltnis: "100 g Cashews + 100 ml Wasser für 200 g Seidentofu",
+        geeignet_fuer: ["kalt_dessert", "backen", "kochen_erhitzen", "binden"], ungeeignet_fuer: [],
+        hinweise: "Mindestens 2 h einweichen und sehr lange pürieren, sonst bleibt es körnig. Neutraler als Kokos, cremiger als Joghurt.",
+        naehrwert_hinweis: "Deutlich fettreicher als Seidentofu, dafür ebenso cremig.",
+        handelsprodukte_beispiele: [
+          { produkt: "Cashewkerne natur", marke: "Eigenmarken", laeden: ["Aldi", "Lidl", "Rewe", "dm"], eigenmarke: true },
+        ], prioritaet: 1 },
+      { alternative_name: "Kokoscreme (fester Teil der Kokosmilch)", basis: "kokos", verhaeltnis: "1:1",
+        geeignet_fuer: ["kalt_dessert", "backen"], ungeeignet_fuer: [],
+        hinweise: "Für Mousse und Desserts. Bringt deutlichen Kokosgeschmack mit und ist im Kühlschrank fester als Seidentofu – vor dem Pürieren kurz temperieren lassen.",
+        handelsprodukte_beispiele: [
+          { produkt: "Kokosmilch 60 % / Kokoscreme", marke: "Eigenmarken", laeden: ["Aldi", "Lidl", "Rewe", "Edeka"], eigenmarke: true },
+        ], prioritaet: 2 },
+      { alternative_name: "Sojajoghurt Natur", basis: "soja", verhaeltnis: "1:1, für Dressings und Dips",
+        geeignet_fuer: ["kalt_dessert", "binden"], ungeeignet_fuer: ["backen"],
+        hinweise: "Dünner und säuerlicher als Seidentofu – gut für Dressings, zu flüssig für Mousse und Cheesecake.",
+        handelsprodukte_beispiele: [
+          { produkt: "Alpro Soja Natur", marke: "Alpro", laeden: ["Rewe", "Edeka", "Kaufland"], eigenmarke: false },
+        ], prioritaet: 3 },
+      { alternative_name: "Avocado", basis: "frucht", verhaeltnis: "1 reife Avocado für 200 g Seidentofu",
+        geeignet_fuer: ["kalt_dessert"], ungeeignet_fuer: ["backen", "kochen_erhitzen"],
+        hinweise: "Nur für Schokomousse und Ähnliches, wo Kakao den Eigengeschmack überdeckt. Muss wirklich reif sein.",
+        handelsprodukte_beispiele: [], prioritaet: 4 },
+    ], stand: SUB_STAND,
+  },
+  {
+    id: "sub_raeuchertofu", original_zutat: "Räuchertofu", kategorie: "sonstiges",
+    zutat_ids: ["ing_raeuchertofu"],
+    alternativen: [
+      { alternative_name: "Fester Tofu + geräuchertes Paprikapulver", basis: "tofu", verhaeltnis: "1:1 plus 1 TL Paprikapulver je 200 g",
+        geeignet_fuer: ["braten", "kochen_erhitzen"], ungeeignet_fuer: [],
+        hinweise: "Kommt der Rauchnote nahe, wenn der Tofu vorher gepresst und kräftig angebraten wird. Etwas Sojasauce ersetzt die Würze.",
+        handelsprodukte_beispiele: [], prioritaet: 1 },
+      { alternative_name: "Geräucherter Tempeh", basis: "tempeh", verhaeltnis: "1:1",
+        geeignet_fuer: ["braten"], ungeeignet_fuer: [],
+        hinweise: "Kräftiger im Eigengeschmack, fester im Biss – für Speckersatz in Pfannen und Salaten die beste Wahl.",
+        handelsprodukte_beispiele: [
+          { produkt: "Tempeh geräuchert", marke: "Lord of Tofu", laeden: ["Bioladen", "Online"], eigenmarke: false },
+        ], prioritaet: 2 },
+    ], stand: SUB_STAND,
+  },
 ];
 
 export { SUB_SCHEMA_VERSION, SUB_STAND, SUB_KATEGORIEN, SUB_ANWENDUNGEN, BASIS_ALLERGENE, SUBSTITUTIONEN };
