@@ -133,6 +133,9 @@ App (Variante 2A „Papier & Tanne"; Auftrag und Ist-Zustand davor:
   `--duo` und schaltet je Kontext um (Tabbar aktiv, Akzentkarte, Hinweiskarte).
 - **App-Icon:** „Keimling-V" auf Tanne – `icons/icon.svg` plus PNG 180
   (apple-touch-icon), 512 (any) und 512 maskable.
+- **Dialoge:** statt nativer `confirm`/`alert` ein bodenbündiges Sheet
+  (`<dialog>`, Scrim-Tap und ESC brechen ab) für Rückfragen und ein Toast für
+  kurze Rückmeldungen – beide in der Design-Sprache, beide in `js/app.js`.
 
 ## Nächste Ausbaustufen (siehe Doku Kap. 9)
 

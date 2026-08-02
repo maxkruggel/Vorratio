@@ -205,6 +205,10 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
   Unicode-Platzhalter. Produkt-Icons für einzelne Zutaten (Mehl, Zucker, …)
   stehen weiterhin aus.
 - **Kochmodus-UX:** durchklickbare Schrittkarten mit Icons/Bildern, benannte Timer, Tipps eingestreut.
+- **Dialoge:** keine nativen `confirm`/`alert` mehr – Rückfragen laufen über ein
+  bodenbündiges Sheet (`dialog()`/`bestaetige()` in `js/app.js`), reine
+  Rückmeldungen über einen Toast (`toast()`). Zerstörende Aktionen bekommen die
+  gefüllte Terrakotta-Aktion, der Abbrechen-Button hat den Fokus.
 - **Erfassungs-UX:** Slider/Push für Zählbares, Silhouetten-Slider für Schüttgut, Auswahlfenster für Varianten (Mehl-Typen), Chat-/Diktatfläche für alles Übrige.
 
 ## 9. Offene Punkte & nächste Schritte

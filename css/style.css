@@ -56,6 +56,7 @@
   --warn: #b4552d;          /* Terrakotta */
   --warn-ink: #8a3f1f;
   --warn-soft: #f6e6da;
+  --on-warn: #fffdf8;       /* Text auf gefüllter Warnfläche */
   --radius: 16px;           /* Buttons, Panels */
   --radius-card: 18px;      /* Karten */
   --radius-input: 14px;
@@ -83,6 +84,7 @@
     --warn: #e0956e;
     --warn-ink: #e0956e;
     --warn-soft: rgba(214, 124, 80, 0.18);
+    --on-warn: #101410;
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     --shadow-lift: 0 4px 16px rgba(0, 0, 0, 0.4);
   }
@@ -178,6 +180,7 @@ p + p { margin-top: 8px; }
 .ic .on { stroke: var(--on-accent); }
 .ic .warnfill { fill: var(--warn-soft); }
 .ic-accent { color: var(--accent); }
+.ic-warn { color: var(--warn); }
 
 .logo-svg .lm-bg { fill: var(--accent); }
 .logo-svg .lm-v { stroke: var(--on-accent); }
@@ -310,6 +313,14 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   background: var(--surface);
   color: var(--warn);
   border: 1px solid var(--line);
+}
+
+/* Gefüllte Warn-Aktion: zerstörende Bestätigung, Key-Hinweis im Einkauf */
+.btn.danger-solid {
+  --duo: rgba(255, 253, 248, 0.2);
+  background: var(--warn);
+  color: var(--on-warn);
+  border: none;
 }
 
 .btn.small-btn {
@@ -780,6 +791,78 @@ button.scan-view { border: none; padding: 0; }
 .empty-state .ic { color: var(--accent); }
 .empty-state h3 { font-size: 21px; }
 .empty-state p { font-size: 15px; color: var(--ink-soft); text-wrap: pretty; }
+
+/* ------------------------------------------------ Dialoge & Bestätigungen
+   Bodenbündiges Sheet statt confirm(): Daumen erreicht die Buttons, der
+   Scrim legt sich über die Tabbar. Toast statt alert(): kurze Rückmeldung,
+   die von allein wieder geht. */
+dialog.sheet {
+  border: none;
+  padding: 0;
+  background: none;
+  width: 100%;
+  max-width: 640px;
+  max-height: 100dvh;
+  margin: auto auto 0;
+  color: var(--ink);
+}
+dialog.sheet::backdrop { background: rgba(28, 35, 30, 0.45); }
+
+.sheet-inner {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-radius: 24px 24px 0 0;
+  padding: 26px 22px calc(24px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  box-shadow: 0 -6px 28px rgba(28, 35, 30, 0.14);
+}
+.sheet-inner > .ic { margin-bottom: 4px; }
+.sheet-inner h3 { font-size: 22px; }
+.sheet-inner p { font-size: 15px; line-height: 1.55; color: var(--ink-soft); text-wrap: pretty; }
+.sheet-inner .btn-row { margin-top: 14px; }
+.sheet-inner .btn { margin-top: 0; }
+
+dialog.sheet[open] { animation: sheetUp 0.22s ease; }
+dialog.sheet[open]::backdrop { animation: sheetFade 0.22s ease; }
+@keyframes sheetUp { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sheetFade { from { opacity: 0; } to { opacity: 1; } }
+
+.toast {
+  --duo: rgba(255, 253, 248, 0.2);
+  position: fixed;
+  /* left/right + margin-inline zentriert, ohne die Breite auf die halbe
+     Viewport-Weite zu deckeln (das täte left:50% + transform). */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  bottom: calc(112px + var(--safe-bottom));
+  width: max-content;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: min(560px, calc(100% - 40px));
+  padding: 13px 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(28, 35, 30, 0.2);
+  animation: toastIn 0.22s ease;
+}
+.toast.warn { background: var(--warn); color: var(--on-warn); }
+/* Der gefüllte Haken braucht auf farbiger Fläche einen eigenen Kreis */
+.toast .ic .ink { fill: rgba(255, 253, 248, 0.26); }
+.toast.weg { opacity: 0; transform: translateY(8px); transition: opacity 0.3s ease, transform 0.3s ease; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.sheet[open], dialog.sheet[open]::backdrop, .toast { animation: none; }
+}
 
 /* Profil-Kopf */
 .profile-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }

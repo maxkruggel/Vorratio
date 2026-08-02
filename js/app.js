@@ -48,6 +48,51 @@ function h(html) {
   return t.content;
 }
 
+/* -------------------------------------------------- Dialoge & Bestätigungen
+   Ersetzt die nativen confirm()/alert() durch gestaltete Sheets bzw. Toasts
+   (Design-Übergabe Kap. 5, „dürfen gern durch gestaltete Dialoge ersetzt
+   werden"). Beide hängen an <body>, nicht an #app – ein render() dazwischen
+   räumt sie also nicht weg. */
+function dialog({ titel, text = "", bestaetigen = "OK", abbrechen = null, danger = false, symbol = null }) {
+  return new Promise((resolve) => {
+    const d = document.createElement("dialog");
+    d.className = "sheet";
+    d.innerHTML = `
+      <form method="dialog" class="sheet-inner">
+        ${symbol ? icon(symbol, 28, danger ? "ic-warn" : "ic-accent") : ""}
+        <h3>${esc(titel)}</h3>
+        ${text ? `<p>${esc(text)}</p>` : ""}
+        <div class="btn-row">
+          ${abbrechen ? `<button class="btn secondary" value="nein" autofocus>${esc(abbrechen)}</button>` : ""}
+          <button class="btn${danger ? " danger-solid" : ""}" value="ja"${abbrechen ? "" : " autofocus"}>${esc(bestaetigen)}</button>
+        </div>
+      </form>`;
+    // Tap auf den Scrim = abbrechen, genau wie ESC
+    d.addEventListener("click", (e) => { if (e.target === d) { d.returnValue = "nein"; d.close(); } });
+    d.addEventListener("close", () => { d.remove(); resolve(d.returnValue === "ja"); }, { once: true });
+    document.body.append(d);
+    d.showModal();
+  });
+}
+
+const bestaetige = (opts) => dialog({ abbrechen: "Abbrechen", ...opts });
+
+/* Kurze Rückmeldung ohne Gegenfrage – ersetzt die reinen alert()-Bestätigungen. */
+let toastTimer = null;
+function toast(text, art = "ok") {
+  document.querySelector(".toast")?.remove();
+  const t = document.createElement("div");
+  t.className = `toast ${art}`;
+  t.setAttribute("role", "status");
+  t.innerHTML = `${icon(art === "warn" ? "achtung" : "check", 20)}<span>${esc(text)}</span>`;
+  document.body.append(t);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    t.classList.add("weg");
+    setTimeout(() => t.remove(), 300);
+  }, 2600);
+}
+
 function render() {
   const s = getState();
   if (!s.profil.onboarded) { tabbar.hidden = true; renderOnboarding(); return; }
@@ -59,10 +104,14 @@ function render() {
   window.scrollTo(0, 0);
 }
 
-tabbar.addEventListener("click", (e) => {
+tabbar.addEventListener("click", async (e) => {
   const b = e.target.closest(".tab");
   if (!b) return;
-  if (cook && !confirm("Kochen verlassen? Es wird nichts abgebucht.")) return;
+  if (cook && !await bestaetige({
+    titel: "Kochen verlassen?",
+    text: "Der Kochmodus wird geschlossen. Es wird nichts abgebucht.",
+    bestaetigen: "Verlassen", abbrechen: "Weiterkochen", danger: true, symbol: "achtung",
+  })) return;
   cook = null;
   clearTimerTick();
   view = b.dataset.view;
@@ -555,8 +604,12 @@ function renderKochmodus() {
       </div>
     </div>`));
 
-  app.querySelector("#abbrechen").addEventListener("click", () => {
-    if (confirm("Kochen abbrechen? Es wird nichts abgebucht.")) { cook = null; render(); }
+  app.querySelector("#abbrechen").addEventListener("click", async () => {
+    if (await bestaetige({
+      titel: "Kochen abbrechen?",
+      text: "Der angefangene Durchlauf geht verloren. Es wird nichts abgebucht.",
+      bestaetigen: "Abbrechen", abbrechen: "Weiterkochen", danger: true, symbol: "achtung",
+    })) { cook = null; render(); }
   });
   app.querySelector("#prev")?.addEventListener("click", () => { cook.step--; renderKochmodus(); });
   app.querySelector("#next").addEventListener("click", () => { cook.step++; renderKochmodus(); });
@@ -1156,13 +1209,18 @@ function renderEinkauf() {
     s.einkauf.woche.splice(b.dataset.wDel, 1);
     save(); renderEinkauf();
   }));
-  app.querySelector("#einkauf-fertig")?.addEventListener("click", () => {
+  app.querySelector("#einkauf-fertig")?.addEventListener("click", async () => {
     for (const e of s.einkauf.rezept) buchZugang(s, e.zutat_id);
     s.einkauf.rezept = [];
     const rid = s.einkauf.rezeptId;
     s.einkauf.rezeptId = null;
     save();
-    if (rid) { const r = findRezept(rid); if (r && confirm("Bestand aufgefüllt. Direkt mit dem Kochen loslegen?")) { startKochen(r); return; } }
+    const r = rid ? findRezept(rid) : null;
+    if (r && await bestaetige({
+      titel: "Bestand aufgefüllt",
+      text: `Direkt mit „${r.name}“ loslegen?`,
+      bestaetigen: "Jetzt kochen", abbrechen: "Später", symbol: "check",
+    })) { startKochen(r); return; }
     renderEinkauf();
   });
   app.querySelector("#woche-fertig")?.addEventListener("click", () => {
@@ -1191,7 +1249,7 @@ function bonScanUi() {
             Einmal im Profil hinterlegen. Der Key bleibt auf dem Gerät und geht nur an Anthropic.
           </div>
         </div>
-        <button class="btn" id="bon-key" style="background:var(--warn);color:#fffdf8;margin-top:2px">Key im Profil hinterlegen</button>
+        <button class="btn danger-solid" id="bon-key" style="margin-top:2px">Key im Profil hinterlegen</button>
       </div>`;
   }
   if (!bon) {
@@ -1265,7 +1323,7 @@ function bindBonScan(s) {
     }
     save();
     bon = null;
-    alert(`${gebucht} Artikel in den Bestand gebucht.`);
+    toast(gebucht === 1 ? "1 Artikel gebucht" : `${gebucht} Artikel gebucht`);
     renderEinkauf();
   });
 }
@@ -1678,21 +1736,32 @@ function renderProfil() {
   app.querySelector("#api-key-save").addEventListener("click", () => {
     s.settings.apiKey = app.querySelector("#api-key").value.trim() || null;
     save();
-    alert(s.settings.apiKey ? "API-Key gespeichert." : "API-Key entfernt.");
+    toast(s.settings.apiKey ? "API-Key gespeichert" : "API-Key entfernt");
+    renderProfil();
   });
-  app.querySelector("#ai-loeschen")?.addEventListener("click", () => {
-    if (confirm("Alle gespeicherten AI-Rezepte löschen?")) { s.aiRezepte = []; save(); renderProfil(); }
+  app.querySelector("#ai-loeschen")?.addEventListener("click", async () => {
+    if (await bestaetige({
+      titel: "AI-Rezepte löschen?",
+      text: `${s.aiRezepte.length} von Claude generierte Rezepte werden entfernt. Die Kern-Rezepte bleiben.`,
+      bestaetigen: "Löschen", danger: true, symbol: "achtung",
+    })) { s.aiRezepte = []; save(); renderProfil(); }
   });
   app.querySelector("#export").addEventListener("click", exportJson);
   app.querySelector("#import").addEventListener("click", () => app.querySelector("#import-file").click());
   app.querySelector("#import-file").addEventListener("change", async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    try { await importJson(file); alert("Import erfolgreich."); render(); }
-    catch (err) { alert(`Import fehlgeschlagen: ${err.message}`); }
+    try { await importJson(file); toast("Import erfolgreich"); render(); }
+    catch (err) {
+      await dialog({ titel: "Import fehlgeschlagen", text: err.message, bestaetigen: "Verstanden", danger: true, symbol: "achtung" });
+    }
   });
-  app.querySelector("#reset").addEventListener("click", () => {
-    if (confirm("Wirklich ALLE Daten löschen? Ohne Export ist das endgültig.")) { resetAll(); ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [], ziele: [] }; render(); }
+  app.querySelector("#reset").addEventListener("click", async () => {
+    if (await bestaetige({
+      titel: "Wirklich alles löschen?",
+      text: "Vorrat, Profil, Historie und Einkaufslisten werden entfernt. Ohne vorherigen Export ist das endgültig.",
+      bestaetigen: "Alles löschen", danger: true, symbol: "achtung",
+    })) { resetAll(); ob = { step: 0, name: "", form: null, ausschluesse: [], stile: [], ziele: [] }; render(); }
   });
 }
 
