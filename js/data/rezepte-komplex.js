@@ -41,7 +41,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 14, text: "Vor dem Anschneiden ruhen lassen – sonst läuft sie auseinander.", dauer_sekunden: 900, timer_typ: "ruhen", timer_name: "Lasagne ruhen lassen" },
     ],
     gesamtzeit_min: { vorbereitung: 30, garzeit: 145, gesamt: 175 },
-    ernaehrungsform: ["mit_fleisch"], allergene: ["gluten", "laktose", "sellerie"],
+    ernaehrungsform: ["mit_fleisch"], allergene: ["gluten", "laktose", "sellerie", "sulfite"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Sättigend und fettreich – als Sonntagsgericht gedacht, nicht als Alltagskost." },
     substitutionen: [
       { fehlt: "Hackfleisch", ersatz: "150 g Sojagranulat + 1 EL Sojasauce", hinweis: "Granulat 15 Min in heißer Brühe einweichen, ausdrücken, dann wie Hack anbraten – die Röstaromen entstehen genauso." },
@@ -75,7 +75,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 11, text: "Mit Salz abschmecken und sofort servieren – Risotto wartet nicht.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 10, garzeit: 35, gesamt: 45 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["laktose"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["laktose", "sellerie", "sulfite"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "kohlenhydratreich", makro_hinweis: "Sehr kohlenhydratbetont – mit Hülsenfrüchten oder Gemüse als Beilage ausgleichen." },
     substitutionen: [
       { fehlt: "Butter/Parmesan", ersatz: "Olivenöl + Hefeflocken", hinweis: "Vegane Mantecatura: Öl eiskalt einschlagen, Hefeflocken bringen die salzig-umami Note." },
@@ -111,7 +111,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 11, text: "Mit Salz abschmecken. Am nächsten Tag ist Gulasch nachweislich besser – die Aromen verbinden sich über Nacht.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 30, garzeit: 155, gesamt: 185 },
-    ernaehrungsform: ["mit_fleisch"], allergene: [],
+    ernaehrungsform: ["mit_fleisch"], allergene: ["sellerie"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Rotes Fleisch – zählt aufs DGE-Wochenbudget (max. 300 g Fleisch/Wurst)." },
     substitutionen: [
       { fehlt: "Rindfleisch", ersatz: "500 g Seitan oder Austernpilze", hinweis: "Seitan in Würfeln genauso scharf anbraten, Schmorzeit auf 45 Min kürzen – die Zwiebel-Paprika-Basis trägt das Gericht ohnehin." },
@@ -148,7 +148,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 12, text: "Falls die Sauce zu dünn ist: Keulen herausnehmen und die Sauce offen einkochen.", dauer_sekunden: 600, timer_typ: "passiv", timer_name: "Sauce reduzieren" },
     ],
     gesamtzeit_min: { vorbereitung: 30, garzeit: 105, gesamt: 135 },
-    ernaehrungsform: ["mit_gefluegel", "mit_fleisch"], allergene: ["gluten", "sulfite"],
+    ernaehrungsform: ["mit_gefluegel", "mit_fleisch"], allergene: ["gluten", "sellerie", "sulfite"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Klassisches Schmorgericht; mit viel Gemüse und wenig Beilage ausgewogener." },
     substitutionen: [
       { fehlt: "Hähnchenkeulen", ersatz: "Räuchertofu + Kräuterseitlinge", hinweis: "Coq au Vin ohne Huhn funktioniert erstaunlich gut: Tofu in dicken Scheiben anbraten, erst in den letzten 20 Min in die Sauce geben." },
@@ -186,7 +186,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 12, text: "Abschmecken. Wie Gulasch gewinnt auch dieses Gericht über Nacht deutlich.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 40, garzeit: 210, gesamt: 250 },
-    ernaehrungsform: ["mit_fleisch"], allergene: ["gluten", "sulfite"],
+    ernaehrungsform: ["mit_fleisch"], allergene: ["gluten", "sellerie", "sulfite"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Rotes Fleisch in großer Menge – bewusst als Festessen einplanen." },
     substitutionen: [
       { fehlt: "Rindfleisch", ersatz: "Große Portobello-Pilze + Seitan", hinweis: "Pilze liefern die Umami-Tiefe, Seitan die Textur. Schmorzeit auf 60 Min reduzieren." },
@@ -224,7 +224,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 12, text: "Mindestens 20 Minuten ruhen lassen, sonst lässt sie sich nicht schneiden.", dauer_sekunden: 1200, timer_typ: "ruhen", timer_name: "Ruhen lassen" },
     ],
     gesamtzeit_min: { vorbereitung: 45, garzeit: 120, gesamt: 165 },
-    ernaehrungsform: ["mit_fleisch"], allergene: ["gluten", "laktose", "ei"],
+    ernaehrungsform: ["mit_fleisch"], allergene: ["ei", "gluten", "laktose"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "fettreich", makro_hinweis: "Gehaltvoll durch Béchamel und geröstete Aubergine – gut mit einem Salat kombinieren." },
     substitutionen: [
       { fehlt: "Lammhack", ersatz: "Braune Linsen (250 g gekocht) + Walnüsse", hinweis: "Linsen-Walnuss-Ragù ist die verbreitetste vegetarische Moussaka-Variante und bringt sogar mehr Ballaststoffe." },
@@ -256,7 +256,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 10, text: "Gnocchi in der Butter schwenken und mit Parmesan servieren.", dauer_sekunden: 120, timer_typ: "aktiv", timer_name: "Schwenken" },
     ],
     gesamtzeit_min: { vorbereitung: 45, garzeit: 40, gesamt: 85 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["gluten", "ei", "laktose"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["ei", "gluten", "laktose"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "kohlenhydratreich", makro_hinweis: "Sehr kohlenhydratbetont – ein Salat oder gebratener Tofu dazu rundet es proteinseitig ab." },
     substitutionen: [
       { fehlt: "Ei", ersatz: "einfach weglassen", hinweis: "Traditionell kommen Gnocchi ohne Ei aus; der Teig wird dann etwas empfindlicher." },
@@ -286,7 +286,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 10, text: "Mit etwas Nudelwasser direkt in der Sauce schwenken.", dauer_sekunden: 120, timer_typ: "aktiv", timer_name: "Schwenken" },
     ],
     gesamtzeit_min: { vorbereitung: 40, garzeit: 45, gesamt: 85 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["gluten", "ei"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["ei", "gluten"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "kohlenhydratreich", makro_hinweis: "Basis-Rezept – das Protein kommt über die Sauce (Ragù, Linsen, Tofu)." },
     substitutionen: [
       { fehlt: "Eier", ersatz: "220 ml lauwarmes Wasser", hinweis: "Süditalienische Pasta ist traditionell eifrei: nur Hartweizengrieß und Wasser." },
@@ -323,7 +323,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 12, text: "Pfanne abdecken und ruhen lassen, dann servieren.", dauer_sekunden: 300, timer_typ: "ruhen", timer_name: "Paella ruhen lassen" },
     ],
     gesamtzeit_min: { vorbereitung: 20, garzeit: 55, gesamt: 75 },
-    ernaehrungsform: ["mit_gefluegel", "mit_fleisch"], allergene: [],
+    ernaehrungsform: ["mit_gefluegel", "mit_fleisch"], allergene: ["sellerie"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Reis, Gemüse und mageres Geflügel in einer Pfanne – gut ausbalanciert." },
     substitutionen: [
       { fehlt: "Hähnchenkeulen", ersatz: "Räuchertofu + Artischocken", hinweis: "Paella de verduras ist in Valencia genauso verbreitet; Räuchertofu ersetzt die herzhafte Tiefe des Huhns." },
@@ -360,7 +360,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 12, text: "Rouladen in der Sauce kurz erwärmen und servieren.", dauer_sekunden: 300, timer_typ: "passiv", timer_name: "Erwärmen" },
     ],
     gesamtzeit_min: { vorbereitung: 35, garzeit: 130, gesamt: 165 },
-    ernaehrungsform: ["mit_fleisch"], allergene: ["senf", "sulfite"],
+    ernaehrungsform: ["mit_fleisch"], allergene: ["sellerie", "senf", "sulfite"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Sonntagsklassiker mit rotem Fleisch – bewusst einplanen (DGE: max. 300 g/Woche)." },
     substitutionen: [
       { fehlt: "Rouladenfleisch", ersatz: "Große Auberginen- oder Kohlrabischeiben", hinweis: "Gemüserouladen mit derselben Füllung und Sauce; Schmorzeit auf 40 Min kürzen." },
@@ -429,7 +429,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 11, text: "Nudeln abtropfen, einlegen und mit Tofu, Pilzen, halbiertem Ei, Frühlingszwiebeln und Nori belegen.", dauer_sekunden: 240, timer_typ: "aktiv", timer_name: "Anrichten" },
     ],
     gesamtzeit_min: { vorbereitung: 30, garzeit: 45, gesamt: 75 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["gluten", "soja", "ei"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["ei", "gluten", "soja"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Ei und Tofu liefern zusammen ein sehr vollständiges Aminosäureprofil." },
     substitutionen: [
       { fehlt: "Eier", ersatz: "mehr Räuchertofu + Edamame", hinweis: "Vollständig vegane Ramen; Edamame bringen zusätzliches Protein." },
@@ -534,7 +534,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 11, text: "Mit den Röstzwiebeln bedecken und sofort servieren.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 30, garzeit: 60, gesamt: 90 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["gluten", "ei", "laktose"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["ei", "gluten", "laktose"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "fettreich", makro_hinweis: "Sehr gehaltvoll – ein grüner Salat dazu gehört traditionell dazu und gleicht aus." },
     substitutionen: [
       { fehlt: "Eier", ersatz: "Wasser + 2 EL Speisestärke", hinweis: "Der Teig wird weniger elastisch, funktioniert aber; Käse durch veganen Schmelzkäse ersetzen." },
@@ -571,7 +571,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 12, text: "Suppe mit den Broten servieren.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 30, garzeit: 55, gesamt: 85 },
-    ernaehrungsform: ["pescetarisch", "mit_fisch"], allergene: ["fisch", "weichtiere", "gluten", "sulfite"],
+    ernaehrungsform: ["pescetarisch", "mit_fisch"], allergene: ["fisch", "gluten", "sulfite", "weichtiere"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Magerer Fisch, viel Gemüse – zahlt auf die DGE-Empfehlung 1–2 Fischportionen/Woche ein." },
     substitutionen: [
       { fehlt: "Miesmuscheln", ersatz: "mehr Fischfilet", hinweis: "Die Suppe funktioniert auch rein mit Filet." },
@@ -605,7 +605,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 11, text: "Mit zwei Gabeln zerzupfen und mit dem aufgefangenen Bratensaft mischen.", dauer_sekunden: 600, timer_typ: "aktiv", timer_name: "Zerzupfen" },
     ],
     gesamtzeit_min: { vorbereitung: 25, garzeit: 460, gesamt: 485 },
-    ernaehrungsform: ["mit_fleisch"], allergene: ["senf"],
+    ernaehrungsform: ["mit_fleisch"], allergene: ["sellerie", "senf"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Große Fleischmenge – als Gericht für viele Gäste gedacht, Reste einfrieren." },
     substitutionen: [
       { fehlt: "Schweineschulter", ersatz: "Jackfruit (Dose) oder 400 g Sojaschnetzel", hinweis: "Pulled Jackfruit übernimmt Textur und Rub eins zu eins, braucht aber nur 40 Min im Ofen." },
@@ -747,7 +747,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 11, text: "Klopse in der Sauce erwärmen, ohne sie noch einmal zu kochen.", dauer_sekunden: 300, timer_typ: "passiv", timer_name: "Erwärmen" },
     ],
     gesamtzeit_min: { vorbereitung: 30, garzeit: 50, gesamt: 80 },
-    ernaehrungsform: ["mit_fleisch"], allergene: ["gluten", "ei", "laktose", "fisch"],
+    ernaehrungsform: ["mit_fleisch"], allergene: ["ei", "fisch", "gluten", "laktose", "sellerie"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Klassisch mit Salzkartoffeln und Rote Bete – dann rund und sättigend." },
     substitutionen: [
       { fehlt: "Hackfleisch", ersatz: "Sojagranulat + geriebene Kartoffel", hinweis: "Die eingeweichte Granulatmasse mit roher Kartoffel bindet sich gut zu Klopsen." },
@@ -823,7 +823,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 11, text: "Ei obenauf, Sauce und Sesam dazu – am Tisch alles kräftig durchmischen.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 35, garzeit: 35, gesamt: 70 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["soja", "ei", "sesam", "gluten"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["ei", "gluten", "sesam", "soja"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Tofu und Ei ergänzen sich im Aminosäureprofil; sehr gemüsereich." },
     substitutionen: [
       { fehlt: "Eier", ersatz: "mehr Tofu", hinweis: "Vegane Version – Tofu dann in zwei Texturen (knusprig und in Streifen) für Abwechslung." },
@@ -892,7 +892,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 10, text: "Mit den restlichen Pilzen als Topping servieren.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 20, garzeit: 40, gesamt: 60 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["laktose", "sulfite"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["laktose", "sellerie", "sulfite"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "kohlenhydratreich", makro_hinweis: "Pilze bringen Umami und B-Vitamine; ein Salat oder Tofu dazu ergänzt das Protein." },
     substitutionen: [
       { fehlt: "Butter/Parmesan", ersatz: "Olivenöl + Hefeflocken", hinweis: "Vegane Mantecatura, funktioniert bei Pilzrisotto besonders gut." },
@@ -993,7 +993,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 10, text: "Unter dem Grill überbacken, bis der Käse Blasen wirft und bräunt.", dauer_sekunden: 480, temperatur_c: 230, timer_typ: "ofen", timer_name: "Gratinieren" },
     ],
     gesamtzeit_min: { vorbereitung: 25, garzeit: 90, gesamt: 115 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["gluten", "laktose", "sulfite"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["gluten", "laktose", "sellerie", "sulfite"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Aus vier billigen Zutaten wird durch Zeit ein sehr aromatisches Gericht." },
     substitutionen: [
       { fehlt: "Butter/Käse", ersatz: "Olivenöl + veganer Reibekäse", hinweis: "Mit kräftiger Gemüsebrühe wird die Suppe vollständig pflanzlich." },
@@ -1087,7 +1087,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 11, text: "In der Brühe servieren oder am nächsten Tag in Scheiben mit Zwiebeln anbraten.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 60, garzeit: 40, gesamt: 100 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["gluten", "ei", "soja"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["ei", "gluten", "sellerie", "soja"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Räuchertofu liefert hier das Protein und ersetzt das traditionelle Brät vollwertig." },
     substitutionen: [
       { fehlt: "Eier im Teig", ersatz: "Wasser + 1 EL Öl", hinweis: "Eifreier Nudelteig braucht etwas mehr Knetzeit, funktioniert aber gut." },
@@ -1121,7 +1121,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 11, text: "Mit einem nassen, sehr scharfen Messer in 6–8 Stücke schneiden, das Messer zwischendurch abwischen.", dauer_sekunden: 300, timer_typ: "aktiv", timer_name: "Schneiden" },
     ],
     gesamtzeit_min: { vorbereitung: 45, garzeit: 30, gesamt: 75 },
-    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["soja"],
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["gluten", "soja"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Räuchertofu macht Sushi ohne rohen Fisch vollwertig – und ist zu Hause die sicherere Variante." },
     substitutionen: [
       { fehlt: "Räuchertofu", ersatz: "Gebratene Möhrenstifte oder Omelettstreifen", hinweis: "Rohen Fisch nur in Sashimi-Qualität und gut gekühlt verwenden." },
@@ -1156,7 +1156,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 10, text: "Mit der Erdnusssauce servieren.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 35, garzeit: 15, gesamt: 50 },
-    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["soja", "erdnuss"],
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["erdnuss", "gluten", "soja"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "kalorienarm", makro_hinweis: "Sehr leicht, viel Rohkost; Tofu und Erdnussmus liefern das Protein." },
     substitutionen: [
       { fehlt: "Erdnussmus", ersatz: "Tahin oder Mandelmus", hinweis: "Bei Erdnussallergie – Geschmack ändert sich, Konsistenz bleibt." },
@@ -1253,7 +1253,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 10, text: "Mit Petersilie über die Muscheln geben und mit Baguette servieren.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 25, garzeit: 20, gesamt: 45 },
-    ernaehrungsform: ["pescetarisch"], allergene: ["weichtiere", "laktose", "gluten", "sellerie", "sulfite"],
+    ernaehrungsform: ["pescetarisch"], allergene: ["gluten", "laktose", "sellerie", "sulfite", "weichtiere"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Sehr mageres Protein, reich an Jod, Zink und Selen." },
     substitutionen: [], tags: ["saisonal", "high-protein"], quelle_typ: "behoerde",
   },
@@ -1285,7 +1285,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 11, text: "Kurz ruhen lassen und mit Joghurt servieren.", dauer_sekunden: 600, timer_typ: "ruhen", timer_name: "Ruhen lassen" },
     ],
     gesamtzeit_min: { vorbereitung: 35, garzeit: 55, gesamt: 90 },
-    ernaehrungsform: ["mit_fleisch"], allergene: [],
+    ernaehrungsform: ["mit_fleisch"], allergene: ["sellerie"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Reis und Gemüse tragen das Gericht; die Fleischmenge ist bereits moderat." },
     substitutionen: [
       { fehlt: "Hackfleisch", ersatz: "Belugalinsen (gekocht) + Walnüsse", hinweis: "Die klassische türkische Variante Zeytinyağlı biber dolması ist ohnehin fleischlos und wird lauwarm gegessen." },
@@ -1323,7 +1323,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 12, text: "Mit Koriander, Zwiebelwürfeln und dem restlichen Sud als Dip servieren.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 40, garzeit: 200, gesamt: 240 },
-    ernaehrungsform: ["mit_fleisch"], allergene: ["laktose"],
+    ernaehrungsform: ["mit_fleisch"], allergene: ["gluten", "laktose"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Sehr gehaltvoll – Reste eignen sich hervorragend zum Einfrieren." },
     substitutionen: [
       { fehlt: "Rindfleisch", ersatz: "Jackfruit + Kräuterseitlinge", hinweis: "Die Adobo-Paste ist der Kern; mit Pilzen und Jackfruit reicht eine Schmorzeit von 45 Min." },
@@ -1358,7 +1358,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 12, text: "Ravioli abtropfen, in der Butter schwenken und mit Parmesan servieren.", dauer_sekunden: 120, timer_typ: "aktiv", timer_name: "Schwenken" },
     ],
     gesamtzeit_min: { vorbereitung: 70, garzeit: 25, gesamt: 95 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["gluten", "ei", "laktose"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["ei", "gluten", "laktose"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Ricotta und Ei liefern reichlich Protein; Spinat bringt Eisen und Folat." },
     substitutionen: [
       { fehlt: "Ricotta", ersatz: "Seidentofu + Hefeflocken", hinweis: "Seidentofu gut abtropfen lassen – die Konsistenz kommt der von Ricotta sehr nahe." },
@@ -1428,7 +1428,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 12, text: "10 Minuten ruhen lassen, dann entlang der Schnitte teilen.", dauer_sekunden: 600, timer_typ: "ruhen", timer_name: "Ruhen lassen" },
     ],
     gesamtzeit_min: { vorbereitung: 35, garzeit: 50, gesamt: 85 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["gluten", "laktose", "ei", "sesam"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["ei", "gluten", "laktose", "sesam"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Feta und Ei liefern Protein und Calcium; Spinat bringt Eisen und Folat." },
     substitutionen: [
       { fehlt: "Feta", ersatz: "Fester Tofu + Zitronensaft + Salz", hinweis: "Zerbröselter, gewürzter Tofu kommt Feta in Textur und Salzigkeit sehr nahe." },
@@ -1463,7 +1463,7 @@ const REZEPTE_KOMPLEX = [
       { nr: 12, text: "Auf dem Gitter auskühlen lassen.", dauer_sekunden: 1800, timer_typ: "ruhen", timer_name: "Auskühlen" },
     ],
     gesamtzeit_min: { vorbereitung: 35, garzeit: 145, gesamt: 180 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["gluten", "laktose", "ei"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["ei", "gluten", "laktose"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "kohlenhydratreich", makro_hinweis: "Süßgebäck – als Wochenendfrühstück gedacht." },
     substitutionen: [
       { fehlt: "Milch/Butter/Ei", ersatz: "Sojadrink + Margarine + Sojajoghurt", hinweis: "Veganer Hefezopf gelingt gut; zum Bestreichen Pflanzendrink mit etwas Sirup verwenden." },

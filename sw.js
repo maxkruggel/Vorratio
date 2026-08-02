@@ -1,5 +1,5 @@
 /* Vorratio Service Worker – App-Shell offline verfügbar halten. */
-const CACHE = "vorratio-v8";
+const CACHE = "vorratio-v9";
 const SHELL = [
   "./",
   "./index.html",
@@ -9,6 +9,8 @@ const SHELL = [
   "./fonts/figtree-latin.woff2",
   "./fonts/figtree-latin-ext.woff2",
   "./js/app.js",
+  "./js/ui.js",
+  "./js/kochmodus.js",
   "./js/icons.js",
   "./js/storage.js",
   "./js/engine.js",
@@ -19,10 +21,12 @@ const SHELL = [
   "./js/scan.js",
   "./js/substitution.js",
   "./js/data/kerndb.js",
+  "./js/data/allergene.js",
   "./js/data/rezepte-komplex.js",
   "./js/data/rezepte-tofu.js",
   "./js/data/rezepte-welt.js",
   "./js/data/rezepte-alltag.js",
+  "./js/data/rezepte-fruehstueck.js",
   "./js/data/profil.js",
   "./js/data/angebote-demo.js",
   "./js/data/substitutionen.js",
@@ -46,22 +50,47 @@ self.addEventListener("activate", (e) => {
 });
 
 /* Network-first für die Shell (frische Updates), Cache-Fallback offline.
-   Fremd-APIs (Claude, Open Food Facts) werden nie gecacht. */
+   Fremd-APIs (Claude, Open Food Facts) werden nie gecacht.
+
+   Zwei Dinge, die "network-first" naiv falsch macht:
+   1. Nur vollständige, erfolgreiche Antworten gehören in den Cache. Ein 404
+      oder 500 würde sonst eingelagert und danach dauerhaft offline
+      ausgeliefert; Teilinhalte (206) lehnt cache.put ohnehin ab und quittiert
+      das mit einer unbehandelten Rejection in der Konsole.
+   2. Ein hängendes Netz ist schlimmer als gar keins: Im schlechten Mobilnetz
+      löst `fetch` weder aus noch schlägt es fehl, und die App startet nicht.
+      Deshalb gewinnt nach TIMEOUT_MS der Cache, falls er etwas hat. */
+const TIMEOUT_MS = 3000;
+
+function ausCache(request) {
+  return caches.match(request, { ignoreSearch: true });
+}
+
+async function netzZuerst(request) {
+  const cacheTreffer = ausCache(request);
+
+  const netz = fetch(request).then((res) => {
+    if (res && res.ok && res.status === 200) {
+      const copy = res.clone();
+      caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
+    }
+    return res;
+  });
+
+  // Wartet das Netz zu lange, springt der Cache ein – sofern er etwas hat.
+  const geduld = new Promise((resolve) => setTimeout(resolve, TIMEOUT_MS))
+    .then(() => cacheTreffer)
+    .then((treffer) => treffer || netz);
+
+  try {
+    return await Promise.race([netz, geduld]);
+  } catch {
+    return (await cacheTreffer) || Response.error();
+  }
+}
+
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   if (new URL(e.request.url).origin !== self.location.origin) return;
-  e.respondWith(
-    fetch(e.request)
-      .then((res) => {
-        // Nur vollständige Antworten cachen: Teilinhalte (206) und Fehlerseiten
-        // lehnt cache.put ab – ohne den Filter quittiert der Browser das mit
-        // einer unbehandelten Rejection in der Konsole.
-        if (res.ok && res.status === 200) {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
-        }
-        return res;
-      })
-      .catch(() => caches.match(e.request, { ignoreSearch: true }))
-  );
+  e.respondWith(netzZuerst(e.request));
 });

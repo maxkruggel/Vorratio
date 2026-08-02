@@ -7,6 +7,7 @@
    Aufruf: node tools/validate-db.mjs   ·  Exit-Code 1 = Fehler gefunden. */
 
 import { ZUTATEN, REZEPTE, PREPS, BASES } from "../js/data/kerndb.js";
+import { allergeneAusZutaten, enthaeltSchwein, enthaeltAlkohol } from "../js/data/allergene.js";
 
 const fehler = [];
 const warnung = [];
@@ -43,28 +44,9 @@ const TIERISCH = {
     "ing_sardellen"],
 };
 
-/* Zutat → Allergen, das dann im Rezept deklariert sein muss. */
-const ALLERGEN_QUELLE = {
-  gluten: ["ing_nudeln", "ing_mehl_405", "ing_mehl_1050", "ing_dinkelmehl", "ing_lasagneplatten",
-    "ing_semmelbroesel", "ing_seitan", "ing_seitan_gluten", "ing_couscous", "ing_bulgur",
-    "ing_hartweizengriess", "ing_roggenmehl", "ing_ramen_nudeln", "ing_udon", "ing_filoteig",
-    "ing_blaetterteig", "ing_pizzateig", "ing_toastbrot", "ing_spaetzle"],
-  laktose: ["ing_milch", "ing_sahne", "ing_butter", "ing_joghurt_natur", "ing_parmesan", "ing_feta",
-    "ing_mozzarella", "ing_quark", "ing_schmand", "ing_frischkaese", "ing_schnittkaese",
-    "ing_reibekaese", "ing_mascarpone", "ing_ricotta", "ing_halloumi", "ing_ziegenkaese"],
-  ei: ["ing_ei"],
-  soja: ["ing_tofu_natur", "ing_tofu_fest", "ing_tofu_seiden", "ing_raeuchertofu", "ing_tempeh",
-    "ing_sojagranulat", "ing_edamame", "ing_sojadrink", "ing_sojasauce", "ing_misopaste",
-    "ing_sojajoghurt"],
-  fisch: ["ing_lachs", "ing_kabeljau", "ing_forelle", "ing_thunfisch_dose", "ing_sardellen", "ing_fischsauce"],
-  weichtiere: ["ing_miesmuscheln"],
-  krebstiere: ["ing_garnelen"],
-  sesam: ["ing_tahin", "ing_sesamoel", "ing_sesamsamen"],
-  erdnuss: ["ing_erdnuesse", "ing_erdnussmus"],
-  schalenfruechte: ["ing_mandeln", "ing_walnuesse", "ing_cashewkerne", "ing_mandelmus"],
-  senf: ["ing_senf", "ing_senfkoerner"],
-  sellerie: ["ing_sellerie"],
-};
+/* Die Zutat→Allergen-Tabelle liegt in js/data/allergene.js – dieselbe Quelle,
+   gegen die zur Laufzeit gefiltert wird. Hier wird nur geprüft, dass die
+   Deklaration im Datensatz dazu passt. */
 
 for (const r of REZEPTE) {
   const id = r.id || "(ohne ID)";
@@ -106,10 +88,12 @@ for (const r of REZEPTE) {
     if (treffer.length) err(id, `als "${form}" markiert, enthält aber ${treffer.join(", ")}`);
   }
 
-  for (const [allergen, quellen] of Object.entries(ALLERGEN_QUELLE)) {
-    const drin = zutatIds.some((zid) => quellen.includes(zid));
-    if (drin && !(r.allergene || []).includes(allergen)) {
-      warn(id, `Allergen "${allergen}" nicht deklariert (Quelle im Rezept vorhanden)`);
+  // Die App filtert zur Laufzeit gegen deklariert ∪ abgeleitet, ein Loch hier
+  // ist also nicht gefährlich – aber es zeigt an, dass Daten und Zutatentabelle
+  // auseinanderlaufen. Deshalb Fehler, nicht Warnung.
+  for (const allergen of allergeneAusZutaten(r)) {
+    if (!(r.allergene || []).includes(allergen)) {
+      err(id, `Allergen "${allergen}" nicht deklariert (Quelle in den Zutaten)`);
     }
   }
 
@@ -159,6 +143,7 @@ console.log(`Slots:         ${JSON.stringify(zaehle((r) => r.mahlzeitentyp))}`);
 console.log(`Ernährungsform:${JSON.stringify(zaehle((r) => r.ernaehrungsform))}`);
 console.log(`Küchen:        ${Object.keys(zaehle((r) => r.cuisine)).length}`);
 console.log(`Mit Tofu/Tempeh/Seitan/Soja: ${tofuRezepte.length}`);
+console.log(`Mit Schwein: ${REZEPTE.filter(enthaeltSchwein).length} · mit Alkohol: ${REZEPTE.filter(enthaeltAlkohol).length} (werden für halal/koscher gefiltert)`);
 console.log(`Ø Schritte: ${(REZEPTE.reduce((s, r) => s + r.schritte.length, 0) / REZEPTE.length).toFixed(1)}`);
 
 if (warnung.length) {

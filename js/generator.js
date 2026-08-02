@@ -12,6 +12,7 @@
 
 import { ZUTATEN } from "./data/kerndb.js";
 import { rezeptErlaubt } from "./engine.js";
+import { allergeneFuerRezept } from "./data/allergene.js";
 
 const IDX = Object.fromEntries(ZUTATEN.map((z) => [z.id, z]));
 
@@ -313,26 +314,11 @@ function baueRezept(template, ids, r, profilName) {
     return true;
   });
 
-  const allergene = new Set();
-  for (const z of t.zutaten) {
-    const spec = z._spec || {};
-    for (const a of spec.allergen || []) allergene.add(a);
-    const id = z.zutat_id;
-    if (["ing_nudeln", "ing_couscous", "ing_bulgur", "ing_ramen_nudeln", "ing_udon", "ing_spaetzle",
-      "ing_gnocchi", "ing_seitan", "ing_sojasauce", "ing_brot"].includes(id)) allergene.add("gluten");
-    if (["ing_tofu_fest", "ing_tofu_natur", "ing_tofu_seiden", "ing_raeuchertofu", "ing_tempeh",
-      "ing_sojagranulat", "ing_edamame", "ing_sojasauce", "ing_misopaste", "ing_seitan"].includes(id)) allergene.add("soja");
-    if (id === "ing_sellerie") allergene.add("sellerie");
-    if (id === "ing_senf") allergene.add("senf");
-    for (const z2 of ["ing_tahin", "ing_sesamoel", "ing_sesamsamen"]) if (id === z2) allergene.add("sesam");
-    delete z._spec;
-  }
-
   const formen = t.formen;
   const gesamt = Math.round(t.zeit / 60);
   const id = `GEN-${Math.abs(hash(t.name + formen.join() + t.zutaten.map((z) => z.zutat_id).join()))}`;
 
-  return {
+  const rezept = {
     id,
     name: t.name,
     typ: "rezept",
@@ -345,7 +331,7 @@ function baueRezept(template, ids, r, profilName) {
     schritte: t.schritte.map((s, i) => ({ ...s, nr: i + 1 })),
     gesamtzeit_min: { vorbereitung: 15, garzeit: Math.max(5, gesamt - 15), gesamt: Math.max(20, gesamt) },
     ernaehrungsform: formen,
-    allergene: [...allergene],
+    allergene: [],
     naehrwert_einordnung: {
       kcal_pro_portion: null,
       profil: t.profil,
@@ -357,6 +343,10 @@ function baueRezept(template, ids, r, profilName) {
     erzeugt_fuer: profilName || null,
     erstellt: new Date().toISOString(),
   };
+  // Allergene aus den Zutaten ableiten – dieselbe Tabelle, gegen die auch die
+  // Kern-DB und die AI-Rezepte geprüft werden (js/data/allergene.js).
+  rezept.allergene = [...allergeneFuerRezept(rezept)].sort();
+  return rezept;
 }
 
 function hash(str) {

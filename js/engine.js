@@ -3,6 +3,7 @@
 
 import { REZEPTE, ZUTATEN } from "./data/kerndb.js";
 import { FORM_ERLAUBT, ZIELE, gewaehlteVorlieben } from "./data/profil.js";
+import { allergeneFuerRezept, enthaeltSchwein, enthaeltAlkohol } from "./data/allergene.js";
 
 const ZUTAT_INDEX = Object.fromEntries(ZUTATEN.map((z) => [z.id, z]));
 
@@ -16,37 +17,65 @@ function aktuellerSlot(now = new Date()) {
 
 const SLOT_NAMEN = { fruehstueck: "Frühstück", mittag: "Mittagessen", abend: "Abendessen" };
 
-/* Achse 1+2: Darf dieses Rezept dem Profil überhaupt vorgeschlagen werden? */
+/* Enthält das Rezept Fleisch als tragende Zutat? (für die koschere
+   Fleisch-Milch-Trennung – vegetarische Varianten zählen nicht mit) */
+function istFleischgericht(rezept) {
+  const formen = rezept.ernaehrungsform || [];
+  return formen.some((t) => t === "mit_fleisch" || t === "mit_gefluegel")
+    && !formen.includes("vegan") && !formen.includes("vegetarisch");
+}
+
+/* Religiöse Ausschlüsse (Achse 2). Bewusst konservativ: im Zweifel ausblenden.
+   · halal   – kein Schweinefleisch, kein Alkohol (auch verkocht: das ist eine
+               Gewissensfrage, keine Frage des Restalkohols). Krebs- und
+               Weichtiere sind zwischen den Rechtsschulen strittig (hanafitisch
+               nicht erlaubt) und bleiben deshalb außen vor.
+   · koscher – kein Schweinefleisch, keine Krebs-/Weichtiere, keine Fleisch-
+               Milch-Kombination. Schächtung und getrennte Küche kann die App
+               nicht beurteilen – der Hinweis dazu steht im Profil. */
+const RELIGIOES = {
+  halal: (rezept, allergene) => enthaeltSchwein(rezept) || enthaeltAlkohol(rezept)
+    || allergene.has("krebstiere") || allergene.has("weichtiere"),
+  koscher: (rezept, allergene) => enthaeltSchwein(rezept)
+    || allergene.has("krebstiere") || allergene.has("weichtiere")
+    || (istFleischgericht(rezept) && allergene.has("laktose")),
+};
+
+/* Achse 1+2: Darf dieses Rezept dem Profil überhaupt vorgeschlagen werden?
+   Die Allergene kommen aus allergeneFuerRezept() – Deklaration UND Ableitung
+   aus den Zutaten. Ein AI-Rezept, das sein `allergene`-Feld falsch ausfüllt,
+   rutscht damit trotzdem nicht durch. */
 function rezeptErlaubt(rezept, profil) {
   const erlaubteTags = FORM_ERLAUBT[profil.ernaehrungsform] || FORM_ERLAUBT.mischkost;
   if (!rezept.ernaehrungsform.some((t) => erlaubteTags.includes(t))) return false;
 
-  const allergene = rezept.allergene || [];
+  const allergene = allergeneFuerRezept(rezept);
   // Subtypen-Schärfung: lacto = kein Ei, ovo = keine Milch
-  if (profil.ernaehrungsform === "lacto" && allergene.includes("ei")) return false;
-  if (profil.ernaehrungsform === "ovo" && allergene.includes("laktose")) return false;
+  if (profil.ernaehrungsform === "lacto" && allergene.has("ei")) return false;
+  if (profil.ernaehrungsform === "ovo" && allergene.has("laktose")) return false;
 
   for (const aus of profil.ausschluesse || []) {
-    if (allergene.includes(aus)) return false;
-    if (aus === "halal" || aus === "koscher") {
-      // Konservativ: nur eindeutig unkritische Rezepte zeigen.
-      // Koscher: keine Fleisch-Milch-Kombination, keine Weichtiere/Krebstiere.
-      const fleisch = rezept.ernaehrungsform.some((t) => t === "mit_fleisch" || t === "mit_gefluegel")
-        && !rezept.ernaehrungsform.includes("vegan") && !rezept.ernaehrungsform.includes("vegetarisch");
-      if (aus === "koscher" && fleisch && allergene.includes("laktose")) return false;
-      if (allergene.includes("krebstiere") || allergene.includes("weichtiere")) return false;
-    }
+    if (allergene.has(aus)) return false;
+    if (RELIGIOES[aus]?.(rezept, allergene)) return false;
   }
 
   // Selbst eingetragene Ausschlüsse ("Rosenkohl", "Koriander"): Freitext gegen
   // Rezeptname und Zutatennamen prüfen – gleiche Härte wie die Standardfilter.
   for (const eigen of profil.eigeneAusschluesse || []) {
     const begriff = String(eigen).trim().toLowerCase();
-    if (begriff.length < 3) continue;
+    if (begriff.length < 2) continue;
     if (rezept.name.toLowerCase().includes(begriff)) return false;
     if (rezept.zutaten.some((z) => String(z.zutat_name || "").toLowerCase().includes(begriff))) return false;
   }
   return true;
+}
+
+/* Alle Bestandsposten zu einer Zutat. Dieselbe Zutat darf mehrfach im Bestand
+   stehen (angebrochene und neue Packung, zwei Einkäufe) – Abgleich und
+   Abbuchung müssen dieselbe Menge sehen, sonst zeigt die App "alles da" und
+   bucht danach von der falschen Position ab. */
+function bestandsPosten(bestand, zutatId) {
+  return bestand.filter((b) => b.zutat_id === zutatId);
 }
 
 /* Bestandsabgleich: welche Zutaten eines Rezepts sind da, welche fehlen? */
@@ -58,21 +87,27 @@ function bestandsAbgleich(rezept, bestand) {
     const kat = ZUTAT_INDEX[z.zutat_id];
     if (kat?.basis) continue;                        // Grundausstattung zählt nie als fehlend
     if (z.optional) continue;
-    const item = bestand.find((b) => b.zutat_id === z.zutat_id && istVorhanden(b, z));
-    (item ? vorhanden : fehlt).push(z);
+    const da = istVorhanden(bestandsPosten(bestand, z.zutat_id), z);
+    (da ? vorhanden : fehlt).push(z);
   }
   return { vorhanden, fehlt, quote: vorhanden.length / Math.max(1, vorhanden.length + fehlt.length) };
 }
 
-/* Reicht der Bestandseintrag für die Rezeptmenge? Toleranzprinzip: großzügig
-   runden, nie Scheinpräzision – bei Schüttgut gilt "irgendwas Sinnvolles da". */
-function istVorhanden(item, rezeptZutat) {
-  if (item.art === "pauschal") return item.menge !== 0;
-  if (item.menge == null) return true;
-  if (item.menge <= 0) return false;
-  const noetig = mengeInBestandsEinheit(rezeptZutat, item);
-  if (noetig == null) return item.menge > 0;
-  return item.menge >= noetig * 0.85;                // −15 % Toleranzband
+/* Reichen die Bestandsposten für die Rezeptmenge? Toleranzprinzip: großzügig
+   runden, nie Scheinpräzision – bei Schüttgut gilt "irgendwas Sinnvolles da".
+   Mengen werden über alle Posten derselben Einheit summiert. */
+function istVorhanden(posten, rezeptZutat) {
+  if (!Array.isArray(posten)) posten = [posten];     // Toleranz für Einzelposten
+  if (!posten.length) return false;
+  // "Da oder leer" bzw. unbestimmte Menge: ein einziger Posten genügt
+  if (posten.some((p) => (p.art === "pauschal" ? p.menge !== 0 : p.menge == null))) return true;
+  const mengen = posten.filter((p) => p.menge > 0);
+  if (!mengen.length) return false;
+  const einheit = mengen[0].einheit;
+  const gesamt = mengen.filter((p) => p.einheit === einheit).reduce((s, p) => s + p.menge, 0);
+  const noetig = mengeInBestandsEinheit(rezeptZutat, mengen[0]);
+  if (noetig == null) return true;                   // nicht rechnen: Toleranzprinzip
+  return gesamt >= noetig * 0.85;                    // −15 % Toleranzband
 }
 
 /* Rezeptmenge in die Einheit des Bestandseintrags übersetzen (grobe Küchenmaße). */
@@ -141,49 +176,50 @@ function zielBonus(rezept, profil) {
    Essens-Slots – auch nicht beim Auffüllen dünner Slot-Pools. */
 const nurSnack = (r) => r.mahlzeitentyp.every((t) => t === "snack");
 
+/* Ein Rezept bewerten – die eine Stelle, an der die Gewichtung steht.
+   Bestandsdeckung dominiert (×100), alles andere schiebt nur:
+   Stil +15 · Vorlieben bis +14 · Ziele ±18 · Wurf-Varianz bis +20. */
+function bewerte(rezept, profil, bestand, seed) {
+  const abgleich = bestandsAbgleich(rezept, bestand);
+  let score = abgleich.quote * 100;
+  if ((profil.stile || []).some((s) => (rezept.tags || []).includes(s))) score += 15;
+  score += vorliebenBonus(rezept, profil);           // Achse 3: Lieblingszutaten
+  score += zielBonus(rezept, profil);                // Achse 5: weiche Ziel-Präferenz
+  score += pseudoZufall(rezept.id, seed) * 20;       // Varianz pro Wurf
+  return { rezept, abgleich, score };
+}
+
 /* 3 Vorschläge für den Slot: Profilfilter → Score nach Bestandsdeckung + Stil + Ziele.
    seed steuert das Neu-Würfeln (deterministisch pro Tag+Wurf). */
 function vorschlaege(profil, bestand, slot, seed = 0, anzahl = 3, rezepte = REZEPTE) {
-  const pool = rezepte
+  const erlaubt = rezepte.filter((r) => rezeptErlaubt(r, profil));
+  const pool = erlaubt
     .filter((r) => r.mahlzeitentyp.includes(slot))
-    .filter((r) => rezeptErlaubt(r, profil))
-    .map((r) => {
-      const abgleich = bestandsAbgleich(r, bestand);
-      let score = abgleich.quote * 100;
-      if ((profil.stile || []).some((s) => (r.tags || []).includes(s))) score += 15;
-      score += vorliebenBonus(r, profil);            // Achse 3: Lieblingszutaten
-      score += zielBonus(r, profil);                 // Achse 5: weiche Ziel-Präferenz
-      score += pseudoZufall(r.id, seed) * 20;        // Varianz pro Wurf
-      return { rezept: r, abgleich, score };
-    })
+    .map((r) => bewerte(r, profil, bestand, seed))
     .sort((a, b) => b.score - a.score);
 
-  // Bei dünnem Slot-Pool (z. B. Frühstück) mit slot-fremden Treffern auffüllen
+  // Bei dünnem Slot-Pool (z. B. Frühstück bei mehreren Ausschlüssen) mit
+  // slot-fremden Treffern auffüllen. Die werden genauso bewertet und sortiert
+  // wie die echten – sonst stünde dort die Datenbankreihenfolge statt dessen,
+  // was der Bestand hergibt. `slotFremd` macht es in der UI sichtbar.
   if (pool.length < anzahl) {
     const ids = new Set(pool.map((p) => p.rezept.id));
-    const rest = rezepte
-      .filter((r) => !ids.has(r.id) && !nurSnack(r) && rezeptErlaubt(r, profil))
-      .map((r) => ({ rezept: r, abgleich: bestandsAbgleich(r, bestand), score: 0 }));
+    const rest = erlaubt
+      .filter((r) => !ids.has(r.id) && !nurSnack(r))
+      .map((r) => ({ ...bewerte(r, profil, bestand, seed), slotFremd: true }))
+      .sort((a, b) => b.score - a.score);
     pool.push(...rest);
   }
   return pool.slice(0, anzahl);
 }
 
 /* Snack-Ecke: Vorschläge unabhängig von den Essenszeiten (Kap. Snacks).
-   Gleiche Score-Logik wie die Slots (inkl. Ziel-Bonus), nur "snack"-Typ. */
+   Gleiche Score-Logik wie die Slots, nur "snack"-Typ. */
 function snackVorschlaege(profil, bestand, seed = 0, anzahl = 2, rezepte = REZEPTE) {
   return rezepte
     .filter((r) => r.mahlzeitentyp.includes("snack"))
     .filter((r) => rezeptErlaubt(r, profil))
-    .map((r) => {
-      const abgleich = bestandsAbgleich(r, bestand);
-      let score = abgleich.quote * 100;
-      if ((profil.stile || []).some((s) => (r.tags || []).includes(s))) score += 15;
-      score += vorliebenBonus(r, profil);            // Achse 3: Lieblingszutaten
-      score += zielBonus(r, profil);                 // Achse 5: weiche Ziel-Präferenz
-      score += pseudoZufall(r.id, seed) * 20;
-      return { rezept: r, abgleich, score };
-    })
+    .map((r) => bewerte(r, profil, bestand, seed))
     .sort((a, b) => b.score - a.score)
     .slice(0, anzahl);
 }
@@ -208,20 +244,33 @@ function tagesSeed(datumStr, wurf = 0) {
 }
 
 /* Abbuchung nach "Gekocht": Bestand um Rezeptmengen × Portionsfaktor reduzieren.
-   Toleranzprinzip ±10–15 % – Anzeige bleibt immer Näherung. */
+   Toleranzprinzip ±10–15 % – Anzeige bleibt immer Näherung.
+   Liegt eine Zutat auf mehreren Posten (angebrochene + neue Packung), wird der
+   Reihe nach abgeräumt: erst die angebrochene leeren, dann die nächste. */
 function abbuchen(rezept, bestand, portionen) {
   const faktor = portionen / (rezept.portionen || portionen || 1);
   const gebucht = [];
+  const jetzt = new Date().toISOString();
   for (const z of rezept.zutaten) {
     if (!z.zutat_id) continue;
-    const item = bestand.find((b) => b.zutat_id === z.zutat_id);
-    if (!item || item.art === "pauschal" || item.menge == null) continue;
-    const noetig = mengeInBestandsEinheit(z, item);
-    if (noetig == null) continue;
-    const abzug = noetig * faktor;
-    item.menge = Math.max(0, rund(item.menge - abzug, item.einheit));
-    item.updated = new Date().toISOString();
-    gebucht.push({ name: item.name, abzug: rund(abzug, item.einheit), einheit: item.einheit });
+    const posten = bestandsPosten(bestand, z.zutat_id)
+      .filter((b) => b.art !== "pauschal" && b.menge != null);
+    if (!posten.length) continue;
+    const noetig = mengeInBestandsEinheit(z, posten[0]);
+    if (noetig == null) continue;                    // EL/TL/Prise: nicht rechnen
+    const einheit = posten[0].einheit;
+    let offen = noetig * faktor;
+    let summe = 0;
+    for (const item of posten) {
+      if (offen <= 0) break;
+      if (item.einheit !== einheit || !(item.menge > 0)) continue;
+      const nimmt = Math.min(item.menge, offen);
+      item.menge = Math.max(0, rund(item.menge - nimmt, item.einheit));
+      item.updated = jetzt;
+      offen -= nimmt;
+      summe += nimmt;
+    }
+    if (summe > 0) gebucht.push({ name: posten[0].name, abzug: rund(summe, einheit), einheit });
   }
   return gebucht;
 }
@@ -253,7 +302,7 @@ function wochenKandidaten(bestand) {
 }
 
 export {
-  ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, bestandsAbgleich,
-  vorschlaege, snackVorschlaege, zielTreffer, vorliebenTreffer, tagesSeed, abbuchen,
-  mengeAnzeige, wochenKandidaten, mengeInBestandsEinheit,
+  ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, bestandsAbgleich, bestandsPosten,
+  istVorhanden, bewerte, vorschlaege, snackVorschlaege, zielTreffer, vorliebenTreffer,
+  tagesSeed, pseudoZufall, abbuchen, mengeAnzeige, wochenKandidaten, mengeInBestandsEinheit,
 };
