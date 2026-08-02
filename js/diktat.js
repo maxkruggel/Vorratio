@@ -203,20 +203,52 @@ function stamm(w) {
 const wortliste = (s) => normText(s).split(/[^a-z0-9]+/).filter(Boolean);
 
 /* Katalog einmal vorzerlegen – das Matching läuft je Diktatzeile darüber. */
-const KATALOG = ZUTATEN.map((z) => ({
-  zutat: z,
-  woerter: wortliste(z.name).filter((w) => w.length > 1),
-}));
+const zerlege = (zutat) => ({ zutat, woerter: wortliste(zutat.name).filter((w) => w.length > 1) });
+const KATALOG = ZUTATEN.map(zerlege);
+const KATALOG_IDS = new Set(ZUTATEN.map((z) => z.id));
+
+/* Der Zutatenkatalog ist ein Startpunkt, kein Käfig (siehe Freitext-Anlage im
+   Vorrat). Beim Erkennen zählt darum mit, was der Haushalt selbst angelegt hat:
+   Wer "Backoblaten" einmal aufgenommen hat, bekommt sie beim nächsten Diktat
+   wiedererkannt – und sie trennen sich dann auch sauber von ihren Nachbarn,
+   statt mit ihnen zu einem Eintrag zu verschmelzen. So wächst der Wortschatz
+   mit dem Vorrat, ohne dass jemand eine Liste pflegen muss. */
+function eigeneKandidaten(bestand) {
+  const gesehen = new Set();
+  const liste = [];
+  for (const b of bestand) {
+    if (!b?.zutat_id || !b.name || KATALOG_IDS.has(b.zutat_id) || gesehen.has(b.zutat_id)) continue;
+    gesehen.add(b.zutat_id);
+    liste.push(zerlege({ id: b.zutat_id, name: b.name, einheit: b.einheit, art: b.art, eigen: true }));
+  }
+  return liste;
+}
 
 /* Einheiten-Familie: nur echte Mengen-Einheiten dürfen einen Kandidaten
    ausschließen. "Glas", "Packung", "Becher" sagen nichts über die Führungsart
    und bleiben darum wertungsfrei. */
 const FAMILIE = { g: "g", kg: "g", ml: "ml", l: "ml", Stk: "Stk", Dose: "Dose", Zehe: "Zehe", Bund: "Bund", Stange: "Stange", Rolle: "Rolle" };
 
-/* Bester Katalogtreffer für einen gesprochenen Namen.
+/* Wie gut deckt ein einzelnes gesprochenes Wort einen Kandidatennamen? */
+function punkteFuerWort(w, st, kandidatWoerter) {
+  let bester = 0;
+  for (const kw of kandidatWoerter) {
+    let p = 0;
+    if (kw === w) p = 6;
+    else if (stamm(kw) === st) p = 5;
+    else if (w.length >= 4 && kw.includes(w)) p = 3;      // "mehl" in "weizenmehl"
+    else if (kw.length >= 4 && w.includes(kw)) p = 3;
+    else if (w.length >= 3 && kw.startsWith(w)) p = 2;
+    if (p > bester) bester = p;
+  }
+  return bester;
+}
+
+/* Bester Treffer für einen gesprochenen Namen.
    `einheit` schärft die Auswahl ("zwei Dosen Tomaten" ≠ "zwei Tomaten"),
-   `bekannt` bevorzugt, was schon im Vorrat liegt. */
-function findeZutat(name, einheit, bekannt = new Set()) {
+   `bekannt` bevorzugt, was schon im Vorrat liegt, `kandidaten` enthält neben
+   dem Katalog auch die eigenen Artikel des Haushalts. */
+function findeZutat(name, einheit, bekannt = new Set(), kandidaten = KATALOG) {
   const worte = wortliste(name).filter((w) => w.length > 1);
   if (!worte.length) return { zutat: null, punkte: 0 };
   const staemme = worte.map(stamm);
@@ -225,23 +257,10 @@ function findeZutat(name, einheit, bekannt = new Set()) {
   let best = null;
   let bestPunkte = 0;
   let bestBasis = 0;      // Wortpunkte ohne Boni – sie entscheiden über "sicher"
-  for (const eintrag of KATALOG) {
+  let bestWoerter = [];
+  for (const eintrag of kandidaten) {
     let punkte = 0;
-    for (let i = 0; i < worte.length; i++) {
-      const w = worte[i];
-      const st = staemme[i];
-      let besterTeil = 0;
-      for (const kw of eintrag.woerter) {
-        let p = 0;
-        if (kw === w) p = 6;
-        else if (stamm(kw) === st) p = 5;
-        else if (w.length >= 4 && kw.includes(w)) p = 3;      // "mehl" in "weizenmehl"
-        else if (kw.length >= 4 && w.includes(kw)) p = 3;
-        else if (w.length >= 3 && kw.startsWith(w)) p = 2;
-        if (p > besterTeil) besterTeil = p;
-      }
-      punkte += besterTeil;
-    }
+    for (let i = 0; i < worte.length; i++) punkte += punkteFuerWort(worte[i], staemme[i], eintrag.woerter);
     /* Der Alias entscheidet nur die nackte Kurzform ("Tomaten"). Sagt jemand
        mehr ("passierte Tomaten"), zählt allein, was wirklich dasteht. Er trägt
        auch allein: "Hafermilch" und "Haferdrink" haben kein Wort gemeinsam. */
@@ -260,10 +279,11 @@ function findeZutat(name, einheit, bekannt = new Set()) {
       bestPunkte = punkte;
       bestBasis = basis;
       best = eintrag.zutat;
+      bestWoerter = eintrag.woerter;
     }
   }
-  if (bestPunkte < 3) return { zutat: null, punkte: 0, basis: 0 };
-  return { zutat: best, punkte: bestPunkte, basis: bestBasis };
+  if (bestPunkte < 3) return { zutat: null, punkte: 0, basis: 0, woerter: [] };
+  return { zutat: best, punkte: bestPunkte, basis: bestBasis, woerter: bestWoerter };
 }
 
 /* ------------------------------------------------------------- Zerlegung */
@@ -376,13 +396,13 @@ const MAX_FENSTER = 3;
 
 const istBeiwerk = (w) => FUELLWORT.has(w) || ZUSTAND_WORT.has(w) || !!EINHEIT_INDEX[w] || ZAHLWORT[w] != null;
 
-function teileArtikel(worte, einheit, bekannt) {
+function teileArtikel(worte, einheit, bekannt, kandidaten) {
   const artikel = [];
   let rest = [];
 
   const restAbschliessen = () => {
     if (!rest.length) return;
-    const { zutat, basis } = findeZutat(rest.map((p) => p.norm).join(" "), einheit, bekannt);
+    const { zutat, basis } = findeZutat(rest.map((p) => p.norm).join(" "), einheit, bekannt, kandidaten);
     artikel.push({ zutat: basis >= 3 ? zutat : null, worte: rest, anhang: [], sicher: false });
     rest = [];
   };
@@ -395,7 +415,7 @@ function teileArtikel(worte, einheit, bekannt) {
   while (i < worte.length) {
     const wort = worte[i];
     // Am Wortanfang zählt nur, was ein Artikelname sein kann.
-    if (istBeiwerk(wort.norm) || findeZutat(wort.norm, einheit, bekannt).basis < 5) {
+    if (istBeiwerk(wort.norm) || findeZutat(wort.norm, einheit, bekannt, kandidaten).basis < 5) {
       if (istBeiwerk(wort.norm)) anhaengen(wort);
       else rest.push(wort);
       i += 1;
@@ -404,12 +424,16 @@ function teileArtikel(worte, einheit, bekannt) {
     let bester = null;
     for (let len = Math.min(MAX_FENSTER, worte.length - i); len >= 1; len--) {
       const fenster = worte.slice(i, i + len);
-      const { zutat, basis } = findeZutat(fenster.map((p) => p.norm).join(" "), einheit, bekannt);
+      const { zutat, basis, woerter } = findeZutat(fenster.map((p) => p.norm).join(" "), einheit, bekannt, kandidaten);
+      if (!zutat || basis < 5) continue;
+      /* Der Treffer muss am ersten Wort des Fensters hängen, sonst zieht er
+         sich Vorgänger ein, mit denen er nichts zu tun hat: "Backoblaten Maggi
+         Zwiebelsuppe" träfe sonst als Ganzes "Maggi Zwiebelsuppe" – und die
+         Backoblaten wären verschwunden. */
+      if (len > 1 && punkteFuerWort(fenster[0].norm, stamm(fenster[0].norm), woerter) === 0) continue;
       // ">=" statt ">": die Schleife läuft von lang nach kurz, bei Gleichstand
       // soll das kürzere Fenster gewinnen.
-      if (zutat && basis >= 5 && (!bester || basis >= bester.basis)) {
-        bester = { zutat, basis, len, worte: fenster };
-      }
+      if (!bester || basis >= bester.basis) bester = { zutat, basis, len, worte: fenster };
     }
     restAbschliessen();
     artikel.push({ zutat: bester.zutat, worte: bester.worte, anhang: [], sicher: true });
@@ -424,11 +448,12 @@ function teileArtikel(worte, einheit, bekannt) {
      { rohtext, name, zutat_id, menge, einheit, aktion, anteil, sicher } */
 function parseDiktat(text, bestand = []) {
   const bekannt = new Set(bestand.map((b) => b.zutat_id));
+  const kandidaten = [...KATALOG, ...eigeneKandidaten(bestand)];
   const eintraege = [];
 
   for (const zeile of segmente(text)) {
     for (const gruppe of gruppenAusZeile(zeile)) {
-      const artikel = teileArtikel(gruppe.worte, gruppe.einheit, bekannt);
+      const artikel = teileArtikel(gruppe.worte, gruppe.einheit, bekannt, kandidaten);
 
       artikel.forEach((a, i) => {
         const eigene = [...a.worte, ...a.anhang];

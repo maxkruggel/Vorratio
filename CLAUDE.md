@@ -297,9 +297,15 @@ Form liefert `leseDiktat` aus ai.js. Rein lokal: `ZAHLWORT`, `EINHEIT_WORT`,
 `tools/test-diktat.mjs`: `segmente()` (Komma/„und"/Punkt) → `gruppenAusZeile()`
 (jede genannte Menge beginnt einen Artikel, auch ohne Satzzeichen) →
 `teileArtikel()` (Fenster von max. 3 Wörtern gegen den Katalog; bei Gleichstand
-gewinnt das kürzere, ein Fenster startet nur auf einem Wort, das im Katalog
-vorkommt). Füll- und Zustandswörter hängen am zuletzt erkannten Artikel –
-sonst landet „fast leer" beim falschen.
+gewinnt das kürzere, und der Treffer muss am ersten Wort des Fensters hängen –
+sonst zieht er sich Vorgänger ein). Füll- und Zustandswörter hängen am zuletzt
+erkannten Artikel – sonst landet „fast leer" beim falschen.
+**Der Wortschatz wächst mit dem Vorrat:** `eigeneKandidaten(bestand)` stellt
+selbst angelegte Artikel (`frei_…`) gleichberechtigt neben den Katalog. Was
+einmal aufgenommen wurde, wird wiedererkannt und trennt sich dann auch ohne
+Satzzeichen von seinen Nachbarn. Unbekanntes wird nie verworfen: Es landet als
+eigener Artikel in der Bestätigungsliste, wo sich der Name korrigieren lässt
+(Spracherkennung verhört sich bei ungewohnten Wörtern).
 
 **angebote.js** – `angebotsCrawl(liste, cfg, opts)` → Ergebnisobjekt
 {kw, items, maerkte, empfehlung (max. 3), ohneAngebot, fehler}. `SUCHPROFILE`

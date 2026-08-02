@@ -809,6 +809,19 @@ button.mic-panel:active { transform: scale(0.985); }
   width: 100%;
 }
 
+/* Korrigierbarer Name in der Diktat-Bestätigung: sieht aus wie der Name in
+   den anderen Zeilen, ist aber ein Feld – bei ungewohnten Wörtern verhört
+   sich jede Spracherkennung. */
+.name-edit {
+  font-size: 16px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1.5px dashed var(--line-strong);
+  background: var(--bg);
+}
+.name-edit:focus { border-style: solid; }
+
 /* Schrankfoto: Die Miniaturen zeigen genau das Bild, das ausgewertet wurde –
    wer prüft, ob die Liste stimmt, will das Fach daneben sehen. */
 .foto-streifen { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
