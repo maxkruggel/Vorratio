@@ -110,7 +110,8 @@ bestand       [{ id, zutat_id, name, kategorie, art, einheit, menge, packung?, e
 vorschlaege   { datum, slot, rezeptIds[], gewuerfelt, bestandLeer }   (Push-Fallback, tagesstabil)
 snackVorschlaege { datum, rezeptIds[], gewuerfelt }
 historie      [{ rezeptId, name, portionen, datum }]
-einkauf       { rezept: [{zutat_id, name, menge, einheit, erledigt}], woche: [{zutat_id, name, erledigt, auto}], rezeptId }
+einkauf       { rezept: [{zutat_id, name, menge, einheit, erledigt}], woche: [{zutat_id, name, erledigt, auto}], rezeptId, abgelehnt: [zutat_id] }
+              (abgelehnt = "nicht nachkaufen", gilt bis der Vorrat wieder über der Schwelle liegt)
 angebote      { plz, apikey, clientkey, proxy, demo, letzter }        (Marktguru; letzter gilt 1 ISO-KW)
 aiRezepte     [max. 24 AI-Rezepte, v1-kompatibel, id "AI-<ts>-<i>"]
 vorratRezepte [max. 24 offline generierte Rezepte, id "GEN-<hash>"]
@@ -136,6 +137,13 @@ Datumsstempel für Tagesvorschläge kommen aus `lokalesDatum()` (Ortszeit, nicht
   `packung`), `zaehlbar` (Stk/Dose/Pck, Stepper), `pauschal` (nur da/leer;
   `menge: null` = vorrätig, `0` = leer). Bestimmt UI in `renderVorratEdit()`
   und die gesamte Mengenlogik.
+- **Einkaufsliste fragt, statt zu bestimmen (Kap. 4.7):** Ungefragt sammelt die
+  Wochenliste nur Grundzutaten (`basis: true` – Öl, Essig, Brühe, Gewürze; die
+  sind ohnehin erst Kandidat, wenn jemand sie auf „leer" gesetzt hat). Alles
+  andere kommt in die Sektion „Kommt das mit?" und braucht einen Tap. Ein
+  abgelehnter Punkt landet in `einkauf.abgelehnt` und schweigt, bis der Vorrat
+  wieder über der Schwelle liegt – wer das aufweicht, holt die Nörgelliste
+  zurück, die einen Artikel unmittelbar nach dem Erfassen zum Nachkauf meldet.
 - **Slots:** Frühstück/Mittag/Abend (8:00/11:30/17:30, `aktuellerSlot()`:
   Grenzen 11:00/16:00). **Push-Fallback:** kein Push-Server – Vorschläge werden
   beim Öffnen/`visibilitychange` erzeugt und persistiert
@@ -150,6 +158,13 @@ Datumsstempel für Tagesvorschläge kommen aus `lokalesDatum()` (Ortszeit, nicht
 - **Snack-Ecke:** eigene Schiene außerhalb der Slots (`mahlzeitentyp: ["snack"]`,
   `SNK-`Rezepte). `nurSnack`-Rezepte tauchen nie in Essens-Slots auf, auch nicht
   beim Pool-Auffüllen.
+- **Tofusorte ist ein Match-Kriterium, keine Feinheit:** Fester Tofu
+  (`ing_tofu_fest`/`ing_tofu_natur`), Seidentofu (`ing_tofu_seiden`) und
+  Räuchertofu (`ing_raeuchertofu`) sind getrennte Zutaten – der Bestandsabgleich
+  trennt sie damit von selbst. Wer sie zu einer `zutat_id` zusammenlegt oder in
+  einem Rezept die falsche einträgt, schlägt jemandem einen knusprigen Tofu vor,
+  der nur Seidentofu im Kühlschrank hat (und umgekehrt Mousse aus festem Tofu).
+  Ein neues Tofu-Rezept prüft deshalb zuerst die Sorte, dann alles andere.
 - **Diktat (`js/diktat.js`, UI im Vorrat):** Aufzählen statt antippen. Die
   Auswertung läuft ohne Key lokal, mit Key über `leseDiktat()` – beide liefern
   dieselbe Eintragsform und enden in derselben Bestätigungsliste. „halb
@@ -164,7 +179,11 @@ Datumsstempel für Tagesvorschläge kommen aus `lokalesDatum()` (Ortszeit, nicht
   Mensch die Menge. Was das Foto nicht hergibt (blickdichte Packung, verdeckter
   Stapel), kommt als `nachfragen: true` zurück, zeigt „?" statt einer Zahl und
   bringt in der Zeile gleich das Bedienelement der Führungsart mit (Stepper /
-  Viertel-Raster / da-leer). Ein Tap darauf löst die Markierung. Füllstände
+  Silhouetten-Regler mit Viertel-Raster / da-leer). Ein Tap darauf löst die
+  Markierung. Führungsart und Packungsgröße sind je Zeile korrigierbar (vier
+  Päckchen sind eine Stückzahl, kein „¾ voll"); lesbare Etiketten-Größen
+  („500 g") liefert das Modell als `packung_menge`/`packung_einheit` mit und
+  sie stechen den Katalog-Standard aus. Füllstände
   liefert das Modell nur bei sichtbarem Inhalt – Prompt-Regel, nicht Zufall.
   **Setzt** den Stand wie das Diktat. Ohne Claude-Key gibt es diesen Weg nicht:
   Bilder lassen sich, anders als ein Diktat, nicht lokal auswerten.
@@ -204,7 +223,9 @@ Datumsstempel für Tagesvorschläge kommen aus `lokalesDatum()` (Ortszeit, nicht
 `istVorhanden` (summiert über mehrere Posten derselben Zutat), `bewerte`,
 `vorschlaege`, `snackVorschlaege`, `zielTreffer`, `vorliebenTreffer`,
 `tagesSeed`, `pseudoZufall`, `abbuchen` (räumt mehrere Posten der Reihe nach ab),
-`mengeAnzeige`, `wochenKandidaten` (leer/≤20 % Packung → Wochenliste),
+`mengeAnzeige`, `wochenKandidaten` (je Zutat **über alle Posten summiert**: leer /
+≤20 % Packung / bei Zählbarem ohne Packungsgröße per `REST_SCHWELLE` nach
+Kategorie), `istGrundzutat` (`basis: true` → wandert ungefragt auf die Liste),
 `mengeInBestandsEinheit`, `ZUTAT_INDEX`.
 
 **ui.js** – `app`, `esc`, `h`, `zeigeApp`, `aktuellerScreen`, `dialog`,
@@ -223,19 +244,24 @@ Tipp-Pop-up (alle 9 Taps) · `render(zielView?)` + Tabbar · Onboarding
 `stelleSnacksBereit`, `rezeptKarte`, `quellenBadge`, `slotHinweis`,
 `baueAusVorrat`, `starteAiGenerierung` inkl. Gegenprüfung der gelieferten
 Rezepte) · Rezept-Detail (`ersatzIdeenHtml` = Substitutions-Teaser,
-Merken-Schalter, Notiz) · Kochbuch (`renderKochbuch`, `kochbuchTrefferHtml`)
+Merken-Schalter, Notiz) · Kochbuch (`renderKochbuch`, `kochbuchTrefferHtml`,
+`zuletztGekochtHtml` = Gekochtes aus der Historie nachträglich merken)
 + Rezept-Editor (`editor`-Entwurf, `uebernehmeEditorFelder` liest sichtbare
 Felder vor jedem Neuzeichnen zurück) · Vorrat
 (`zutatTreffer`-Suche inkl. Freitext-Anlage `addBestandFrei` mit `FREI_REGELN`,
-`renderVorratEdit` je `art`) · Barcode-UI (`scanPanel`-Statusmaschine:
-start→kamera/foto→laden→treffer/kein_treffer/fehler) · Diktat-UI
+`renderVorratEdit` je `art`, eigene Artikel mit Kategorie-Wahl,
+Wisch-Löschen in der Liste via `bindWischLoeschen`) · Barcode-UI
+(`scanPanel`-Statusmaschine: start→kamera/foto→laden→treffer/kein_treffer/fehler;
+ohne Katalog-Treffer ist der Standard „eigener Artikel unterm Produktnamen",
+keine Vorauswahl) · Diktat-UI
 (`diktat`-Statusmaschine: start→hoeren→lesen→ergebnis/fehler; `werteDiktatAus`
 = Claude oder lokaler Parser, `uebernehmeDiktat`, `diktatMenge` = diktierte
 Angabe → Bestandsmenge) · Schrankfoto-UI (`foto`-Statusmaschine:
 start→lesen→ergebnis/fehler; `nimmFotos` sammelt bis zu `MAX_FOTOS` Fächer,
 `werteFotosAus`, `fotoMengeUi` = Mengen-Bedienelement je Führungsart,
 `uebernehmeSchrankfoto`) · Einkauf
-(`syncWochenliste`, `bestandFuer`/`freierBestand` = Bestandszeile holen/anlegen,
+(`syncWochenliste` = Grundzutaten direkt auf die Liste, alles andere als Vorschlag
+zurückgeben („Kommt das mit?"), `bestandFuer`/`freierBestand` = Bestandszeile holen/anlegen,
 `buchZugang` = zentrale Zugangsbuchung über Packungsgrößen)
 · Bon-Scan (`bon`-Statusmaschine) · Angebots-Sektion (`starteCrawl`,
 `crawlListe`) · Wissen (Tabs: tipps/ersatz/preps/bases/techniken) · Profil
@@ -296,8 +322,11 @@ Form liefert `leseDiktat` aus ai.js. Rein lokal: `ZAHLWORT`, `EINHEIT_WORT`,
 `ANTEIL_MUSTER`, `LEER_MUSTER`, `ALIAS` (Kurzform → zutat_id), `findeZutat`
 (Wortstamm-Matching, von der genannten Einheit geschärft), `diktatAnzeige`.
 **Dreistufige Zerlegung** – wer hier etwas ändert, belegt es in
-`tools/test-diktat.mjs`: `segmente()` (Komma/„und"/Punkt) → `gruppenAusZeile()`
-(jede genannte Menge beginnt einen Artikel, auch ohne Satzzeichen) →
+`tools/test-diktat.mjs`: `segmente()` (Komma/„und"/Punkt; ein „und" im
+Produktnamen wie „Erbsen und Möhren" wird geschützt, wenn Katalog oder eigener
+Bestand den Namen so führen) → `gruppenAusZeile()`
+(jede genannte Menge beginnt einen Artikel, auch ohne Satzzeichen; Mal-Wörter
+sind Stückzahlen und „zweimal 700 ml" ist EINE Angabe, 2 × 700) →
 `teileArtikel()` (Fenster von max. 3 Wörtern gegen den Katalog; bei Gleichstand
 gewinnt das kürzere, und der Treffer muss am ersten Wort des Fensters hängen –
 sonst zieht er sich Vorgänger ein). Füll- und Zustandswörter hängen am zuletzt
@@ -319,6 +348,11 @@ Komposita-Regeln), `marktAuswertung` (Deckung > Ø-Rabatt > Angebotszahl),
 Datensatz, fürs Rezept-Detail), `subsFiltern` (Wissen-Tab), `produkteSortiert`
 (Eigenmarken zuerst). Ei ist funktionsbasiert modelliert (mehrere Datensätze).
 Allergie-Filter über `BASIS_ALLERGENE[alt.basis]`, hart wie überall.
+Die DB beantwortet zwei Fragen: „pflanzlich statt tierisch" (Regelfall) und
+seit den Tofu-Datensätzen auch die Gegenrichtung „Rezept verlangt Tofu, keiner
+da" (`sub_tofu_fest`, `sub_tofu_seiden`, `sub_raeuchertofu`). Fester Tofu und
+Seidentofu stehen bewusst in getrennten Datensätzen – sie sind untereinander
+kein Ersatz.
 
 ## Externe Dienste (alle direkt vom Client)
 

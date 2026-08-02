@@ -14,6 +14,7 @@ import {
 import {
   ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, vorschlaege, snackVorschlaege,
   zielTreffer, vorliebenTreffer, tagesSeed, bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
+  istGrundzutat,
 } from "./engine.js";
 import { angebotsCrawl, isoWoche, liveKonfiguriert } from "./angebote.js";
 import { generiereRezepte, scanBon, leseDiktat, leseSchrankfoto, leseBarcodeVomFoto } from "./ai.js";
@@ -958,9 +959,10 @@ function renderKochbuch() {
           ${KOCHBUCH_FILTER.map((f) => `
             <button class="chip ${kochbuchFilter === f.id ? "selected" : ""}" data-kfilter="${f.id}">${esc(f.name)}</button>`).join("")}
         </div>
-        <div id="kochbuch-liste">${kochbuchTrefferHtml()}</div>
-        <p class="centered-note">Gemerkte Rezepte bleiben, auch wenn Claude neue Ideen hat.<br>Sie tauchen ganz normal in den Tagesvorschlägen auf.</p>`
+        <div id="kochbuch-liste">${kochbuchTrefferHtml()}</div>`
         : kochbuchLeerHtml()}
+      ${zuletztGekochtHtml(s)}
+      ${alle.length ? `<p class="centered-note">Gemerkte Rezepte bleiben, auch wenn Claude neue Ideen hat.<br>Sie tauchen ganz normal in den Tagesvorschlägen auf.</p>` : ""}
     </div>`, "kochbuch");
 
   bindKochbuchKarten();
@@ -977,10 +979,59 @@ function renderKochbuch() {
   const feld = app.querySelector("#kochbuch-suche");
   feld?.addEventListener("input", () => {
     kochbuchSuche = feld.value;
-    // Nur die Trefferliste tauschen, damit die Tastatur den Fokus behält
-    app.querySelector("#kochbuch-liste").innerHTML = kochbuchTrefferHtml();
-    bindKochbuchKarten();
+    // Nur die Trefferliste tauschen, damit die Tastatur den Fokus behält –
+    // und nur dort neu binden, sonst hängen an „Zuletzt gekocht" doppelte Listener
+    const liste = app.querySelector("#kochbuch-liste");
+    liste.innerHTML = kochbuchTrefferHtml();
+    bindKochbuchKarten(liste);
   });
+  // „Zuletzt gekocht": nachträglich merken, ohne erst das Detail zu öffnen
+  app.querySelectorAll("[data-merk]").forEach((b) => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const rezept = findRezept(b.dataset.merk);
+    if (!rezept) return;
+    merken(getState(), rezept);
+    save();
+    toast("Im Kochbuch gespeichert");
+    renderKochbuch();
+  }));
+}
+
+/* „Zuletzt gekocht" unter der Kochbuch-Liste: Gekochtes lässt sich hier auch
+   nachträglich merken – der Merken-Schalter im Rezept-Detail gilt zwar jederzeit,
+   aber gekochte Vorschläge sind vom Heute-Tab oft schon weggewürfelt. Die
+   Historie hält nur id + Name; die Kopie fürs Kochbuch kommt über findRezept().
+   Ein AI-/Vorrats-Rezept, das aus seinem Pool rotiert ist, ist damit nicht mehr
+   speicherbar und wird ehrlich so gezeigt statt still zu fehlen. */
+function zuletztGekochtHtml(s) {
+  const gesehen = new Set();
+  const zeilen = [];
+  for (const e of s.historie) {
+    if (gesehen.has(e.rezeptId)) continue;
+    gesehen.add(e.rezeptId);
+    if (istGemerkt(s, e.rezeptId)) continue;
+    zeilen.push(e);
+    if (zeilen.length >= 8) break;
+  }
+  if (!zeilen.length) return "";
+  return `
+    <h2 class="section-gap">Zuletzt gekocht</h2>
+    <p class="subtle small" style="margin:6px 0 12px">Schon gekocht, aber noch nicht gespeichert – „merken“ holt es dauerhaft ins Kochbuch.</p>
+    <div class="card">
+      ${zeilen.map((e) => {
+        const rezept = findRezept(e.rezeptId);
+        const datum = new Date(e.datum).toLocaleDateString("de-DE");
+        if (!rezept) {
+          return `<div class="list-item"><div class="grow mute"><span class="name">${esc(e.name)}</span>
+            <span class="subtle small" style="display:block">${datum} · Vorschlag inzwischen ersetzt – nicht mehr speicherbar</span></div></div>`;
+        }
+        return `<div class="list-item tappable" data-rezept="${esc(rezept.id)}">
+          <div class="grow"><span class="name">${esc(rezept.name)}</span>
+          <span class="subtle small" style="display:block">${datum} · ${esc(rezeptMeta(rezept))}</span></div>
+          <button class="merk-btn" data-merk="${esc(rezept.id)}">${icon("merken", 17)}merken</button>
+        </div>`;
+      }).join("")}
+    </div>`;
 }
 
 /* Trefferliste des Kochbuchs – „N× gekocht" kommt aus der Historie. */
@@ -1002,8 +1053,8 @@ function kochbuchTrefferHtml() {
   }).join("");
 }
 
-function bindKochbuchKarten() {
-  app.querySelectorAll("[data-rezept]").forEach((c) => c.addEventListener("click", () => {
+function bindKochbuchKarten(root = app) {
+  root.querySelectorAll("[data-rezept]").forEach((c) => c.addEventListener("click", () => {
     oeffneRezept(c.dataset.rezept);
   }));
 }
@@ -1343,13 +1394,86 @@ function renderVorrat() {
      Enter und Leertaste reagieren, sonst sind sie für Tastatur und Schaltersteuerung
      zwar anspringbar, aber nicht auslösbar. */
   app.querySelectorAll("[data-edit]").forEach((b) => {
-    b.addEventListener("click", () => renderVorratEdit(b.dataset.edit));
+    b.addEventListener("click", () => {
+      /* Nach einem Wisch ist der Tap ein Zuklappen, kein Öffnen des Artikels. */
+      const zeile = b.closest(".swipe-zeile");
+      if (zeile && (zeile.classList.contains("offen") || zeile.dataset.gewischt)) {
+        zeile.classList.remove("offen");
+        zeile.querySelector(".swipe-inhalt").style.transform = "";
+        return;
+      }
+      renderVorratEdit(b.dataset.edit);
+    });
     b.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" && e.key !== " ") return;
       e.preventDefault();
       renderVorratEdit(b.dataset.edit);
     });
   });
+  bindWischLoeschen();
+}
+
+/* Wisch-Löschen (nur Touch): Bestandszeile nach links schieben legt „Entfernen"
+   frei – Aufräumen ohne den Umweg über den Mengen-Screen. Senkrechtes Wischen
+   bleibt Scrollen; entschieden wird an der ersten deutlichen Richtung.
+   Tastatur und Maus löschen weiter über den Mengen-Screen. */
+const WISCH_WEITE = 100;
+
+function bindWischLoeschen() {
+  let offeneZeile = null;
+  const zuklappen = () => {
+    if (!offeneZeile) return;
+    offeneZeile.classList.remove("offen");
+    offeneZeile.querySelector(".swipe-inhalt").style.transform = "";
+    offeneZeile = null;
+  };
+  app.querySelectorAll(".swipe-zeile").forEach((zeile) => {
+    const inhalt = zeile.querySelector(".swipe-inhalt");
+    let startX = 0;
+    let startY = 0;
+    let dx = 0;
+    let richtung = null;
+    let offsetStart = 0;
+    zeile.addEventListener("touchstart", (e) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      dx = offsetStart = zeile.classList.contains("offen") ? -WISCH_WEITE : 0;
+      richtung = null;
+      if (offeneZeile && offeneZeile !== zeile) zuklappen();
+    }, { passive: true });
+    zeile.addEventListener("touchmove", (e) => {
+      const mx = e.touches[0].clientX - startX;
+      const my = e.touches[0].clientY - startY;
+      if (!richtung) {
+        if (Math.abs(mx) < 9 && Math.abs(my) < 9) return;
+        richtung = Math.abs(mx) > Math.abs(my) ? "x" : "y";
+        if (richtung === "x") inhalt.style.transition = "none";
+      }
+      if (richtung !== "x") return;
+      dx = Math.min(0, Math.max(-WISCH_WEITE, offsetStart + mx));
+      inhalt.style.transform = `translateX(${dx}px)`;
+    }, { passive: true });
+    zeile.addEventListener("touchend", () => {
+      if (richtung !== "x") return;
+      inhalt.style.transition = "";
+      const offen = dx < -WISCH_WEITE / 2;
+      zeile.classList.toggle("offen", offen);
+      inhalt.style.transform = offen ? `translateX(${-WISCH_WEITE}px)` : "";
+      offeneZeile = offen ? zeile : (offeneZeile === zeile ? null : offeneZeile);
+      /* Der Browser feuert nach dem Wisch noch einen Click – der darf den
+         Mengen-Screen nicht öffnen. */
+      zeile.dataset.gewischt = "1";
+      setTimeout(() => delete zeile.dataset.gewischt, 350);
+    });
+  });
+  app.querySelectorAll("[data-entfernen]").forEach((b) => b.addEventListener("click", () => {
+    const s = getState();
+    const item = s.bestand.find((x) => x.id === b.dataset.entfernen);
+    s.bestand = s.bestand.filter((x) => x.id !== b.dataset.entfernen);
+    save();
+    toast(`${item ? item.name : "Artikel"} entfernt`);
+    renderVorrat();
+  }));
 }
 
 /* Bestandszeile: Schüttgut bekommt den Füllstandsbalken der Übergabe (Design 14),
@@ -1362,9 +1486,14 @@ function vorratZeile(item) {
   const zweitzeile = item.art === "schuettgut"
     ? `<span class="subtle small" style="display:block">${mengeAnzeige(item)}</span>` : "";
   return `
-    <div class="list-item tappable" data-edit="${item.id}" role="button" tabindex="0">
-      <div class="grow"><span class="name">${esc(item.name)}</span>${zweitzeile}</div>
-      ${meter}
+    <div class="swipe-zeile">
+      <button class="swipe-entfernen" data-entfernen="${item.id}" tabindex="-1" aria-hidden="true">${icon("x", 18)}Entfernen</button>
+      <div class="swipe-inhalt">
+        <div class="list-item tappable" data-edit="${item.id}" role="button" tabindex="0">
+          <div class="grow"><span class="name">${esc(item.name)}</span>${zweitzeile}</div>
+          ${meter}
+        </div>
+      </div>
     </div>`;
 }
 
@@ -1443,8 +1572,13 @@ function barcodeUi() {
       <span class="hint-body">Barcode ${esc(p.ean)} ist nicht in Open Food Facts. Produkt bitte über „Erfassen“ anlegen.</span>
     </div>
     <button class="btn secondary" id="ean-zurueck">Zurück</button>`;
-  // Treffer: Produkt + Zuordnungsvorschlag
+  // Treffer: Produkt + Zuordnungsvorschlag. Ohne Auto-Treffer wird nichts
+  // vorgegaukelt: Standard ist dann der eigene Artikel unter dem Produktnamen –
+  // ein zweiter Scan desselben Produkts landet über den Namen wieder bei ihm.
   const produkt = p.produkt;
+  const eigeneGesehen = new Set();
+  const eigene = getState().bestand.filter((b) =>
+    b.zutat_id && !ZUTAT_INDEX[b.zutat_id] && !eigeneGesehen.has(b.zutat_id) && eigeneGesehen.add(b.zutat_id));
   return `
     <div class="section-gap">
       <div class="section-head"><h2>Gefunden</h2><button class="backlink" id="ean-zurueck">Abbrechen</button></div>
@@ -1462,9 +1596,14 @@ function barcodeUi() {
         <hr class="divider" style="margin:14px 0">
         <p class="small mute" style="margin-bottom:8px">Als welche Zutat buchen?</p>
         <select id="ean-zutat">
-          ${ZUTATEN.map((z) => `<option value="${z.id}" ${p.vorschlag?.id === z.id ? "selected" : ""}>${esc(z.name)}</option>`).join("")}
+          <option value="">Als eigenen Artikel anlegen („${esc(produkt.name)}“)</option>
+          ${eigene.length ? `<optgroup label="Eigene Artikel">${eigene.map((b) =>
+            `<option value="${esc(b.zutat_id)}">${esc(b.name)}</option>`).join("")}</optgroup>` : ""}
+          <optgroup label="Zutaten-Katalog">
+            ${ZUTATEN.map((z) => `<option value="${z.id}" ${p.vorschlag?.id === z.id ? "selected" : ""}>${esc(z.name)}</option>`).join("")}
+          </optgroup>
         </select>
-        ${p.vorschlag ? "" : '<p class="subtle small" style="margin-top:6px">Kein automatischer Treffer – bitte auswählen.</p>'}
+        ${p.vorschlag ? "" : '<p class="subtle small" style="margin-top:6px">Kein Katalog-Treffer – das Produkt wird als eigener Artikel angelegt. Oder wähl oben die passende Zutat.</p>'}
       </div>
       <div class="card hint-card" style="flex-direction:column">
         <b>Menge wird als Packungsgröße gebucht</b>
@@ -1532,10 +1671,26 @@ function bindBarcode() {
     const s = getState();
     const zutatId = app.querySelector("#ean-zutat").value;
     const produkt = scanPanel.produkt;
-    const kat = ZUTAT_INDEX[zutatId];
     // OFF-Packungsgröße nutzen, wenn Einheit zum Bestandseintrag passt
     const einheit = produkt.mengen_einheit === "g" || produkt.mengen_einheit === "ml" ? produkt.mengen_einheit : null;
-    buchZugang(s, zutatId, einheit && kat?.einheit === einheit ? produkt.menge : null, einheit);
+    if (zutatId) {
+      const kat = ZUTAT_INDEX[zutatId];
+      buchZugang(s, zutatId, einheit && kat?.einheit === einheit ? produkt.menge : null, einheit);
+    } else {
+      /* Kein Katalog-Treffer: das Produkt wird eigener Artikel – mit der
+         OFF-Packungsgröße statt eines geratenen Standardwerts. */
+      const vorher = new Set(s.bestand.map((b) => b.id));
+      const item = freierBestand(s, produkt.name);
+      const neu = !vorher.has(item.id);
+      if (einheit && produkt.menge && item.art === "schuettgut") {
+        item.packung = produkt.menge;
+        item.einheit = einheit;
+        item.menge = neu ? produkt.menge : (item.menge ?? 0) + produkt.menge;
+      } else if (!neu && item.art === "zaehlbar") {
+        item.menge = (item.menge ?? 0) + 1;
+      }
+      item.updated = new Date().toISOString();
+    }
     save();
     scanPanel = null;
     renderVorrat();
@@ -1914,15 +2069,20 @@ function schrankfotoUi() {
 }
 
 /* Mengen-Bedienelement je Führungsart – dieselbe Logik wie im Mengen-Screen,
-   nur kompakt in der Zeile (Design 19–21). */
+   nur kompakt in der Zeile (Design 19–21). Die Führungsart ist umschaltbar:
+   Auf dem Foto liegen vier Tortenguss-Päckchen – das ist eine Stückzahl, kein
+   „¾ voll", auch wenn der Artikel nicht im Katalog steht. Und bei Mandelmus
+   im Glas will man den Füllstand ziehen statt nur „vorrätig" zu sagen. */
 function fotoMengeUi(e, i) {
+  const wechsel = (ziel, text) => `<button class="mini-link" data-fot-art="${i}" data-wert="${ziel}">${text}</button>`;
   if (e.art === "pauschal") {
     const leer = e.menge === 0;
     return `
       <div class="quick-row">
         <button class="chip ${leer || e.nachfragen ? "" : "selected"}" data-fot-pausch="${i}" data-wert="da">vorrätig</button>
         <button class="chip ${leer ? "selected" : ""}" data-fot-pausch="${i}" data-wert="leer">leer</button>
-      </div>`;
+      </div>
+      <div class="foto-meta">${wechsel("schuettgut", "Füllstand schätzen")}</div>`;
   }
   if (e.art === "zaehlbar") {
     return `
@@ -1930,16 +2090,29 @@ function fotoMengeUi(e, i) {
         <button data-fot-schritt="${i}" data-wert="-1" aria-label="Weniger">${icon("minus", 18)}</button>
         <span class="count">${e.menge ?? 0}<span class="einheit">${esc(e.einheit)}</span></span>
         <button class="primary" data-fot-schritt="${i}" data-wert="1" aria-label="Mehr">${icon("plus", 18)}</button>
-      </div>`;
+      </div>
+      <div class="foto-meta">${wechsel("schuettgut", "Füllstand schätzen statt zählen")}</div>`;
   }
   const voll = e.packung || 500;
   const pct = Math.round(Math.min(1, (e.menge || 0) / voll) * 100);
   const stufen = [["leer", 0], ["¼", 25], ["½", 50], ["¾", 75], ["voll", 100]];
   const nahe = stufen.reduce((a, b) => (Math.abs(b[1] - pct) < Math.abs(a[1] - pct) ? b : a))[1];
   return `
-    <div class="quick-row">
-      ${stufen.map(([label, v]) => `
-        <button class="chip ${!e.nachfragen && nahe === v ? "selected" : ""}" data-fot-stufe="${i}" data-wert="${v}">${label}</button>`).join("")}
+    <div class="foto-fuellstand">
+      <div class="pack-silhouette mini"><div data-fot-fill="${i}" style="height:${pct}%"></div></div>
+      <div class="grow">
+        <input type="range" data-fot-regler="${i}" min="0" max="100" step="5" value="${pct}" style="--pct:${pct}%" aria-label="Füllstand in Prozent">
+        <div class="quick-row">
+          ${stufen.map(([label, v]) => `
+            <button class="chip ${!e.nachfragen && nahe === v ? "selected" : ""}" data-fot-stufe="${i}" data-wert="${v}">${label}</button>`).join("")}
+        </div>
+      </div>
+    </div>
+    <div class="foto-meta">
+      <label class="packung-edit">Packung
+        <input type="number" data-fot-packung="${i}" value="${voll}" min="10" max="20000" step="10" inputmode="numeric" aria-label="Packungsgröße"> ${esc(e.einheit || "g")}
+      </label>
+      ${wechsel("zaehlbar", "Stück zählen statt schätzen")}
     </div>`;
 }
 
@@ -2090,6 +2263,56 @@ function bindSchrankfoto() {
     renderVorrat();
   }));
 
+  /* Füllstands-Regler: beim Ziehen nur die Zeile nachführen (ein Neuzeichnen
+     risse den Griff aus der Hand), erst beim Loslassen den Screen auffrischen. */
+  app.querySelectorAll("[data-fot-regler]").forEach((r) => {
+    const i = Number(r.dataset.fotRegler);
+    r.addEventListener("input", () => {
+      const e = foto.eintraege[i];
+      const v = Number(r.value);
+      setzeFuellstand(e, v, e.packung);
+      getippt(e);
+      r.style.setProperty("--pct", `${v}%`);
+      const fill = app.querySelector(`[data-fot-fill="${i}"]`);
+      if (fill) fill.style.height = `${v}%`;
+      const nahe = [0, 25, 50, 75, 100].reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
+      app.querySelectorAll(`[data-fot-stufe="${i}"]`).forEach((c) => c.classList.toggle("selected", Number(c.dataset.wert) === nahe));
+    });
+    r.addEventListener("change", () => renderVorrat());
+  });
+
+  /* Packungsgröße korrigieren: der Anteil bleibt, die Basis ändert sich –
+     „¾ voll" von 500 g sind 380 g, nicht 150 g. */
+  app.querySelectorAll("[data-fot-packung]").forEach((f) => f.addEventListener("change", () => {
+    const e = foto.eintraege[Number(f.dataset.fotPackung)];
+    const neu = Math.round(Number(f.value) || 0);
+    if (neu < 10) { renderVorrat(); return; }
+    const anteil = e.packung ? Math.min(1, (e.menge || 0) / e.packung) : 0.5;
+    e.packung = neu;
+    setzeFuellstand(e, Math.round(anteil * 100), neu);
+    renderVorrat();
+  }));
+
+  /* Führungsart wechseln: vier sichtbare Päckchen sind eine Stückzahl, ein
+     Glas Mandelmus ein Füllstand. Die Menge ist danach bewusst wieder offen. */
+  app.querySelectorAll("[data-fot-art]").forEach((b) => b.addEventListener("click", () => {
+    const e = foto.eintraege[Number(b.dataset.fotArt)];
+    if (b.dataset.wert === "zaehlbar") {
+      e.art = "zaehlbar";
+      e.einheit = "Pck";
+      const n = Math.round(e.packung ? (e.menge || 0) / e.packung : 1);
+      e.menge = Math.min(20, Math.max(1, n || 1));
+    } else {
+      e.art = "schuettgut";
+      e.einheit = e.einheit === "ml" ? "ml" : "g";
+      e.packung = e.packung || 500;
+      setzeFuellstand(e, 50, e.packung);
+    }
+    e.nachfragen = true;
+    e.buchen = true;
+    renderVorrat();
+  }));
+
   app.querySelector("#fot-buchen")?.addEventListener("click", () => uebernehmeSchrankfoto());
 }
 
@@ -2102,6 +2325,14 @@ function uebernehmeSchrankfoto() {
     if (!e.buchen) continue;
     const item = e.zutat_id ? bestandFuer(s, e.zutat_id) : freierBestand(s, e.name);
     if (!item) continue;
+    /* Die Zeile darf Führungsart und Packungsgröße korrigiert haben (vier
+       Päckchen statt Schüttgut, Aufdruck 500 g statt Katalogwert) – der
+       Bestand zieht mit, sonst stimmt schon der nächste Blick wieder nicht. */
+    if (e.art && e.art !== item.art) {
+      item.art = e.art;
+      item.einheit = e.einheit || item.einheit;
+    }
+    if (item.art === "schuettgut" && e.packung) item.packung = e.packung;
     item.menge = item.art === "pauschal" ? (e.menge === 0 ? 0 : null) : e.menge;
     item.updated = new Date().toISOString();
     gebucht++;
@@ -2187,12 +2418,18 @@ function bindVorratAdd() {
    Namen abgeleitet, damit der Mengen-Screen direkt die richtige Bedienung
    zeigt (Stepper, Füllstandsregler oder da/leer). */
 const FREI_REGELN = [
-  { kat: "tk",      art: "schuettgut", packung: 450, muster: /tk|tiefkühl|gefroren|rahmspinat|eis\b/ },
+  /* \b um die Kürzel: ohne Wortgrenzen träfe /tk/ das „tk“ in „Bratkartoffel-
+     gewürz“ und /eis\b/ den „Jasminreis“ – beide lägen dann im Tiefkühlfach. */
+  { kat: "tk",      art: "schuettgut", packung: 450, muster: /\btk\b|tiefkühl|gefroren|rahmspinat|\beis\b/ },
   /* Fertigprodukte stehen vor den Zutatenregeln, sonst zieht ein Wort im
      Produktnamen die falsche Führungsart nach sich: „Maggi Zwiebelsuppe“ ist
      kein Bund Zwiebeln, sondern eine Packung. */
-  { kat: "trocken", art: "zaehlbar",   einheit: "Pck", muster: /suppe|soße|sosse|\bfix\b|backmischung|oblaten|riegel|tafel|tütchen/ },
-  { kat: "gewuerz", art: "pauschal",   muster: /gewürz|pulver|pfeffer|salz|paprika|curry|zimt|kümmel|muskat|chili/ },
+  { kat: "trocken", art: "zaehlbar",   einheit: "Pck", muster: /suppe|soße|sosse|\bfix\b|backmischung|oblaten|riegel|tafel|tütchen|tortenguss|natron|sahnesteif|puddingpulver|geliermittel|hefe\b|aroma\b/ },
+  /* Flaschen- und Glas-Saucen führen wie Ketchup/Senf im Katalog: da oder
+     leer. „Soße" (deutsch) bleibt oben beim Tütenpulver – „Sauce" ist die
+     Flasche. */
+  { kat: "konserve", art: "pauschal",  einheit: "ml", muster: /sauce|sirup|sambal|sriracha|siracha|mayo|dressing|worcester/ },
+  { kat: "gewuerz", art: "pauschal",   muster: /gewürz|pulver|pfeffer|salz|paprika|curry|zimt|kümmel|muskat|chili|majoran|oregano|thymian|rosmarin|lorbeer|nelken|wacholder/ },
   { kat: "konserve", art: "zaehlbar",  einheit: "Dose", muster: /dose|konserve|glas\b/ },
   { kat: "kuehl",   art: "schuettgut", packung: 250, muster: /käse|quark|joghurt|sahne|milch|butter|wurst|schinken|tofu|tempeh|seitan|fleisch|hack|fisch|filet|creme|dip/ },
   { kat: "frisch",  art: "zaehlbar",   muster: /salat|kohl|obst|gemüse|frisch|kraut|beere|apfel|birne|zwiebel|kürbis|paprika|gurke/ },
@@ -2214,6 +2451,11 @@ function freieZutatDaten(name) {
    Auch der Weg, auf dem diktierte Artikel ohne Katalogtreffer landen. */
 function freierBestand(s, rohName) {
   const name = rohName.trim().replace(/\s+/g, " ");
+  /* Trifft der Name exakt eine Katalogzutat, gibt es kein frei_-Doppel:
+     ein eigener Artikel „Passierte Tomaten" neben der Katalogzutat fände
+     sonst kein Rezept und zählte in keiner Bestandsdeckung mit. */
+  const kat = ZUTATEN.find((z) => z.name.toLowerCase() === name.toLowerCase());
+  if (kat) return bestandFuer(s, kat.id);
   const zutatId = `frei_${name.toLowerCase().replace(/[^a-z0-9äöüß]+/g, "_").replace(/^_|_$/g, "")}`;
   const vorhanden = s.bestand.find((b) => b.zutat_id === zutatId);
   if (vorhanden) return vorhanden;
@@ -2265,9 +2507,14 @@ function renderVorratEdit(itemId) {
   const item = s.bestand.find((b) => b.id === itemId);
   if (!item) { renderVorrat(); return; }
   const voll = item.packung || ZUTAT_INDEX[item.zutat_id]?.packung || null;
-  const anteil = voll && item.menge != null ? Math.min(1, item.menge / voll) : 0.5;
-
-  const pct = Math.round(anteil * 100);
+  const basis = voll || 500;
+  /* Mehrere Packungen derselben Zutat (3 × 250 g Tomatenmark): die Menge ist
+     „ganze ungeöffnete Packungen + eine offene". Regler und Viertel-Raster
+     beschreiben nur die offene; die ganzen zählt ein eigener Stepper. */
+  const ganze = item.art === "schuettgut" ? Math.max(0, Math.ceil((item.menge ?? 0) / basis) - 1) : 0;
+  const ganzeBasis = ganze * basis;
+  const offen = Math.max(0, (item.menge ?? 0) - ganzeBasis);
+  const pct = item.menge != null ? Math.round(Math.min(1, offen / basis) * 100) : 50;
   const untertitel = [KATEGORIE_NAMEN[item.kategorie]];
   if (item.art === "schuettgut" && voll) untertitel.push(`Packung ${voll} ${item.einheit}`);
   else if (item.art === "zaehlbar") untertitel.push("zählbar");
@@ -2311,6 +2558,14 @@ function renderVorratEdit(itemId) {
         <div class="quick-row">
           ${stufen.map(([label, v]) => `<button class="chip ${naheStufe === v ? "selected" : ""}" data-stufe="${v}">${label}</button>`).join("")}
         </div>
+        <div class="pack-mehr">
+          <span class="lbl">Ungeöffnet dazu</span>
+          <div class="mini-stepper">
+            <button id="pack-minus" aria-label="Eine ganze Packung weniger" ${ganze ? "" : "disabled"}>${icon("minus", 18)}</button>
+            <span class="count">${ganze}<span class="einheit">× ${basis} ${esc(item.einheit)}</span></span>
+            <button id="pack-plus" class="primary" aria-label="Eine ganze Packung mehr">${icon("plus", 18)}</button>
+          </div>
+        </div>
       </div>`;
     fussnote = '<p class="centered-note">Schätzen reicht – vorratio rechnet mit ±10–15 % Spielraum.</p>';
   } else {
@@ -2335,6 +2590,14 @@ function renderVorratEdit(itemId) {
       </div>
       ${mengenUi}
       ${fussnote}
+      ${item.eigen ? `
+        <div class="card" style="margin-top:12px">
+          <p class="small mute" style="margin-bottom:8px">Einsortiert unter</p>
+          <div class="chip-wrap">
+            ${Object.entries(KATEGORIE_NAMEN).map(([id, name]) => `
+              <button class="chip ${item.kategorie === id ? "selected" : ""}" data-kat="${id}">${esc(name)}</button>`).join("")}
+          </div>
+        </div>` : ""}
       <button class="btn" id="sichern">Sichern</button>
       <button class="btn danger" id="entfernen">Aus dem Vorrat entfernen</button>
     </div>`, `vorrat-edit:${itemId}`);
@@ -2358,15 +2621,35 @@ function renderVorratEdit(itemId) {
   }));
   app.querySelector("#da")?.addEventListener("click", () => { item.menge = null; stempel(); renderVorratEdit(itemId); });
   app.querySelector("#leer")?.addEventListener("click", () => { item.menge = 0; stempel(); renderVorratEdit(itemId); });
-  app.querySelectorAll("[data-stufe]").forEach((b) => b.addEventListener("click", () => {
-    setzeFuellstand(item, Number(b.dataset.stufe), voll);
+  /* Eigene Artikel: die aus dem Namen geratene Kategorie ist korrigierbar –
+     Bratkartoffelgewürz gehört zu den Gewürzen, nicht in den Tiefkühler. */
+  app.querySelectorAll("[data-kat]").forEach((b) => b.addEventListener("click", () => {
+    item.kategorie = b.dataset.kat;
     stempel();
     renderVorratEdit(itemId);
   }));
+  /* Regler und Raster setzen die offene Packung – die ganzen bleiben stehen. */
+  app.querySelectorAll("[data-stufe]").forEach((b) => b.addEventListener("click", () => {
+    setzeFuellstand(item, Number(b.dataset.stufe), voll);
+    item.menge += ganzeBasis;
+    stempel();
+    renderVorratEdit(itemId);
+  }));
+  app.querySelector("#pack-minus")?.addEventListener("click", () => {
+    item.menge = Math.max(0, (item.menge ?? 0) - basis);
+    stempel();
+    renderVorratEdit(itemId);
+  });
+  app.querySelector("#pack-plus")?.addEventListener("click", () => {
+    item.menge = (item.menge ?? 0) + basis;
+    stempel();
+    renderVorratEdit(itemId);
+  });
   const slider = app.querySelector("#fuellstand");
   slider?.addEventListener("input", () => {
     const v = Number(slider.value);
     setzeFuellstand(item, v, voll);
+    item.menge += ganzeBasis;
     slider.style.setProperty("--pct", `${v}%`);
     app.querySelector("#pack-fill").style.height = `${v}%`;
     app.querySelector("#menge-label").textContent = mengeAnzeige(item);
@@ -2383,19 +2666,36 @@ function setzeFuellstand(item, prozent, voll) {
 }
 
 /* ----------------------------------------------------------------- Einkauf */
+/* Leere/fast leere Vorräte einsammeln (Kap. 4.7). Ungefragt wandern nur
+   Grundzutaten auf die Liste – Öl, Essig, Brühe, Gewürze, die vorher von Hand
+   auf "leer" gesetzt wurden. Alles andere wird vorgeschlagen und erst nach
+   einem Tap gebucht: ob die letzte Dose Tomaten nachgekauft werden soll, weiß
+   nur der Mensch. Rückgabe = die offenen Vorschläge (abgeleitet, nicht
+   gespeichert). Was der Nutzer ablehnt, steht in einkauf.abgelehnt und ist
+   vergessen, sobald der Vorrat wieder über der Schwelle liegt. */
 function syncWochenliste(s) {
-  // Leere/fast leere Vorräte landen automatisch auf der Wochenliste (Kap. 4.7)
   const kandidaten = wochenKandidaten(s.bestand);
+  const ids = new Set(kandidaten.map((k) => k.zutat_id));
+  s.einkauf.abgelehnt = s.einkauf.abgelehnt.filter((id) => ids.has(id));
+
+  const aufListe = new Set(s.einkauf.woche.map((w) => w.zutat_id));
+  const abgelehnt = new Set(s.einkauf.abgelehnt);
+  const offen = [];
   for (const k of kandidaten) {
-    if (!s.einkauf.woche.some((w) => w.zutat_id === k.zutat_id)) {
+    if (aufListe.has(k.zutat_id) || abgelehnt.has(k.zutat_id)) continue;
+    if (istGrundzutat(k.zutat_id)) {
       s.einkauf.woche.push({ zutat_id: k.zutat_id, name: k.name, erledigt: false, auto: true });
+      aufListe.add(k.zutat_id);
+    } else {
+      offen.push({ zutat_id: k.zutat_id, name: k.name });
     }
   }
+  return offen;
 }
 
 function renderEinkauf() {
   const s = getState();
-  syncWochenliste(s);
+  const vorschlaegeEinkauf = syncWochenliste(s);
   const rezept = s.einkauf.rezeptId ? findRezept(s.einkauf.rezeptId) : null;
 
   const rezeptErledigt = s.einkauf.rezept.filter((e) => e.erledigt).length;
@@ -2418,6 +2718,23 @@ function renderEinkauf() {
         </div>
         <button class="btn" id="einkauf-fertig">Eingekauft → in den Vorrat buchen</button>` : ""}
 
+      ${vorschlaegeEinkauf.length ? `
+        <div class="section-gap">
+          <div class="section-head">
+            <h2>Kommt das mit?</h2>
+            <span class="small mute">${vorschlaegeEinkauf.length} zur Neige</span>
+          </div>
+          <div class="card">
+            ${vorschlaegeEinkauf.map((e, i) => `
+              <div class="list-item">
+                <button class="check" data-v-ja="${i}" aria-label="Auf die Liste setzen">${icon("plus", 24)}</button>
+                <div class="grow">${esc(e.name)}</div>
+                <button class="icon-btn" data-v-nein="${i}" aria-label="Nicht nachkaufen">${icon("x", 20)}</button>
+              </div>`).join("")}
+          </div>
+          <p class="centered-note">Grundzutaten – Öl, Essig, Brühe, Gewürze – kommen weiter ungefragt auf die Liste.</p>
+        </div>` : ""}
+
       <div class="section-gap">
         <div class="section-head">
           <h2>Wocheneinkauf</h2>
@@ -2437,7 +2754,7 @@ function renderEinkauf() {
           <div class="empty-state">
             ${icon("einkauf", 46)}
             <h3>Nichts auf der Liste</h3>
-            <p>Dein Vorrat sieht gut aus. Was leer wird, landet hier automatisch.</p>
+            <p>Dein Vorrat sieht gut aus. Was zur Neige geht, fragt Vorratio hier ab.</p>
           </div>`}
       </div>
 
@@ -2461,7 +2778,22 @@ function renderEinkauf() {
     save(); renderEinkauf();
   }));
   app.querySelectorAll("[data-w-del]").forEach((b) => b.addEventListener("click", () => {
-    s.einkauf.woche.splice(Number(b.dataset.wDel), 1);
+    /* Wegwischen muss halten: sonst legt syncWochenliste den Punkt beim
+       nächsten Zeichnen wieder an, solange der Vorrat niedrig ist. */
+    const [weg] = s.einkauf.woche.splice(Number(b.dataset.wDel), 1);
+    if (weg?.auto && weg.zutat_id && !s.einkauf.abgelehnt.includes(weg.zutat_id)) {
+      s.einkauf.abgelehnt.push(weg.zutat_id);
+    }
+    save(); renderEinkauf();
+  }));
+  app.querySelectorAll("[data-v-ja]").forEach((b) => b.addEventListener("click", () => {
+    const v = vorschlaegeEinkauf[Number(b.dataset.vJa)];
+    if (v) s.einkauf.woche.push({ zutat_id: v.zutat_id, name: v.name, erledigt: false, auto: true });
+    save(); renderEinkauf();
+  }));
+  app.querySelectorAll("[data-v-nein]").forEach((b) => b.addEventListener("click", () => {
+    const v = vorschlaegeEinkauf[Number(b.dataset.vNein)];
+    if (v && !s.einkauf.abgelehnt.includes(v.zutat_id)) s.einkauf.abgelehnt.push(v.zutat_id);
     save(); renderEinkauf();
   }));
   app.querySelector("#einkauf-fertig")?.addEventListener("click", async () => {

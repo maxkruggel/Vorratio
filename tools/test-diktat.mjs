@@ -55,6 +55,12 @@ pruefe("„und“/„dann“ trennen ebenfalls", () => {
   gleich(ids("Kaffee und Tee dann noch Zucker"), ["ing_kaffee", "ing_tee", "ing_zucker"]);
 });
 
+/* "Erbsen und Möhren" ist die Dosen-Mischung – das "und" gehört zum Namen.
+   Geschützt wird nur, was so im Katalog oder eigenen Bestand steht. */
+pruefe("„Erbsen und Möhren“ bleibt ein Artikel", () => {
+  gleich(lies("Zwei Dosen Erbsen und Möhren"), ["ing_erbsen_moehren_dose|2 Dose"]);
+});
+
 pruefe("mehrteilige Namen bleiben zusammen", () => {
   gleich(ids("passierte Tomaten geriebener Käse"), ["ing_passierte_tomaten", "ing_reibekaese"]);
 });
@@ -87,6 +93,28 @@ pruefe("jede Menge gehört ihrem eigenen Artikel", () => {
 
 pruefe("die Einheit schärft die Zutat", () => {
   gleich(ids("drei Tomaten und zwei Dosen Tomaten"), ["ing_tomate_frisch", "ing_tomate_dose"]);
+});
+
+/* Gesprochene ml dürfen eine in g geführte Zutat nicht ausschließen –
+   ml ≈ g liegt im Toleranzband. */
+pruefe("„700 ml passierte Tomaten“ trifft die Passata in g", () => {
+  gleich(lies("700 ml passierte Tomaten"), ["ing_passierte_tomaten|700 ml"]);
+});
+
+/* Mal-Wörter: "zweimal 700 ml" ist EINE Angabe (2 × 700 ml), kein neuer
+   Artikel – vorher wurde daraus "Passierte" mit 700 ml plus ein Rest. */
+pruefe("„zweimal“ multipliziert die Packungsgröße", () => {
+  gleich(lies("zweimal 700 ml passierte Tomaten"), ["ing_passierte_tomaten|1400 ml"]);
+});
+
+pruefe("„einmal“ ist eine Stückzahl", () => {
+  gleich(lies("einmal Haferdrink"), ["ing_haferdrink|1 ×"]);
+});
+
+/* Das Diktat aus der Praxis, an dem der Parser gescheitert war. */
+pruefe("Aufzählung ohne Satzzeichen aus der Praxis", () => {
+  gleich(lies("Zwei Dosen Erbsen und Möhren zwei Gläser Gewürzgurken zweimal 700 ml passierte Tomaten"),
+    ["ing_erbsen_moehren_dose|2 Dose", "ing_gewuerzgurken|2 Glas", "ing_passierte_tomaten|1400 ml"]);
 });
 
 pruefe("ohne Menge gilt „vorrätig“", () => {
