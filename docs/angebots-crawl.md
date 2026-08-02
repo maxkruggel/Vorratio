@@ -14,7 +14,12 @@ Löst Punkt 5 der offenen Punkte: „Quelle final festlegen und Matching (Textab
   1. marktguru.de im Desktop-Browser öffnen, PLZ setzen, irgendein Produkt suchen.
   2. Entwicklertools → Netzwerk → eine Anfrage an `api.marktguru.de` anklicken.
   3. Request-Header `x-apikey` und `x-clientkey` kopieren.
-  4. In der App: Einkauf → Angebots-Crawl → Einstellungen → einfügen (wird lokal per Auto-Save gespeichert, wandert mit dem JSON-Export).
+  4. In der App: Einkauf → Angebote der Woche → Einstellungen → **Für Fortgeschrittene** → einfügen (wird lokal per Auto-Save gespeichert, wandert mit dem JSON-Export).
+
+  Die Keys liegen bewusst hinter dem Fortgeschrittenen-Bereich: In der normalen
+  Ansicht braucht es nur die Postleitzahl. Ohne Keys läuft der Vergleich mit
+  Beispielangeboten und sagt das auch – niemand soll Entwicklertools öffnen
+  müssen, um die App zu benutzen.
 - Verworfen: REWE-API (seit 2024 mTLS – Umgehung technischer Schutzmaßnahmen kommt nicht infrage), Bonial/kaufDA (keine offene API).
 
 **Schonender Umgang** (rechtliche Einordnung siehe Recherche 3, Kap. 6): eine Suchanfrage je Listenpunkt, ~450 ms Pause zwischen den Anfragen, Ergebnis wird **eine Kalenderwoche** gecacht (Kap. 4.7: „einmal wöchentlich, z. B. freitags"). Keine Umgehung von Zugangsschutz, keine Massenabfragen.
