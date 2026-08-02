@@ -150,6 +150,13 @@ Datumsstempel für Tagesvorschläge kommen aus `lokalesDatum()` (Ortszeit, nicht
 - **Snack-Ecke:** eigene Schiene außerhalb der Slots (`mahlzeitentyp: ["snack"]`,
   `SNK-`Rezepte). `nurSnack`-Rezepte tauchen nie in Essens-Slots auf, auch nicht
   beim Pool-Auffüllen.
+- **Tofusorte ist ein Match-Kriterium, keine Feinheit:** Fester Tofu
+  (`ing_tofu_fest`/`ing_tofu_natur`), Seidentofu (`ing_tofu_seiden`) und
+  Räuchertofu (`ing_raeuchertofu`) sind getrennte Zutaten – der Bestandsabgleich
+  trennt sie damit von selbst. Wer sie zu einer `zutat_id` zusammenlegt oder in
+  einem Rezept die falsche einträgt, schlägt jemandem einen knusprigen Tofu vor,
+  der nur Seidentofu im Kühlschrank hat (und umgekehrt Mousse aus festem Tofu).
+  Ein neues Tofu-Rezept prüft deshalb zuerst die Sorte, dann alles andere.
 - **Diktat (`js/diktat.js`, UI im Vorrat):** Aufzählen statt antippen. Die
   Auswertung läuft ohne Key lokal, mit Key über `leseDiktat()` – beide liefern
   dieselbe Eintragsform und enden in derselben Bestätigungsliste. „halb
@@ -319,6 +326,11 @@ Komposita-Regeln), `marktAuswertung` (Deckung > Ø-Rabatt > Angebotszahl),
 Datensatz, fürs Rezept-Detail), `subsFiltern` (Wissen-Tab), `produkteSortiert`
 (Eigenmarken zuerst). Ei ist funktionsbasiert modelliert (mehrere Datensätze).
 Allergie-Filter über `BASIS_ALLERGENE[alt.basis]`, hart wie überall.
+Die DB beantwortet zwei Fragen: „pflanzlich statt tierisch" (Regelfall) und
+seit den Tofu-Datensätzen auch die Gegenrichtung „Rezept verlangt Tofu, keiner
+da" (`sub_tofu_fest`, `sub_tofu_seiden`, `sub_raeuchertofu`). Fester Tofu und
+Seidentofu stehen bewusst in getrennten Datensätzen – sie sind untereinander
+kein Ersatz.
 
 ## Externe Dienste (alle direkt vom Client)
 
