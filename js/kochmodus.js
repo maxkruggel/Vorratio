@@ -109,6 +109,10 @@ function renderKochmodus() {
           </div>
           <p class="subtle small" style="text-align:center;margin-top:16px">Portionen · Mengen rechnen sich mit</p>
         </div>
+        ${cook.portionen === 1 ? `
+          <div class="card hint-card">${icon("tipp", 20)}
+            <span class="hint-body">Koch ruhig 2–3 Portionen – der Rest ist Nachschlag oder das Essen für morgen. Abgebucht wird nur, was du wirklich kochst.</span>
+          </div>` : ""}
         ${vorschau ? `
           <div class="card hint-card" style="flex-direction:column">
             <b>Für ${cook.portionen} ${cook.portionen === 1 ? "Portion" : "Portionen"} brauchst du</b>
