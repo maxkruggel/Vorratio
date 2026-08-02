@@ -2345,8 +2345,12 @@ const FREI_REGELN = [
   /* Fertigprodukte stehen vor den Zutatenregeln, sonst zieht ein Wort im
      Produktnamen die falsche Führungsart nach sich: „Maggi Zwiebelsuppe“ ist
      kein Bund Zwiebeln, sondern eine Packung. */
-  { kat: "trocken", art: "zaehlbar",   einheit: "Pck", muster: /suppe|soße|sosse|\bfix\b|backmischung|oblaten|riegel|tafel|tütchen/ },
-  { kat: "gewuerz", art: "pauschal",   muster: /gewürz|pulver|pfeffer|salz|paprika|curry|zimt|kümmel|muskat|chili/ },
+  { kat: "trocken", art: "zaehlbar",   einheit: "Pck", muster: /suppe|soße|sosse|\bfix\b|backmischung|oblaten|riegel|tafel|tütchen|tortenguss|natron|sahnesteif|puddingpulver|geliermittel|hefe\b|aroma\b/ },
+  /* Flaschen- und Glas-Saucen führen wie Ketchup/Senf im Katalog: da oder
+     leer. „Soße" (deutsch) bleibt oben beim Tütenpulver – „Sauce" ist die
+     Flasche. */
+  { kat: "konserve", art: "pauschal",  einheit: "ml", muster: /sauce|sirup|sambal|sriracha|siracha|mayo|dressing|worcester/ },
+  { kat: "gewuerz", art: "pauschal",   muster: /gewürz|pulver|pfeffer|salz|paprika|curry|zimt|kümmel|muskat|chili|majoran|oregano|thymian|rosmarin|lorbeer|nelken|wacholder/ },
   { kat: "konserve", art: "zaehlbar",  einheit: "Dose", muster: /dose|konserve|glas\b/ },
   { kat: "kuehl",   art: "schuettgut", packung: 250, muster: /käse|quark|joghurt|sahne|milch|butter|wurst|schinken|tofu|tempeh|seitan|fleisch|hack|fisch|filet|creme|dip/ },
   { kat: "frisch",  art: "zaehlbar",   muster: /salat|kohl|obst|gemüse|frisch|kraut|beere|apfel|birne|zwiebel|kürbis|paprika|gurke/ },
@@ -2368,6 +2372,11 @@ function freieZutatDaten(name) {
    Auch der Weg, auf dem diktierte Artikel ohne Katalogtreffer landen. */
 function freierBestand(s, rohName) {
   const name = rohName.trim().replace(/\s+/g, " ");
+  /* Trifft der Name exakt eine Katalogzutat, gibt es kein frei_-Doppel:
+     ein eigener Artikel „Passierte Tomaten" neben der Katalogzutat fände
+     sonst kein Rezept und zählte in keiner Bestandsdeckung mit. */
+  const kat = ZUTATEN.find((z) => z.name.toLowerCase() === name.toLowerCase());
+  if (kat) return bestandFuer(s, kat.id);
   const zutatId = `frei_${name.toLowerCase().replace(/[^a-z0-9äöüß]+/g, "_").replace(/^_|_$/g, "")}`;
   const vorhanden = s.bestand.find((b) => b.zutat_id === zutatId);
   if (vorhanden) return vorhanden;
