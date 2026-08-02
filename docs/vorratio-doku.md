@@ -221,7 +221,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 | 4 | Picnic: Rechtsrecherche liegt vor (Freigabe privat, Kap. 7.2) → Funktionsvalidierung mit vorhandenem Zugang | To-do |
 | 5 | Angebots-Crawl: Quelle + Matching prototypen (7.4, `docs/angebots-crawl.md`) | erledigt |
 | 6 | Web-Push für feste Vorschlagszeiten einrichten (Muster aus Flora AI übernehmen; braucht Push-Server) | To-do – Fallback aktiv: Vorschläge liegen beim Öffnen bereit |
-| 7 | Icon-Palette erstellen | UI-Icon-Set erledigt (Duotone, `js/icons.js`); Produkt-Icons je Zutat offen |
+| 7 | Icon-Palette erstellen | UI-Icon-Set erledigt (Duotone, `js/icons.js`); Produkt-Icons je Zutat offen – Arbeitsliste: `docs/design-handoff/ICON-BRIEF-PRODUKT-ICONS.md` (87 Icons für 92 Zutaten) |
 | 8 | Kern-Rezept-DB von 60 auf 300–500 Datensätze ausbauen | geplant |
 | 9 | Finales Branding + Chatbot-Name | Branding erledigt (Claude Design 2A, 08/2026); Chatbot-Name offen |
 | 10 | Lizenz-Check vor einem etwaigen Marktgang (ODbL Share-Alike, TheMealDB-Attribution) | vor Release |
