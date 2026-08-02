@@ -809,7 +809,7 @@ function vorratZeile(item) {
 /* Leerer Vorrat (Design 15): Erklärkarte + die drei Wege hinein. */
 function vorratLeerHtml() {
   const wege = [
-    ["erfassen", "Aus der Liste tippen", "Über 200 gängige Zutaten vorbereitet"],
+    ["erfassen", "Aus der Liste tippen", `${ZUTATEN.length} gängige Zutaten vorbereitet`],
     ["barcode", "Barcode scannen", "Produktdaten von Open Food Facts"],
     ["kamera", "Kassenbon fotografieren", "Claude liest ihn aus"],
   ];
