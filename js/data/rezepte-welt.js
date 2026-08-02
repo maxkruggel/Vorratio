@@ -642,7 +642,7 @@ const REZEPTE_WELT = [
     id: "WLT-025", name: "Kimchi-Jjigae", typ: "rezept", kategorie: "Suppe/Eintopf",
     cuisine: "koreanisch", mahlzeitentyp: ["mittag", "abend"], portionen: 3, schwierigkeit: "einfach",
     zutaten: [
-      { menge: 400, einheit: "g", zutat_id: "ing_sauerkraut", zutat_name: "reifes Kimchi" },
+      { menge: 400, einheit: "g", zutat_id: "ing_kimchi", zutat_name: "reifes veganes Kimchi" },
       { menge: 1, einheit: "Pck", zutat_id: "ing_tofu_natur", zutat_name: "Tofu" },
       { menge: 1, einheit: "Stk", zutat_id: "ing_zwiebel", zutat_name: "Zwiebel" },
       { menge: 2, einheit: "EL", zutat_id: "ing_gochujang", zutat_name: "Gochujang" },

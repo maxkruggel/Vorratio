@@ -184,6 +184,7 @@ const ALIAS = {
   moehren: "ing_moehre", karotten: "ing_moehre", knoblauch: "ing_knoblauch",
   spinat: "ing_spinat", quark: "ing_quark", joghurt: "ing_joghurt_natur",
   kaese: "ing_schnittkaese", sahne: "ing_sahne", tofu: "ing_tofu_natur",
+  schwarzsalz: "ing_kala_namak", seidentofu: "ing_tofu_seiden",
 };
 
 /* ------------------------------------------------------- Normalisierung */
