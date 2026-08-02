@@ -2826,6 +2826,17 @@ function renderProfil() {
           <button class="btn ghost small-btn" id="vorrat-loeschen">Löschen</button></div>` : ""}
       </div>
 
+      <h2 class="section-gap">App</h2>
+      <div class="card">
+        <div class="card-row" style="align-items:center">
+          <div class="grow">
+            <span class="name">Stand ${esc(installierterStand || "wird geprüft …")}</span>
+            <span class="subtle small" style="display:block">Vorratio holt sich neue Versionen beim Öffnen von allein – du musst sie nie neu auf den Homebildschirm legen.</span>
+          </div>
+          <button class="btn ghost small-btn" id="update-suchen">Prüfen</button>
+        </div>
+      </div>
+
       <h2 class="section-gap">Daten</h2>
       <div class="btn-row">
         <button class="btn secondary" id="export">Export</button>
@@ -2836,6 +2847,21 @@ function renderProfil() {
       <button class="btn danger" id="reset">Alle Daten zurücksetzen</button>
       <p class="centered-note" style="margin-top:20px">vorratio v1 · lokal &amp; privat · ersetzt keine Ernährungs- oder ärztliche Beratung</p>
     </div>`, "profil");
+
+  frageStandAb();
+  app.querySelector("#update-suchen")?.addEventListener("click", async () => {
+    if (!swReg) { toast("Diese Installation läuft ohne Service Worker – einmal im Browser neu laden.", "warn"); return; }
+    toast("Suche nach einer neuen Version …");
+    try {
+      await swReg.update();
+      // Findet sich etwas, übernimmt der neue Worker gleich und lädt neu.
+      toast(swReg.installing || swReg.waiting || updateBereit
+        ? "Neue Version gefunden – wird geladen."
+        : "Du bist auf dem neuesten Stand.");
+    } catch {
+      toast("Prüfung nicht möglich – bist du offline?", "warn");
+    }
+  });
 
   app.querySelectorAll("[data-popen]").forEach((b) => b.addEventListener("click", () => {
     const k = b.dataset.popen;
@@ -2916,6 +2942,84 @@ function renderProfil() {
   });
 }
 
+/* ---------------------------------------------------- App-Aktualisierung
+   Eine Homescreen-Web-App wird auf iOS fortgesetzt, nicht neu geladen: Wer
+   sie einmal installiert hat, bekommt ohne aktives Nachsehen nie wieder eine
+   neue Version zu sehen – man landet sonst dabei, sie regelmäßig neu auf den
+   Homebildschirm zu legen und dabei seine Daten zu verlieren.
+
+   Darum hier: Bei jeder Rückkehr in den Vordergrund beim Server nachfragen
+   (`updateViaCache: "none"`, sonst darf der Browser die alte sw.js liefern).
+   Übernimmt danach ein neuer Service Worker, wird einmal neu geladen – aber
+   nur, wenn gerade nichts unterbrochen wird. Der Zustand liegt ohnehin nach
+   jeder Aktion im Speicher, ein Neuladen kostet also keine Daten. */
+let swReg = null;
+let updateBereit = false;
+let installierterStand = null;
+const hatteController = "serviceWorker" in navigator && !!navigator.serviceWorker.controller;
+
+function starteServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" })
+    .then((reg) => { swReg = reg; })
+    .catch(() => {});
+
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    if (e.data?.typ !== "version" || installierterStand === e.data.cache) return;
+    installierterStand = e.data.cache;
+    if (view === "profil") renderProfil();      // nur bei Änderung – sonst dreht sich das im Kreis
+  });
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    // Beim allerersten Besuch übernimmt der Worker auch – das ist kein Update.
+    if (!hatteController) return;
+    updateBereit = true;
+    spieleUpdateEin();
+  });
+  frageStandAb();
+}
+
+function frageStandAb() {
+  navigator.serviceWorker?.controller?.postMessage("version");
+}
+
+function sucheUpdate() {
+  if (!swReg) return;
+  swReg.update().catch(() => {});
+}
+
+/* Neu laden, sobald es niemanden mitten im Satz unterbricht. Sonst wartet das
+   Update auf den nächsten ruhigen Moment – es läuft ja nicht weg. */
+function darfNeuLaden() {
+  return !kochtGerade() && !editor && !diktat && !bon && !scanPanel
+    && !detailRezept && !document.querySelector("dialog[open]");
+}
+
+const UPDATE_ANSICHT = "vorratio_update_ansicht";
+
+function spieleUpdateEin() {
+  if (!updateBereit) return;
+  if (!darfNeuLaden()) return;
+  updateBereit = false;
+  /* Nach dem Neustart wieder dort landen, wo man war – ein Update darf sich
+     nicht anfühlen wie ein Absturz. Die Notiz gilt nur für diesen einen
+     Neustart und wird beim Lesen gleich wieder weggeräumt. */
+  try { sessionStorage.setItem(UPDATE_ANSICHT, view); } catch { /* Speicher gesperrt: dann eben Heute */ }
+  location.reload();
+}
+
+/* Kam der Neustart von einem Update, sagt die App das auch – sonst blitzt sie
+   grundlos einmal auf und niemand weiß, warum. */
+function meldeUpdateNach() {
+  let vorherigeAnsicht = null;
+  try {
+    vorherigeAnsicht = sessionStorage.getItem(UPDATE_ANSICHT);
+    sessionStorage.removeItem(UPDATE_ANSICHT);
+  } catch { /* Speicher gesperrt */ }
+  if (!vorherigeAnsicht) return;
+  view = vorherigeAnsicht;
+  setTimeout(() => toast("Vorratio ist auf dem neuesten Stand"), 500);
+}
+
 /* ------------------------------------------------------------------- Start */
 load();
 initKochmodus({ render, findRezept, syncWochenliste });
@@ -2937,9 +3041,8 @@ onSpeicherFehler(() => {
 stelleVorschlaegeBereit();   // Push-Fallback: beim Öffnen liegen die Slot-Vorschläge bereit
 stelleSnacksBereit();        // … und die Snack-Ecke gleich mit
 stelleKochenWieder();        // unterbrochenen Kochdurchgang fortsetzen
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}
+starteServiceWorker();
+meldeUpdateNach();           // kam der Neustart von einem Update? Dann zurück zur alten Ansicht
 render();
 
 /* Wandert die App in den Hintergrund, endet ein laufendes Diktat sofort –
@@ -2958,6 +3061,9 @@ document.addEventListener("visibilitychange", () => {
    Hintergrund friert das Intervall ein, der Zeitstempel nicht. */
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;
+  // Beim Öffnen zählt auch: Gibt es die App inzwischen in neu?
+  sucheUpdate();
+  spieleUpdateEin();          // ein Update, das beim letzten Mal warten musste
   if (kochtGerade()) { pruefeTimerNachPause(); return; }
   const vorher = getState().vorschlaege;
   const snacksVorher = getState().snackVorschlaege;

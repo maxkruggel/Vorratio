@@ -8,7 +8,24 @@ und hält den Bestand über den Einkauf aktuell – ein geschlossener Kreislauf.
 Was schmeckt, wandert ins Kochbuch: gemerkte und eigene Rezepte bleiben dort, auch
 wenn die Tagesvorschläge längst weitergezogen sind.
 
-## Ausprobieren
+## Auf dem iPhone installieren
+
+**https://maxkruggel.github.io/Vorratio/** in Safari öffnen → Teilen → „Zum Home-Bildschirm“.
+
+Diese Adresse ist die richtige – und die einzige, die man je braucht:
+
+- Jeder Push auf `main` geht automatisch live (GitHub Pages).
+- Die App **aktualisiert sich selbst**: Bei jeder Rückkehr in den Vordergrund sieht sie
+  nach, ob es eine neue Version gibt, und lädt sie einmal nach – aber nie mitten im
+  Kochen, Schreiben oder Diktieren. Danach ist man wieder im selben Tab.
+  Neu auf den Homebildschirm legen muss man nichts, **Daten bleiben also erhalten**.
+- Der installierte Stand steht im Profil unter „App“, dort lässt sich auch von Hand prüfen.
+
+Der Vorrat liegt im localStorage und hängt an der Adresse. Wer die App von einer
+LAN-IP (`http://192.168.…:8080`) installiert, verliert seine Daten, sobald der Router
+eine andere IP vergibt – der lokale Server unten ist zum Entwickeln, nicht zum Wohnen.
+
+## Lokal entwickeln
 
 Statisch servieren, mehr braucht es nicht:
 
@@ -16,8 +33,6 @@ Statisch servieren, mehr braucht es nicht:
 python3 -m http.server 8080
 # → http://localhost:8080
 ```
-
-Auf dem iPhone: in Safari öffnen → Teilen → „Zum Home-Bildschirm“.
 
 Rezeptdatenbank prüfen (vor jedem Commit an den Daten):
 

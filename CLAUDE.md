@@ -14,7 +14,11 @@ localStorage, Service Worker. Geschlossener Kreislauf: Bestand erfassen →
 Rezeptvorschläge (3 je Essens-Slot + Snack-Ecke) → Kochmodus mit Timern →
 automatische Abbuchung mit Toleranz → Einkauf füllt den Bestand wieder auf.
 
-- Starten: `python3 -m http.server 8080` (statisch servieren reicht)
+- Läuft öffentlich auf GitHub Pages: **https://maxkruggel.github.io/Vorratio/** – jeder Push
+  auf `main` deployt automatisch. Das ist die Adresse für den Homebildschirm; nur dort
+  bleiben die Daten (localStorage hängt an der Adresse).
+- Lokal starten: `python3 -m http.server 8080` (statisch servieren reicht) – zum Entwickeln,
+  nicht zum Installieren
 - Prüfen: `node tools/validate-db.mjs` (Rezeptdaten) + `node tools/test-engine.mjs`
   (Engine). Beides läuft in der CI (`.github/workflows/ci.yml`), ohne
   Abhängigkeiten. Dazu `node tools/pr-aktuell.mjs` (Branch-Stand vor einer PR,
@@ -26,8 +30,8 @@ automatische Abbuchung mit Toleranz → Einkauf füllt den Bestand wieder auf.
 ```
 index.html                 App-Shell: nur #app-Container + Tabbar (6 Tabs, Inline-SVGs), lädt js/app.js
 manifest.webmanifest       PWA-Manifest
-sw.js                      Service Worker: Network-first mit 3s-Timeout, Cache-Fallback; cached nur res.ok.
-                           SHELL-Liste + CACHE-Version ("vorratio-vN")
+sw.js                      Service Worker: Network-first mit 3s-Timeout + Revalidierung, Cache-Fallback;
+                           cached nur res.ok. SHELL-Liste + CACHE-Version ("vorratio-vN"), Versionsauskunft per postMessage
 css/style.css              Gesamtes Styling: Design-Tokens in :root + alle Komponenten (~960 Z., Sektionen per Kommentar)
 fonts/                     Bricolage Grotesque (Display) + Figtree (Text) als lokale WOFF2 – kein CDN
 icons/                     App-Icon „Keimling-V" (SVG + PNG 180/512/maskable)
@@ -65,6 +69,14 @@ docs/                      Projektdoku (vorratio-doku.md), 5 Recherchen, angebot
 
 ## Architektur & Datenfluss
 
+- **Selbstaktualisierung:** iOS setzt Homescreen-Web-Apps fort statt sie neu zu laden.
+  `starteServiceWorker()` registriert mit `updateViaCache: "none"`, jede Rückkehr in den
+  Vordergrund ruft `sucheUpdate()`; übernimmt ein neuer Worker (`controllerchange`), lädt
+  `spieleUpdateEin()` einmal neu – aber nur wenn `darfNeuLaden()` (nichts Angefangenes,
+  kein offener Dialog). Ansicht und Rückmeldung laufen über `sessionStorage`
+  (`meldeUpdateNach()`). **Reihenfolge beachten:** Der Block steht bewusst VOR der
+  Start-Sektion – `meldeUpdateNach()` greift auf eine `const` zu, die sonst in der
+  temporalen Todeszone läge und deren Fehler im `try/catch` verschwände.
 - **Ein globaler State** in `storage.js` (`getState()`), persistiert als ein
   JSON-Blob unter localStorage-Key `vorratio_v1`. Grundprinzip: **eine Aktion =
   ein `save()`**. Neue State-Felder in `DEFAULT_STATE` ergänzen UND in
@@ -211,7 +223,9 @@ Angabe → Bestandsmenge) · Einkauf
 `buchZugang` = zentrale Zugangsbuchung über Packungsgrößen)
 · Bon-Scan (`bon`-Statusmaschine) · Angebots-Sektion (`starteCrawl`,
 `crawlListe`) · Wissen (Tabs: tipps/ersatz/preps/bases/techniken) · Profil
-(Achsen editieren, API-Key, Export/Import/Reset) · Start (`initKochmodus`,
+(Achsen editieren, API-Key, App-Stand + „Prüfen", Export/Import/Reset) ·
+App-Aktualisierung (`starteServiceWorker`, `sucheUpdate`, `spieleUpdateEin`,
+`darfNeuLaden`, `meldeUpdateNach`) · Start (`initKochmodus`,
 `onSpeicherFehler`, `stelleKochenWieder`) + `visibilitychange`.
 
 **storage.js** – `load`, `save` (→ bool), `getState`, `onChange`,
