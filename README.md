@@ -25,6 +25,17 @@ Rezeptdatenbank prüfen (vor jedem Commit an den Daten):
 node tools/validate-db.mjs
 ```
 
+Vor einem Pull Request zusätzlich prüfen, ob der Branch noch aktuell ist – an
+diesem Repo laufen mehrere Prozesse parallel, `main` zieht also unter offenen
+Branches weiter:
+
+```bash
+node tools/pr-aktuell.mjs
+```
+
+Meldet in einem Lauf: nicht committete Änderungen, nicht gepushte Commits,
+fehlende `main`-Commits und Merge-Konflikte. Exit 1 heißt: erst nachziehen.
+
 ## Stand (v3.1)
 
 Neu gegenüber v3:
@@ -196,6 +207,7 @@ js/data/rezepte-alltag.js   Aufbaublock 4: Frühstück, Alltag, Snacks
 js/data/profil.js     Ernährungsprofil-Achsen + DGE/BfR-Hinweise
 js/data/angebote-demo.js  Demo-Angebote für den Crawl (offline testbar)
 tools/validate-db.mjs Schema-Validator für die Rezeptdatenbank
+tools/pr-aktuell.mjs  Prüft vor einer PR, ob der Branch noch zu main passt
 docs/                 Projektdoku, fünf Recherchen (Daten, Snacks, Picnic-Recht) + Angebots-Crawl-Doku
 ```
 
