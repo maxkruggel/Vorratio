@@ -171,8 +171,14 @@ document.addEventListener("click", (e) => {
 function render() {
   const s = getState();
   const vorher = letzterScreen;
-  if (!s.profil.onboarded) { tabbar.hidden = true; renderOnboarding(); return; }
+  if (!s.profil.onboarded) {
+    tabbar.hidden = true;
+    document.body.classList.add("onboarding");   // kein Tabbar-Platz im Onboarding
+    renderOnboarding();
+    return;
+  }
   tabbar.hidden = false;
+  document.body.classList.remove("onboarding");
   tabbar.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   if (cook) { renderKochmodus(); return; }
   if (detailRezept) { renderRezeptDetail(detailRezept); return; }
@@ -234,11 +240,17 @@ function obWelcome() {
     <div class="foot-note">${icon("lokal", 18)}<span>Alles bleibt lokal auf deinem iPhone.<br>Kein Konto, kein Server.</span></div>`;
 }
 
+/* Name und Ernährungsform sind Pflicht: ohne sie kann die App weder ansprechen
+   noch filtern. Beide Schritte lassen sich darum nicht überspringen – der
+   Button bleibt gesperrt und sagt darüber, woran es hängt. Alles Weitere
+   (Unverträglichkeiten, Stile, Ziele) bleibt ausdrücklich optional. */
 function obName() {
+  const bereit = ob.name.trim().length > 0;
   return `
     <div class="screen-header"><h1>wie heißt du?</h1><p class="subtle">Nur für die Begrüßung. Der Name bleibt auf dem Gerät.</p></div>
-    <label class="field"><input type="text" id="ob-name" placeholder="Dein Name" value="${esc(ob.name)}" autocomplete="given-name"></label>
-    <button class="btn" data-ob="name">Weiter</button>`;
+    <label class="field"><input type="text" id="ob-name" placeholder="Dein Name" value="${esc(ob.name)}" autocomplete="given-name" enterkeyhint="next"></label>
+    <p class="pflicht-note" id="ob-name-hinweis"${bereit ? " hidden" : ""}>Ohne Namen geht es nicht weiter – ein Spitzname reicht.</p>
+    <button class="btn" data-ob="name"${bereit ? "" : " disabled"}>Weiter</button>`;
 }
 
 function obForm() {
@@ -250,6 +262,7 @@ function obForm() {
           <b>${esc(f.name)}</b><span class="subtle">${esc(f.kurz)}</span>
         </button>`).join("")}
     </div>
+    ${ob.form ? "" : '<p class="pflicht-note">Wähl eine Form – sie entscheidet, was dir überhaupt vorgeschlagen wird.</p>'}
     <button class="btn" data-ob="next" ${ob.form ? "" : "disabled"}>Weiter</button>`;
 }
 
@@ -377,13 +390,49 @@ function bindOnboarding() {
     ob.step = Math.max(0, ob.step - 1);
     renderOnboarding();
   });
-  app.querySelector('[data-ob="next"]')?.addEventListener("click", () => { ob.step++; renderOnboarding(); });
+  app.querySelector('[data-ob="next"]')?.addEventListener("click", () => {
+    if (OB_STEPS[ob.step] === obForm && !ob.form) return;   // Ernährungsform ist Pflicht
+    ob.step++;
+    renderOnboarding();
+  });
+
+  /* Der Weiter-Button des Namensschritts folgt der Eingabe live – ohne
+     Neuzeichnen, sonst springt bei jedem Buchstaben die Tastatur zu. */
+  const nameFeld = app.querySelector("#ob-name");
+  if (nameFeld) {
+    const weiter = app.querySelector('[data-ob="name"]');
+    const hinweis = app.querySelector("#ob-name-hinweis");
+    const pruefe = () => {
+      const ok = nameFeld.value.trim().length > 0;
+      weiter.disabled = !ok;
+      if (hinweis) hinweis.hidden = ok;
+      return ok;
+    };
+    nameFeld.addEventListener("input", pruefe);
+    nameFeld.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      if (pruefe()) weiter.click();
+    });
+  }
+
   app.querySelector('[data-ob="name"]')?.addEventListener("click", () => {
-    ob.name = app.querySelector("#ob-name").value.trim();
+    const wert = app.querySelector("#ob-name").value.trim();
+    if (!wert) return;
+    ob.name = wert;
     ob.step++;
     renderOnboarding();
   });
   app.querySelector('[data-ob="fertig"]')?.addEventListener("click", () => {
+    /* Letzte Sicherung: Pflichtangaben fehlen (z. B. nach einem Rücksprung),
+       also zurück auf den Schritt, an dem es hängt – statt ein halbes Profil
+       zu speichern. */
+    if (!ob.name.trim() || !ob.form) {
+      ob.step = OB_STEPS.indexOf(ob.name.trim() ? obForm : obName);
+      renderOnboarding();
+      toast(ob.name.trim() ? "Wähl noch deine Ernährungsform." : "Trag noch deinen Namen ein.", "warn");
+      return;
+    }
     const s = getState();
     s.profil = {
       name: ob.name, ernaehrungsform: ob.form, ausschluesse: ob.ausschluesse,
@@ -748,7 +797,7 @@ function renderKochmodus() {
       <p class="cook-step">${esc(s.text)}</p>
       <div id="timer-slot">${timerBoxHtml()}</div>
       ${hatTimer ? '<p class="centered-note">Der Timer läuft weiter, solange die App offen bleibt.</p>' : ""}
-      <div class="btn-row" style="margin-top:20px">
+      <div class="btn-row">
         ${step > 0 ? `<button class="btn secondary icon-only" id="prev" aria-label="Zurück">${icon("zurueck", 20)}</button>` : ""}
         <button class="btn" id="next">${step === rezept.schritte.length - 1 ? "Fertig" : "Weiter"}</button>
       </div>
