@@ -659,14 +659,12 @@ function renderHeute() {
         <h2 class="section-gap">Solange zeigen wir dir Klassiker</h2>` : ""}
       ${vs.map((v) => rezeptKarte(v, esc(rezeptMeta(v.rezept)), { gedimmt: leererBestand })).join("")}
       <div class="btn-row">
-        <button class="btn" id="vorrat-generieren" ${leererBestand ? "disabled" : ""}>${icon("vorrat", 19)}Aus Vorrat bauen</button>
-        <button class="btn secondary" id="wuerfeln">${icon("wuerfeln", 19)}Neu würfeln</button>
+        <button class="btn" id="wuerfeln">${icon("wuerfeln", 19)}Neu würfeln</button>
         <button class="btn secondary" id="ai-generieren" ${aiLaeuft ? "disabled" : ""}>${icon("claude", 19)}${aiLaeuft ? "Claude kocht …" : "Claude fragen"}</button>
       </div>
       <p class="small subtle" style="text-align:center;margin-top:8px">
-        <strong>Aus Vorrat bauen</strong> setzt neue Gerichte aus dem zusammen, was gerade dasteht – offline, ohne Key.
-        <strong>Neu würfeln</strong> zieht stattdessen drei andere Rezepte aus dem vorhandenen Bestandsranking.
-        <strong>Claude fragen</strong> holt freie Ideen, braucht aber den API-Key aus dem Profil.
+        Neu würfeln setzt erst frische Gerichte aus deinem Bestand zusammen und mischt sie unter die Vorschläge – offline, ohne Key.
+        Claude fragen holt freie Ideen, braucht aber den API-Key aus dem Profil.
       </p>
       ${genHinweis ? `<p class="small subtle" style="text-align:center;margin-top:8px">${esc(genHinweis)}</p>` : ""}
       ${aiFehler ? `<p class="small warn-text" style="text-align:center;margin-top:8px">${esc(aiFehler)}</p>` : ""}
@@ -689,46 +687,53 @@ function renderHeute() {
   app.querySelectorAll("[data-rezept]").forEach((c) => c.addEventListener("click", () => {
     oeffneRezept(c.dataset.rezept);
   }));
-  app.querySelector("#wuerfeln").addEventListener("click", () => { stelleVorschlaegeBereit(true); render(); });
+  app.querySelector("#wuerfeln").addEventListener("click", () => baueAusVorrat(slot));
   app.querySelector("#snack-wuerfeln").addEventListener("click", () => { stelleSnacksBereit(true); render(); });
   app.querySelector("#ai-generieren").addEventListener("click", () => starteAiGenerierung(slot));
   app.querySelector("#ai-snacks").addEventListener("click", () => starteAiGenerierung("snack"));
-  app.querySelector("#vorrat-generieren").addEventListener("click", () => baueAusVorrat(slot));
   app.querySelector('[data-go="vorrat"]')?.addEventListener("click", (e) => { e.stopPropagation(); view = "vorrat"; render(); });
 }
 
-/* Offline-Generator (generator.js): kombiniert den tatsächlichen Bestand nach
-   festen Küchenmustern zu neuen Rezepten – ohne API-Key und ohne Netz.
-   Jeder Klick würfelt neu, die Ergebnisse landen im gemeinsamen Rezeptpool. */
+/* „Neu würfeln" – eine Aktion aus zwei Schritten. Erst baut der
+   Offline-Generator (generator.js) frische Gerichte aus dem tatsächlichen
+   Bestand nach festen Küchenmustern, dann werden die Vorschläge neu
+   ausgewürfelt: die neuen Rezepte treten dabei gegen die Datenbank an und
+   gewinnen dort, wo sie besser decken. Ein eigener Knopf „Aus Vorrat bauen"
+   wäre daneben irreführend gewesen – die Vorschläge kommen ohnehin aus dem
+   Bestand, das Ranking ist Bestandsdeckung ×100.
+   Gewürfelt wird IMMER, auch wenn nichts zu bauen war – sonst bliebe der
+   Knopf bei dünnem Vorrat ohne sichtbare Wirkung. Denselben Weg nimmt die
+   Rückfallebene ohne API-Key (starteAiGenerierung), dann mit `prefix`. */
 function baueAusVorrat(slot, prefix = "") {
   const s = getState();
   aiFehler = null;
+  genHinweis = (prefix + bauVersuch(s, slot)).trim() || null;
+  if (slot === "snack") stelleSnacksBereit(true); else stelleVorschlaegeBereit(true);
+  render();
+}
+
+/* Der Bauversuch selbst: legt neue Rezepte in den Vorrats-Topf und liefert
+   den Satz zurück, der unter den Vorschlägen steht. Auch der Misserfolg hat
+   einen benennbaren Grund – „es passiert nichts" wäre die schlechteste
+   Rückmeldung. Leerer Vorrat schweigt bewusst: die Karte oben sagt es schon. */
+function bauVersuch(s, slot) {
   if (slot === "snack") {
     // Der Generator baut Hauptmahlzeiten – Snacks brauchen eigene Muster
     // (Gefrieren, Dörren) und kommen aus der Datenbank oder von Claude.
-    genHinweis = prefix + "Der Vorrats-Generator baut Hauptmahlzeiten. Snack-Ideen kommen aus der Rezeptdatenbank oder von Claude.";
-    render();
-    return;
+    return "Der Vorrats-Generator baut Hauptmahlzeiten. Snack-Ideen kommen aus der Rezeptdatenbank oder von Claude.";
   }
+  if (!s.bestand.length) return "";
   const tiefe = vorratsTiefe(s.bestand);
   if (tiefe.belegt < 3) {
-    genHinweis = prefix + `Dafür ist der Vorrat noch zu dünn (${tiefe.belegt} von ${tiefe.gesamt} Bausteinen). `
+    return `Neu gebaut wurde nichts – dafür ist der Vorrat noch zu dünn (${tiefe.belegt} von ${tiefe.gesamt} Bausteinen). `
       + "Es fehlt vor allem: " + tiefe.fehlend.map((f) => BAUSTEIN_NAMEN[f] || f).join(", ") + ".";
-    render();
-    return;
   }
   vorratWurf += 1;
   const neue = generiereAusVorrat(s.profil, s.bestand, slot, 3, tagesSeed(heuteStr(), vorratWurf));
-  if (!neue.length) {
-    genHinweis = prefix + "Aus diesem Bestand ließ sich gerade nichts bauen, das zu deinem Profil passt.";
-    render();
-    return;
-  }
+  if (!neue.length) return "Aus diesem Bestand ließ sich gerade nichts Neues bauen, das zu deinem Profil passt.";
   s.vorratRezepte = [...neue, ...(s.vorratRezepte || []).filter((r) => !neue.some((n) => n.id === r.id))].slice(0, 24);
   save();
-  if (slot === "snack") stelleSnacksBereit(true); else stelleVorschlaegeBereit(true);
-  genHinweis = prefix + `${neue.length} Rezepte aus deinem Bestand gebaut – erkennbar am Vorrats-Etikett.`;
-  render();
+  return `${neue.length} Rezepte frisch aus deinem Bestand gebaut – erkennbar am Vorrats-Etikett.`;
 }
 
 /* AI-Rezeptgenerierung (Kap. 4.3): 3 frische Vorschläge aus dem Bestand. */
@@ -3641,7 +3646,7 @@ function renderProfil() {
 
       <h2 class="section-gap">Aus dem Vorrat gebaute Rezepte</h2>
       <div class="card">
-        <p class="subtle small">Der Vorrats-Generator kombiniert deinen tatsächlichen Bestand nach festen Küchenmustern zu neuen Rezepten – offline, ohne API-Key. Zu finden über „Aus Vorrat bauen“ auf der Heute-Seite.</p>
+        <p class="subtle small">Der Vorrats-Generator kombiniert deinen tatsächlichen Bestand nach festen Küchenmustern zu neuen Rezepten – offline, ohne API-Key. Er läuft bei jedem „Neu würfeln“ auf der Heute-Seite mit.</p>
         ${(s.vorratRezepte || []).length ? `
           <hr class="divider" style="margin:14px 0">
           <div class="card-row" style="align-items:center"><span class="small">${s.vorratRezepte.length} Vorrats-Rezepte gespeichert</span>
