@@ -228,7 +228,8 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 - Aufnahme über die Web-Speech-API des Browsers. Die Erkennung läuft dabei beim Plattformbetreiber (iOS: Apple, Chrome: Google), nicht bei Vorratio; es wird nichts gespeichert. Wo es die API nicht gibt, bleibt das Textfeld – die Mikrofontaste der iOS-Tastatur diktiert genauso hinein. Beim Wechsel in einen anderen Tab oder in den Hintergrund endet die Aufnahme sofort.
 - Auswertung zweigleisig, gleiche Ergebnisform: **lokal** (Segmentierung an Komma/„und", Zahlwörter, Einheiten, Katalog-Matching mit Einheiten-Schärfung – „zwei Dosen Tomaten" ≠ „zwei Tomaten") oder **über Claude**, wenn ein Key hinterlegt ist. Fällt die API aus, springt der lokale Parser ein; ohne Key ist das Diktat vollständig offline nutzbar.
 - Toleranzprinzip: „halb voll", „fast leer", „noch ein Rest" werden als Anteil der Packung gebucht, nicht in Scheingramm. Zutat-IDs aus dem Modell werden gegen den Katalog geprüft; was nicht zugeordnet werden kann, wird als eigener Artikel angelegt.
-- Ein Diktat **setzt** den Stand (Ist-Aufnahme), im Gegensatz zu Bon-Scan und Barcode, die Zugänge **addieren**. Vor dem Buchen steht immer die Bestätigungsliste mit Zutatenwahl je Zeile.
+- **Bewusst auf die Bestandsaufnahme beschränkt:** Ein Diktat **setzt** den Stand (Ist-Aufnahme) – für die Ersterfassung und fürs spätere Nachzählen. Eine additive Variante („zwei Dosen dazu") gibt es absichtlich nicht; Zukauf läuft über Bon-Scan und Barcode, die über `buchZugang()` addieren. Ein Diktat, das mal addiert und mal ersetzt, wäre am Schrank nicht mehr vorhersagbar. Ein Umschalter bleibt möglich, wenn sich in der Praxis Bedarf zeigt (Entscheidung 08/2026).
+- Vor dem Buchen steht immer die Bestätigungsliste mit Zutatenwahl je Zeile.
 
 ## 8. Design & UI
 

@@ -1504,7 +1504,7 @@ function renderVorrat() {
         <div class="card-row" style="align-items:center">
           <h1>vorrat</h1>
           <div class="head-actions">
-            <button class="square-btn" id="diktat-toggle" aria-label="Vorräte diktieren">${icon("mikro", 21)}</button>
+            <button class="square-btn" id="diktat-toggle" aria-label="Bestandsaufnahme diktieren">${icon("mikro", 21)}</button>
             <button class="square-btn" id="scan-toggle" aria-label="Barcode scannen">${icon("barcode", 21)}</button>
             <button class="pill-btn" id="add-toggle">${vorratAddOffen ? icon("x", 19) : icon("plus", 19)}${vorratAddOffen ? "Schließen" : "Erfassen"}</button>
           </div>
@@ -1760,12 +1760,17 @@ function bindBarcode() {
   });
 }
 
-/* --------------------------------------------- Vorräte diktieren (Kap. 9.4)
+/* ------------------------------------ Bestandsaufnahme diktieren (Kap. 4.2)
    Aufzählen statt antippen: Schranktür auf, Mikro an, alles der Reihe nach
    sagen. Der Text wird lokal ausgewertet (diktat.js) – ohne Netz und ohne
    Key. Liegt ein Claude-Key vor, übernimmt das Modell die Zuordnung; fällt
    es aus, springt der lokale Parser ein, statt das Diktat verpuffen zu lassen.
-   Am Ende steht immer die Bestätigungsliste: Vorratio rät, der Mensch nickt ab. */
+   Am Ende steht immer die Bestätigungsliste: Vorratio rät, der Mensch nickt ab.
+
+   Bewusst nur eine Ist-Aufnahme: Diktiertes **setzt** den Stand. Eine additive
+   Variante („zwei Dosen dazu") gibt es absichtlich nicht – Zukauf läuft über
+   Bon-Scan und Barcode, die den Weg über `buchZugang()` nehmen. Ein Diktat,
+   das mal addiert und mal ersetzt, wäre am Schrank nicht mehr vorhersagbar. */
 let diktat = null;      // null | { status:'start'|'hoeren'|'lesen'|'fehler'|'ergebnis', text, … }
 let aufnahme = null;    // laufende Spracherkennung { stop }
 
@@ -1800,7 +1805,7 @@ function diktatUi() {
   const live = diktatVerfuegbar();
   return `
     <div class="section-gap">
-      <div class="section-head"><h2>Diktat</h2><button class="backlink" id="dik-schliessen">Abbrechen</button></div>
+      <div class="section-head"><h2>Bestandsaufnahme</h2><button class="backlink" id="dik-schliessen">Abbrechen</button></div>
       ${live ? `
         <button class="card mic-panel" id="dik-start">
           <span class="mic-round">${icon("mikro", 38)}</span>
@@ -1814,6 +1819,9 @@ function diktatUi() {
           <span class="hint-body">Dieser Browser hört nicht selbst zu. Auf dem iPhone diktierst du über die Mikrofontaste der Tastatur direkt ins Feld – der Rest läuft gleich.</span>
         </div>`}
       <button class="btn" id="dik-auswerten">Liste erstellen</button>
+      <div class="card hint-card" style="margin-top:12px">${icon("vorrat", 20)}
+        <span class="hint-body"><b>Das Diktat nimmt auf, es kauft nicht ein</b>Genannte Mengen ersetzen den bisherigen Stand – gedacht für die erste Aufnahme und fürs Nachzählen. Was du eingekauft hast, buchst du über Bon-Scan oder Barcode dazu.</span>
+      </div>
       <p class="centered-note">${getState().settings.apiKey
         ? "Claude sortiert das Diktat, du bestätigst. Mengen bleiben Schätzwerte."
         : "Die Auswertung läuft auf dem Gerät – ohne Key, ohne Netz. Mit Claude-Key wird sie treffsicherer."}</p>
@@ -1829,7 +1837,7 @@ function diktatErgebnisUi(d) {
         <h2>Verstanden</h2>
         <button class="backlink" id="dik-text-zurueck">Text ändern</button>
       </div>
-      <p class="subtle small" style="margin-bottom:10px">${d.eintraege.length} ${d.eintraege.length === 1 ? "Artikel" : "Artikel"} erkannt. Was du hier bestätigst, ersetzt den bisherigen Stand.</p>
+      <p class="subtle small" style="margin-bottom:10px">${d.eintraege.length} Artikel erkannt. Bestätigtes ersetzt den bisherigen Stand – das Diktat ist eine Aufnahme, kein Zukauf.</p>
       <div class="card">
         ${d.eintraege.map((e, i) => {
           const vorhanden = e.zutat_id ? s.bestand.find((b) => b.zutat_id === e.zutat_id) : null;

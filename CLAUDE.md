@@ -108,10 +108,12 @@ settings      { erstellt, apiKey }                                    (Claude-Ke
   beim Pool-Auffüllen.
 - **Diktat (`js/diktat.js`, UI im Vorrat):** Aufzählen statt antippen. Die
   Auswertung läuft ohne Key lokal, mit Key über `leseDiktat()` – beide liefern
-  dieselbe Eintragsform und enden in derselben Bestätigungsliste. Anders als
-  Bon-Scan und Barcode (die addieren) **setzt** ein Diktat den Stand: es ist
-  eine Ist-Aufnahme. „halb voll"/„fast leer" werden als Anteil der Packung
-  gebucht (`aktion: "anteil"`), nie als Scheingramm.
+  dieselbe Eintragsform und enden in derselben Bestätigungsliste. „halb
+  voll"/„fast leer" werden als Anteil der Packung gebucht (`aktion: "anteil"`),
+  nie als Scheingramm. **Nur Bestandsaufnahme:** ein Diktat **setzt** den Stand,
+  Bon-Scan und Barcode **addieren** über `buchZugang()`. Eine additive
+  Diktat-Variante fehlt absichtlich – nicht vergessen, sondern entschieden
+  (Doku 7.5); wer sie nachrüstet, ändert damit ein zugesagtes Verhalten.
 - **Profil-Achsen (unabhängig):** 1 Ernährungsform (genau eine, `FORM_ERLAUBT`
   mappt auf Rezept-Tags) · 2 Ausschlüsse (EU-14 + halal/koscher + Freitext
   `eigeneAusschluesse` – filtern hart in `rezeptErlaubt()`) · 3 Stile (+15
