@@ -51,10 +51,11 @@ js/vorratsfoto.js          Schrankfoto: Bilder verkleinern + Modellantwort → B
 js/angebote.js             Angebots-Crawl: Marktguru-Client, Suchprofile, Matching, Markt-Ranking
 js/substitution.js         Ersatz-Logik: Alternativen filtern/priorisieren nach Profil + Anwendungsfall
 js/icons.js                Duotone-Icon-Set (24er-Raster, 1,6 px Strich): icon(name, size, klasse), logoMark(size)
-js/data/kerndb.js          Kern-DB: ZUTATEN + REZEPTE_KERN, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN.
-                           REZEPTE = Zusammenbau aller fünf Rezeptblöcke (Schema kruggel-recipe-db/v1)
-js/data/rezepte-kern|komplex|tofu|welt|alltag|fruehstueck.js
-                           Rezeptblöcke (RCP-/SNK- · KMX- · TOF- · WLT- · ALL- · FRU-)
+js/data/kerndb.js          Kern-DB: ZUTATEN + REZEPTE_KERN (RCP-/SNK-, liegt inline hier – keine
+                           eigene Datei), PREPS, BASES, TIPPS, IDEEN, TECHNIKEN. REZEPTE = Kern-Block
+                           + die fünf Rezeptblock-Dateien (Schema kruggel-recipe-db/v1)
+js/data/rezepte-komplex|tofu|welt|alltag|fruehstueck.js
+                           Rezeptblöcke (KMX- · TOF- · WLT- · ALL- · FRU-)
 js/data/allergene.js       EINE Quelle für Allergene + Schwein/Alkohol: ZUTAT_ALLERGENE, NAME_MUSTER,
                            FALSCHE_FREUNDE, allergeneFuerRezept, enthaeltSchwein, enthaeltAlkohol
 js/data/profil.js          Profil-Achsen: ERNAEHRUNGSFORMEN, FORM_ERLAUBT, AUSSCHLUESSE, VORLIEBEN, STILE, ZIELE
