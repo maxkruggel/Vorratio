@@ -32,6 +32,7 @@ Vorratio verspricht: Überblick ohne Buchhaltung, täglich passende Rezeptideen 
 ### 4.1 Onboarding
 1. App öffnen → Start-Animation.
 2. Geführte Einrichtung: **Name** anlegen, **Nutzerprofil**, **Ernährungsprofil** – Ernährungsform, Allergien und Unverträglichkeiten, **Vorlieben** (Frage und Auswahl je Ernährungsform verschieden), Stil und Ziele (Datenmodell siehe 6.1).
+   - **Pflicht sind nur Name und Ernährungsform** – ohne sie bleibt „Weiter" gesperrt, mit Hinweis, woran es hängt. Vorlieben, Ausschlüsse, Stile und Ziele sind ausdrücklich optional und lassen sich überspringen.
 3. Kurzer Hinweis auf das Toleranzprinzip (±10–15 % beim Verbrauch).
 
 ### 4.2 Ersteinrichtung Bestand (~15 Minuten)

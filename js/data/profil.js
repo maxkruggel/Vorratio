@@ -65,7 +65,8 @@ const AUSSCHLUESSE = [
 const VORLIEBEN_KATALOG = {
   tofu: {
     name: "Tofu", kurz: "Natur, geräuchert, mariniert – nimmt jede Würze an",
-    zutaten: ["ing_tofu_natur", "ing_raeuchertofu"], muster: ["tofu"], allergene: ["soja"],
+    zutaten: ["ing_tofu_natur", "ing_tofu_fest", "ing_tofu_seiden", "ing_raeuchertofu"],
+    muster: ["tofu"], allergene: ["soja"],
   },
   tempeh: {
     name: "Tempeh", kurz: "Fermentiert, nussig, bissfest – proteinreicher als Tofu",
@@ -73,24 +74,26 @@ const VORLIEBEN_KATALOG = {
   },
   seitan: {
     name: "Seitan", kurz: "Weizeneiweiß, faserig – die fleischnahe Textur",
-    zutaten: ["ing_seitan"], muster: ["seitan"], allergene: ["gluten"],
+    zutaten: ["ing_seitan", "ing_seitan_gluten"], muster: ["seitan"], allergene: ["gluten"],
   },
   huelsenfruechte: {
     name: "Hülsenfrüchte", kurz: "Linsen, Kichererbsen, Bohnen – Protein und Ballaststoffe",
-    zutaten: ["ing_linsen_rot", "ing_kichererbsen_trocken", "ing_kichererbsen_dose",
-      "ing_kidneybohnen_dose", "ing_bohnen_schwarz_dose", "ing_kidney_trocken", "ing_erbsen_tk", "ing_hummus"],
-    muster: ["linsen", "kichererbsen", "bohnen", "erbsen", "hummus"], allergene: [],
+    zutaten: ["ing_linsen_rot", "ing_linsen_braun", "ing_belugalinsen", "ing_kichererbsen_trocken",
+      "ing_kichererbsen_dose", "ing_kidneybohnen_dose", "ing_bohnen_schwarz_dose", "ing_kidney_trocken",
+      "ing_bohnen_weiss_trocken", "ing_erbsen_getrocknet", "ing_erbsen_tk", "ing_edamame", "ing_hummus"],
+    muster: ["linsen", "kichererbsen", "bohnen", "erbsen", "edamame", "hummus"], allergene: [],
   },
   nuesse_kerne: {
     name: "Nüsse, Kerne & Mus", kurz: "Walnüsse, Mandeln, Tahin, Erdnussmus – Fett mit Aroma",
-    zutaten: ["ing_walnuesse", "ing_mandeln", "ing_erdnuesse", "ing_erdnussmus",
-      "ing_tahin", "ing_sonnenblumenkerne", "ing_leinsamen", "ing_chiasamen"],
-    muster: ["nuss", "nüsse", "mandel", "tahin", "kerne", "leinsamen", "chia"],
+    zutaten: ["ing_walnuesse", "ing_mandeln", "ing_cashewkerne", "ing_erdnuesse", "ing_erdnussmus",
+      "ing_mandelmus", "ing_tahin", "ing_sonnenblumenkerne", "ing_leinsamen", "ing_chiasamen"],
+    muster: ["nuss", "nüsse", "mandel", "cashew", "tahin", "kerne", "leinsamen", "chia"],
     allergene: ["schalenfruechte", "erdnuss"],
   },
   pflanzendrink: {
     name: "Pflanzendrink & Pflanzenjoghurt", kurz: "Hafer, Soja & Co. – für Müsli, Sauce, Backteig",
-    zutaten: ["ing_haferdrink", "ing_sojajoghurt"], muster: ["haferdrink", "pflanzenjoghurt", "sojadrink"], allergene: [],
+    zutaten: ["ing_haferdrink", "ing_sojadrink", "ing_sojajoghurt"],
+    muster: ["haferdrink", "pflanzenjoghurt", "sojadrink"], allergene: [],
   },
   ei: {
     name: "Eier", kurz: "Rührei, pochiert, im Teig – schnelles Protein",
@@ -98,8 +101,9 @@ const VORLIEBEN_KATALOG = {
   },
   kaese: {
     name: "Käse", kurz: "Feta, Mozzarella, Hartkäse – Würze und Bindung",
-    zutaten: ["ing_feta", "ing_mozzarella", "ing_parmesan", "ing_schnittkaese", "ing_reibekaese", "ing_frischkaese"],
-    muster: ["käse", "feta", "mozzarella", "parmesan"], allergene: ["laktose"],
+    zutaten: ["ing_feta", "ing_mozzarella", "ing_parmesan", "ing_schnittkaese", "ing_reibekaese",
+      "ing_frischkaese", "ing_halloumi", "ing_ziegenkaese", "ing_ricotta", "ing_mascarpone"],
+    muster: ["käse", "feta", "mozzarella", "parmesan", "halloumi", "ricotta", "mascarpone"], allergene: ["laktose"],
   },
   joghurt_quark: {
     name: "Joghurt & Quark", kurz: "Für Dips, Dressings und Frühstück",
@@ -108,29 +112,37 @@ const VORLIEBEN_KATALOG = {
   },
   fisch_fett: {
     name: "Fetter Seefisch", kurz: "Lachs, Makrele, Hering – die Omega-3-Quelle",
-    zutaten: ["ing_lachs"], muster: ["lachs", "makrele", "hering"], allergene: ["fisch"],
+    zutaten: ["ing_lachs", "ing_forelle"], muster: ["lachs", "makrele", "hering", "forelle"], allergene: ["fisch"],
   },
   fisch_mager: {
     name: "Magerer Fisch & Dosenfisch", kurz: "Kabeljau, Seelachs, Thunfisch aus der Dose",
-    zutaten: ["ing_thunfisch_dose"], muster: ["kabeljau", "seelachs", "thunfisch", "dorsch"], allergene: ["fisch"],
+    zutaten: ["ing_kabeljau", "ing_thunfisch_dose", "ing_sardellen"],
+    muster: ["kabeljau", "seelachs", "thunfisch", "dorsch", "sardelle"], allergene: ["fisch"],
+  },
+  meeresfruechte: {
+    name: "Meeresfrüchte", kurz: "Garnelen und Miesmuscheln – schnell gegart, wenig Aufwand",
+    zutaten: ["ing_garnelen", "ing_miesmuscheln"], muster: ["garnele", "muschel"],
+    allergene: ["krebstiere", "weichtiere"],
   },
   gefluegel: {
     name: "Geflügel", kurz: "Hähnchenbrust und Geflügelhack – mager und schnell",
-    zutaten: ["ing_haehnchenbrust", "ing_gefluegel_hack"], muster: ["hähnchen", "geflügel", "pute"], allergene: [],
+    zutaten: ["ing_haehnchenbrust", "ing_haehnchenkeule", "ing_haehnchen_ganz", "ing_entenbrust", "ing_gefluegel_hack"],
+    muster: ["hähnchen", "geflügel", "pute", "ente"], allergene: [],
   },
   rind: {
-    name: "Rind & Hackfleisch", kurz: "Bolognese, Chili, Frikadellen",
-    zutaten: ["ing_hackfleisch_rind"], muster: ["hackfleisch", "rind"], allergene: [],
+    name: "Rind & Hackfleisch", kurz: "Bolognese, Chili, Gulasch, Steak",
+    zutaten: ["ing_hackfleisch_rind", "ing_rindergulasch", "ing_rindersteak"],
+    muster: ["hackfleisch", "rind", "gulasch"], allergene: [],
   },
   schwein_wurst: {
     name: "Schwein, Speck & Wurst", kurz: "Speck, Schinken, Würstchen – als Würze eingesetzt",
-    zutaten: ["ing_speck", "ing_schinken", "ing_wuerstchen"],
+    zutaten: ["ing_speck", "ing_schinken", "ing_wuerstchen", "ing_schweineschulter", "ing_hackfleisch_gemischt"],
     muster: ["speck", "schinken", "würstchen", "bacon", "schwein"],
     allergene: [], verbergen_bei: ["halal", "koscher"],
   },
   pilze: {
     name: "Pilze", kurz: "Champignons & Co. – herzhafte Tiefe ohne Fleisch",
-    zutaten: ["ing_champignons"], muster: ["champignon", "pilz"], allergene: [],
+    zutaten: ["ing_champignons", "ing_shiitake"], muster: ["champignon", "pilz", "shiitake"], allergene: [],
   },
   ofengemuese: {
     name: "Ofen- & Wurzelgemüse", kurz: "Kürbis, Süßkartoffel, Blumenkohl, Rote Bete – ein Blech, fertig",
@@ -144,8 +156,8 @@ const VORLIEBEN_KATALOG = {
   },
   pasta_kartoffel: {
     name: "Pasta & Kartoffeln", kurz: "Der sättigende Klassiker – Nudeln, Gnocchi, Kartoffeln",
-    zutaten: ["ing_nudeln", "ing_kartoffel", "ing_gnocchi", "ing_spaetzle"],
-    muster: ["nudel", "pasta", "kartoffel", "gnocchi", "spätzle"], allergene: [],
+    zutaten: ["ing_nudeln", "ing_lasagneplatten", "ing_kartoffel", "ing_gnocchi", "ing_spaetzle"],
+    muster: ["nudel", "pasta", "kartoffel", "gnocchi", "spätzle", "lasagne"], allergene: [],
   },
 };
 
@@ -186,7 +198,7 @@ const VORLIEBEN_JE_FORM = {
   pescetarier: {
     frage: "was kommt bei dir aus dem wasser?",
     intro: "Fisch ist deine Ausnahme vom Pflanzlichen – und nicht jeder Fisch ist gemeint. Wähle, was dir schmeckt.",
-    optionen: ["fisch_fett", "fisch_mager", "tofu", "huelsenfruechte", "ei", "kaese", "ofengemuese"],
+    optionen: ["fisch_fett", "fisch_mager", "meeresfruechte", "tofu", "huelsenfruechte", "ei", "kaese", "ofengemuese"],
     hinweis: "1–2 Portionen Fisch pro Woche, davon einmal fettreicher Seefisch (DGE). Große Raubfische wie Thunfisch, Schwertfisch oder Heilbutt besser selten – Methylquecksilber (BfR 17/2024).",
   },
   flexitarier: {
@@ -198,7 +210,7 @@ const VORLIEBEN_JE_FORM = {
   mischkost: {
     frage: "was landet am häufigsten auf deinem teller?",
     intro: "Bei dir ist alles erlaubt – deshalb ist umso interessanter, was du wirklich gern isst.",
-    optionen: ["gefluegel", "rind", "schwein_wurst", "fisch_fett", "kaese", "ei", "tofu", "huelsenfruechte", "pasta_kartoffel"],
+    optionen: ["gefluegel", "rind", "schwein_wurst", "fisch_fett", "meeresfruechte", "kaese", "ei", "tofu", "huelsenfruechte", "pasta_kartoffel"],
     hinweis: "DGE 2024: max. 300 g Fleisch und Wurst pro Woche, über 75 % pflanzlich. vorratio gewichtet deine Vorlieben, hält die Vorschläge aber in dieser Balance.",
   },
 };
