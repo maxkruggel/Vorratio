@@ -224,6 +224,42 @@ function snackVorschlaege(profil, bestand, seed = 0, anzahl = 2, rezepte = REZEP
     .slice(0, anzahl);
 }
 
+/* ------------------------------------------------------------- Stöbern
+   Die Tagesvorschläge zeigen drei Rezepte je Slot – gut zum Entscheiden, nutzlos
+   zum Suchen. Wer ein bestimmtes Gericht sucht oder wissen will, was überhaupt
+   da ist, braucht die ganze Liste. Sie ist derselbe Pool, nur anders sortiert:
+   erst was der Bestand hergibt, dann alphabetisch.
+
+   Der Profilfilter gilt hier genauso hart wie überall. Ein Rezept, das jemand
+   wegen Allergie oder Ernährungsform nie kochen wird, gehört auch nicht in eine
+   Stöberliste – wie viele so wegfallen, wird gezählt und angezeigt, statt sie
+   stillschweigend verschwinden zu lassen. */
+function sucheTrifft(rezept, q) {
+  if (!q) return true;
+  const felder = [rezept.name, rezept.cuisine, rezept.kategorie, ...(rezept.tags || [])];
+  if (felder.some((f) => String(f || "").toLowerCase().includes(q))) return true;
+  return (rezept.zutaten || []).some((z) => String(z.zutat_name || "").toLowerCase().includes(q));
+}
+
+function stoeberListe(rezepte, profil, bestand, { suche = "", slot = "alle", nurKochbar = false } = {}) {
+  const q = String(suche).trim().toLowerCase();
+  const erlaubt = rezepte.filter((r) => rezeptErlaubt(r, profil));
+  const treffer = erlaubt
+    .filter((r) => slot === "alle" || (r.mahlzeitentyp || []).includes(slot))
+    .filter((r) => sucheTrifft(r, q))
+    .map((r) => ({ rezept: r, abgleich: bestandsAbgleich(r, bestand) }))
+    .filter((v) => !nurKochbar || v.abgleich.fehlt.length === 0)
+    .sort((a, b) => b.abgleich.quote - a.abgleich.quote
+      || a.abgleich.fehlt.length - b.abgleich.fehlt.length
+      || a.rezept.name.localeCompare(b.rezept.name, "de"));
+  return {
+    treffer,
+    erlaubt: erlaubt.length,
+    ausgefiltert: rezepte.length - erlaubt.length,
+    kochbar: erlaubt.filter((r) => bestandsAbgleich(r, bestand).fehlt.length === 0).length,
+  };
+}
+
 /* FNV-1a mit Avalanche-Finalizer: nichtlinear im Seed, damit "Neu würfeln"
    und der Tageswechsel die Rangfolge wirklich durchmischen. */
 function pseudoZufall(id, seed) {
@@ -336,5 +372,5 @@ export {
   ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, bestandsAbgleich, bestandsPosten,
   istVorhanden, bewerte, vorschlaege, snackVorschlaege, zielTreffer, vorliebenTreffer,
   tagesSeed, pseudoZufall, abbuchen, mengeAnzeige, wochenKandidaten, istGrundzutat,
-  mengeInBestandsEinheit,
+  mengeInBestandsEinheit, sucheTrifft, stoeberListe,
 };

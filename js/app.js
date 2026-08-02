@@ -14,7 +14,7 @@ import {
 import {
   ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, vorschlaege, snackVorschlaege,
   zielTreffer, vorliebenTreffer, tagesSeed, bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
-  istGrundzutat,
+  istGrundzutat, stoeberListe,
 } from "./engine.js";
 import { angebotsCrawl, isoWoche, liveKonfiguriert } from "./angebote.js";
 import { generiereRezepte, scanBon, leseDiktat, leseSchrankfoto, leseBarcodeVomFoto } from "./ai.js";
@@ -932,10 +932,34 @@ function hashCode(str) {
 /* ---------------------------------------------------------------- Kochbuch
    Kap. 4.10: der Ort, an dem Rezepte bleiben. Gemerkte Vorschläge und eigene
    Rezepte liegen hier nebeneinander – beides vollwertige Rezepte, die durch
-   Bestandsabgleich, Kochmodus und Abbuchung laufen. */
+   Bestandsabgleich, Kochmodus und Abbuchung laufen.
+
+   Zweite Schiene „alle Rezepte": Der Tageswurf zeigt drei je Slot, und alles
+   andere war bisher nur über Glück erreichbar – bei mehreren hundert Rezepten
+   in der Datenbank ist das keine Auswahl mehr, sondern ein Versteck. Das
+   Stöbern zeigt denselben Pool als durchsuchbare Liste, sortiert nach dem, was
+   der Bestand hergibt. Beide Schienen teilen sich Kopfzeile und Karten;
+   getrennt ist nur, wonach gesucht wird. */
 let kochbuchSuche = "";
 let kochbuchFilter = "alle";
+let kochbuchModus = "gemerkt";      // gemerkt | alle
+let stoeberSuche = "";
+let stoeberSlot = "alle";
+let stoeberKochbar = false;
 let editor = null;          // Entwurf des eigenen Rezepts (siehe kochbuch.js)
+
+/* So viele Karten stehen zunächst da. Nicht aus Performance-Gründen begrenzt,
+   sondern weil 300 Karten am Stück keine Liste mehr sind, durch die man scrollt. */
+const STOEBER_SCHRITT = 40;
+let stoeberLimit = STOEBER_SCHRITT;
+
+const STOEBER_SLOTS = [
+  { id: "alle", name: "alle" },
+  { id: "fruehstueck", name: "Frühstück" },
+  { id: "mittag", name: "Mittag" },
+  { id: "abend", name: "Abend" },
+  { id: "snack", name: "Snack" },
+];
 
 function kochbuchLeerHtml() {
   const wege = [
@@ -963,6 +987,16 @@ function renderKochbuch() {
   const s = getState();
   const alle = s.kochbuch || [];
   const kochbar = alle.filter((r) => bestandsAbgleich(r, s.bestand).fehlt.length === 0).length;
+  const stoebern = kochbuchModus === "alle";
+  const st = stoebern
+    ? stoeberListe(alleRezepte(), s.profil, s.bestand,
+      { suche: stoeberSuche, slot: stoeberSlot, nurKochbar: stoeberKochbar })
+    : null;
+
+  const untertitel = stoebern
+    ? [`${st.erlaubt} ${st.erlaubt === 1 ? "Rezept" : "Rezepte"}`, `${st.kochbar} sofort kochbar`,
+      st.ausgefiltert ? `${st.ausgefiltert} passen nicht zum Profil` : ""].filter(Boolean).join(" · ")
+    : (alle.length ? `${alle.length} ${alle.length === 1 ? "Rezept" : "Rezepte"} · ${kochbar} sofort kochbar` : "Noch nichts gespeichert");
 
   zeigeApp(`
     <div class="fade-in">
@@ -973,25 +1007,54 @@ function renderKochbuch() {
             <button class="pill-btn" id="eigenes-neu">${icon("plus", 19)}Eigenes</button>
           </div>
         </div>
-        <p class="subtle small">${alle.length ? `${alle.length} ${alle.length === 1 ? "Rezept" : "Rezepte"} · ${kochbar} sofort kochbar` : "Noch nichts gespeichert"}</p>
+        <p class="subtle small">${untertitel}</p>
       </div>
-      ${alle.length ? `
-        <input type="text" id="kochbuch-suche" placeholder="Suchen – Name, Küche oder Zutat" value="${esc(kochbuchSuche)}" autocomplete="off">
+      <div class="chip-wrap chip-nav" style="margin:0 0 16px">
+        <button class="chip ${stoebern ? "" : "selected"}" data-kmodus="gemerkt">gemerkt${alle.length ? ` (${alle.length})` : ""}</button>
+        <button class="chip ${stoebern ? "selected" : ""}" data-kmodus="alle">alle Rezepte</button>
+      </div>
+      ${stoebern ? `
+        <input type="text" id="stoeber-suche" placeholder="Suchen – Name, Küche oder Zutat" value="${esc(stoeberSuche)}" autocomplete="off">
         <div class="chip-wrap chip-nav" style="margin:12px 0 16px">
-          ${KOCHBUCH_FILTER.map((f) => `
-            <button class="chip ${kochbuchFilter === f.id ? "selected" : ""}" data-kfilter="${f.id}">${esc(f.name)}</button>`).join("")}
+          ${STOEBER_SLOTS.map((f) => `
+            <button class="chip ${stoeberSlot === f.id ? "selected" : ""}" data-kslot="${f.id}">${esc(f.name)}</button>`).join("")}
+          <button class="chip chip-schalter ${stoeberKochbar ? "selected" : ""}" id="stoeber-kochbar">${icon("check", 16)}nur was jetzt geht</button>
         </div>
-        <div id="kochbuch-liste">${kochbuchTrefferHtml()}</div>`
-        : kochbuchLeerHtml()}
-      ${zuletztGekochtHtml(s)}
-      ${alle.length ? `<p class="centered-note">Gemerkte Rezepte bleiben, auch wenn Claude neue Ideen hat.<br>Sie tauchen ganz normal in den Tagesvorschlägen auf.</p>` : ""}
+        <div id="stoeber-liste">${stoeberTrefferHtml(st)}</div>`
+        : (alle.length ? `
+          <input type="text" id="kochbuch-suche" placeholder="Suchen – Name, Küche oder Zutat" value="${esc(kochbuchSuche)}" autocomplete="off">
+          <div class="chip-wrap chip-nav" style="margin:12px 0 16px">
+            ${KOCHBUCH_FILTER.map((f) => `
+              <button class="chip ${kochbuchFilter === f.id ? "selected" : ""}" data-kfilter="${f.id}">${esc(f.name)}</button>`).join("")}
+          </div>
+          <div id="kochbuch-liste">${kochbuchTrefferHtml()}</div>`
+          : kochbuchLeerHtml())}
+      ${stoebern ? "" : zuletztGekochtHtml(s)}
+      ${stoebern
+        ? `<p class="centered-note">Alles, was Vorratio kennt – Kern-Rezepte, eigene, von Claude und aus dem Vorrat gebaute.<br>Was nicht zu Ernährungsform, Ausschlüssen oder Allergenen passt, steht hier nicht.</p>`
+        : (alle.length ? `<p class="centered-note">Gemerkte Rezepte bleiben, auch wenn Claude neue Ideen hat.<br>Sie tauchen ganz normal in den Tagesvorschlägen auf.</p>` : "")}
     </div>`, "kochbuch");
 
   bindKochbuchKarten();
+  app.querySelectorAll("[data-kmodus]").forEach((b) => b.addEventListener("click", () => {
+    kochbuchModus = b.dataset.kmodus;
+    stoeberLimit = STOEBER_SCHRITT;
+    renderKochbuch();
+  }));
   app.querySelectorAll("[data-kfilter]").forEach((b) => b.addEventListener("click", () => {
     kochbuchFilter = b.dataset.kfilter;
     renderKochbuch();
   }));
+  app.querySelectorAll("[data-kslot]").forEach((b) => b.addEventListener("click", () => {
+    stoeberSlot = b.dataset.kslot;
+    stoeberLimit = STOEBER_SCHRITT;
+    renderKochbuch();
+  }));
+  app.querySelector("#stoeber-kochbar")?.addEventListener("click", () => {
+    stoeberKochbar = !stoeberKochbar;
+    stoeberLimit = STOEBER_SCHRITT;
+    renderKochbuch();
+  });
   app.querySelectorAll("[data-kweg]").forEach((b) => b.addEventListener("click", () => {
     if (b.dataset.kweg === "editor") { editor = leererEntwurf(); render(); return; }
     view = "heute";
@@ -1007,6 +1070,13 @@ function renderKochbuch() {
     liste.innerHTML = kochbuchTrefferHtml();
     bindKochbuchKarten(liste);
   });
+  const stoeberFeld = app.querySelector("#stoeber-suche");
+  stoeberFeld?.addEventListener("input", () => {
+    stoeberSuche = stoeberFeld.value;
+    stoeberLimit = STOEBER_SCHRITT;   // neue Suche fängt wieder oben an
+    zeichneStoeberListe();
+  });
+  bindStoeberMehr();
   // „Zuletzt gekocht": nachträglich merken, ohne erst das Detail zu öffnen
   app.querySelectorAll("[data-merk]").forEach((b) => b.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -1073,6 +1143,43 @@ function kochbuchTrefferHtml() {
     const meta = [rezeptMeta(rezept), oft ? `${oft}× gekocht` : ""].filter(Boolean).join(" · ");
     return rezeptKarte({ rezept, abgleich: bestandsAbgleich(rezept, s.bestand) }, esc(meta), { herkunft: false });
   }).join("");
+}
+
+/* Stöber-Trefferliste. Karten wie überall – inklusive Herkunfts-Pill und
+   „im Kochbuch", damit man sieht, was man schon hat. */
+function stoeberTrefferHtml(st) {
+  if (!st.treffer.length) {
+    return `
+      <div class="empty-state">
+        ${icon("suche", 42)}
+        <h3>Nichts gefunden</h3>
+        <p>${stoeberKochbar
+          ? "Mit dem aktuellen Bestand passt hier nichts. Ohne „nur was jetzt geht“ siehst du, was dir dafür fehlt."
+          : "Kein Rezept passt zu dieser Suche."}</p>
+      </div>`;
+  }
+  const sichtbar = st.treffer.slice(0, stoeberLimit);
+  const rest = st.treffer.length - sichtbar.length;
+  return sichtbar.map((v) => rezeptKarte(v, esc(rezeptMeta(v.rezept)))).join("")
+    + (rest ? `<button class="btn secondary" id="stoeber-mehr">weitere ${rest} anzeigen</button>` : "");
+}
+
+/* Nur die Liste tauschen – beim Tippen soll die Tastatur nicht wegspringen. */
+function zeichneStoeberListe() {
+  const s = getState();
+  const liste = app.querySelector("#stoeber-liste");
+  if (!liste) return;
+  liste.innerHTML = stoeberTrefferHtml(stoeberListe(alleRezepte(), s.profil, s.bestand,
+    { suche: stoeberSuche, slot: stoeberSlot, nurKochbar: stoeberKochbar }));
+  bindKochbuchKarten(liste);
+  bindStoeberMehr();
+}
+
+function bindStoeberMehr() {
+  app.querySelector("#stoeber-mehr")?.addEventListener("click", () => {
+    stoeberLimit += STOEBER_SCHRITT;
+    zeichneStoeberListe();
+  });
 }
 
 function bindKochbuchKarten(root = app) {
@@ -3652,6 +3759,11 @@ function renderProfil() {
       editor = null;
       kochbuchSuche = "";
       kochbuchFilter = "alle";
+      kochbuchModus = "gemerkt";
+      stoeberSuche = "";
+      stoeberSlot = "alle";
+      stoeberKochbar = false;
+      stoeberLimit = STOEBER_SCHRITT;
       render();
     }
   });

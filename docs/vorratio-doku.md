@@ -112,6 +112,18 @@ das Kochbuch als eigener Tab.
   aus der Historie, Bestands-Pill („alles da" / „2 fehlen") direkt auf der Karte.
 - **Notiz:** Zu jedem gespeicherten Rezept ein Freitextfeld („mit doppelt
   Knoblauch") – gesichert beim Verlassen des Feldes.
+- **Stöbern („alle Rezepte"):** Zweite Schiene im selben Tab, umgeschaltet über
+  zwei Chips unter der Überschrift. Der tägliche Rhythmus zeigt drei Rezepte je
+  Slot; alles andere war damit nur über Glück erreichbar – bei mehreren hundert
+  Datensätzen ist das kein Vorschlag mehr, sondern ein Versteck. Die Schiene
+  zeigt denselben Pool (Kern-DB, Claude, aus dem Vorrat gebaut, Kochbuch) als
+  Liste, **sortiert nach Bestandsdeckung**: Was ohne Einkauf geht, steht oben.
+  Suche wie im Kochbuch, dazu Slot-Filter und der Schalter „nur was jetzt geht".
+  Geladen wird seitenweise (40 Karten, „weitere N anzeigen"). Der Profilfilter
+  gilt hier **genauso hart** wie überall – wie viele Rezepte er aussortiert hat,
+  steht in der Kopfzeile („111 passen nicht zum Profil"), damit die Lücke sichtbar
+  ist statt still. Snacks laufen ohne Slot-Filter mit: Die Liste zeigt, was es
+  gibt, sie schlägt nichts für eine Uhrzeit vor.
 
 ## 5. Bestandsmodell
 

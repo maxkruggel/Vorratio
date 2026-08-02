@@ -1,8 +1,8 @@
 name: CI
 
 # Vorratio hat keinen Build-Schritt und keine Abhängigkeiten – hier laufen
-# deshalb nur die beiden Prüfungen, die das Projekt selbst mitbringt:
-# der Datenbank-Validator und die Engine-Tests.
+# deshalb nur die Prüfungen, die das Projekt selbst mitbringt: der
+# Datenbank-Validator und die Tests ohne Framework.
 on:
   push:
     branches: ["**"]
@@ -25,3 +25,6 @@ jobs:
 
       - name: Diktat-Tests
         run: node tools/test-diktat.mjs
+
+      - name: Rezept-Import-Tests
+        run: node tools/test-rezept-import.mjs
