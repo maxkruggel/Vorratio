@@ -35,6 +35,13 @@ const DEFAULT_STATE = {
   },
   aiRezepte: [],             // AI-generierte Rezepte (kruggel-recipe-db/v1-kompatibel)
   vorratRezepte: [],         // offline aus dem Bestand kombinierte Rezepte (generator.js)
+  /* Laufender Kochmodus. Liegt im State, weil iOS PWA-Seiten im Hintergrund
+     verwirft: Wer beim 25-Minuten-Köcheln kurz die App wechselt, stand sonst
+     wieder auf Schritt 1. Der Timer merkt sich `ende` als Zeitstempel, läuft
+     also über Schließen und Neuladen hinweg weiter.
+     { rezeptId, portionen, step, timer: { name, typ, total, rest, ende,
+       laeuft, gestartet, fertig } } */
+  kochen: null,
   /* Tipp-Dosierung: Tipps kommen nach und nach statt alle auf einmal.
      `klicks` zählt die Interaktionen bis zum nächsten Pop-up, `gesehen`
      merkt sich die schon gezeigten Tipps, damit sie rotieren. */
@@ -42,20 +49,35 @@ const DEFAULT_STATE = {
   settings: { erstellt: null, apiKey: null },
 };
 
-/* Felder, die in älteren Sicherungen fehlen können. */
+/* Felder, die in älteren Sicherungen fehlen können. Verschachtelte Objekte
+   werden einzeln aufgefüllt: Der Spread beim Laden ersetzt einen Teilbaum
+   komplett, eine Sicherung mit `einkauf: { rezept: [] }` hätte sonst kein
+   `woche` und die Einkaufsansicht liefe auf undefined. */
 function migriere(s) {
+  s.profil = { ...DEFAULT_STATE.profil, ...(s.profil || {}) };
   s.profil.ziele ||= [];
   s.profil.eigeneAusschluesse ||= [];
   s.profil.vorlieben ||= [];
-  s.tipps ||= { klicks: 0, gesehen: [] };
+  s.profil.ausschluesse ||= [];
+  s.profil.stile ||= [];
+  s.einkauf = { ...DEFAULT_STATE.einkauf, ...(s.einkauf || {}) };
+  s.einkauf.rezept ||= [];
+  s.einkauf.woche ||= [];
+  s.angebote = { ...DEFAULT_STATE.angebote, ...(s.angebote || {}) };
+  s.settings = { ...DEFAULT_STATE.settings, ...(s.settings || {}) };
+  s.tipps = { klicks: 0, gesehen: [], ...(s.tipps || {}) };
   s.tipps.gesehen ||= [];
+  s.bestand ||= [];
+  s.historie ||= [];
   s.aiRezepte ||= [];
   s.vorratRezepte ||= [];
+  if (s.kochen === undefined) s.kochen = null;
   return s;
 }
 
 let state = null;
 const listeners = [];
+const fehlerListeners = [];
 
 function load() {
   try {
@@ -73,30 +95,56 @@ function load() {
   return state;
 }
 
-/* Eine Aktion = ein Save. Jede Mutation läuft über save(). */
+/* Eine Aktion = ein Save. Jede Mutation läuft über save().
+
+   Scheitert das Schreiben (voller localStorage, iOS-Storage-Eviction, privater
+   Modus), darf das nicht still passieren: Der Nutzer arbeitet sonst weiter und
+   verliert alles beim nächsten Öffnen. Deshalb melden wir es nach oben – die
+   App zeigt daraufhin einen Hinweis mit dem Weg zum Export.
+   Rückgabe: true = gespeichert, false = nicht gespeichert. */
 function save() {
+  let ok = true;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
+    ok = false;
     console.error("Vorratio: Speichern fehlgeschlagen.", e);
+    fehlerListeners.forEach((fn) => fn(e));
   }
   listeners.forEach((fn) => fn(state));
+  return ok;
 }
 
 function onChange(fn) { listeners.push(fn); }
 
+/* Wird gerufen, wenn ein save() fehlgeschlagen ist. */
+function onSpeicherFehler(fn) { fehlerListeners.push(fn); }
+
 function getState() { return state; }
 
-/* JSON-Export: vollständiger Datenbestand als Datei. */
+/* JSON-Export: vollständiger Datenbestand als Datei.
+
+   Ohne den API-Key. Die Sicherung landet in Downloads, iCloud oder im Chat mit
+   einem zweiten Gerät – ein Schlüssel im Klartext hat dort nichts verloren.
+   Beim Import bleibt deshalb der Key erhalten, der auf dem Gerät liegt. */
 function exportJson() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const daten = { ...state, settings: { ...state.settings, apiKey: null } };
+  const blob = new Blob([JSON.stringify(daten, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  const datum = new Date().toISOString().slice(0, 10);
+  const datum = lokalesDatum();
   a.href = url;
   a.download = `vorratio-backup-${datum}.json`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/* Datum als YYYY-MM-DD in Ortszeit. toISOString() rechnet nach UTC um – in der
+   Sommerzeit wäre zwischen 0 und 2 Uhr noch der Vortag dran, und die
+   tagesstabilen Vorschläge würden erst um 2 Uhr wechseln statt um Mitternacht. */
+function lokalesDatum(d = new Date()) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 /* JSON-Import: Datei einspielen, ersetzt den kompletten Bestand. */
@@ -109,8 +157,11 @@ function importJson(file) {
         if (!data || typeof data !== "object" || !("profil" in data)) {
           throw new Error("Keine gültige Vorratio-Sicherung.");
         }
+        // Der Key steht nicht in der Sicherung (s. exportJson) – den vom Gerät behalten.
+        const bisherigerKey = state?.settings?.apiKey || null;
         state = migriere({ ...structuredClone(DEFAULT_STATE), ...data });
-        save();
+        state.settings.apiKey ||= bisherigerKey;
+        if (!save()) throw new Error("Import konnte nicht gespeichert werden – der Gerätespeicher ist voll.");
         resolve(state);
       } catch (e) { reject(e); }
     };
@@ -125,4 +176,6 @@ function resetAll() {
   save();
 }
 
-export { load, save, getState, onChange, exportJson, importJson, resetAll };
+export {
+  load, save, getState, onChange, onSpeicherFehler, exportJson, importJson, resetAll, lokalesDatum,
+};

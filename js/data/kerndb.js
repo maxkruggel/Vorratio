@@ -2,6 +2,7 @@ import { REZEPTE_KOMPLEX } from "./rezepte-komplex.js";
 import { REZEPTE_TOFU } from "./rezepte-tofu.js";
 import { REZEPTE_WELT } from "./rezepte-welt.js";
 import { REZEPTE_ALLTAG } from "./rezepte-alltag.js";
+import { REZEPTE_FRUEHSTUECK } from "./rezepte-fruehstueck.js";
 
 /* Vorratio Kern-Datenbank – Schema kruggel-recipe-db/v1
    Quelle: Recherche 2 (Zubereitungs- & Rezeptdatenbank), Stand 08/2026.
@@ -121,6 +122,11 @@ const ZUTATEN = [
   { id: "ing_bulgur",               name: "Bulgur",                  kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 500 },
   { id: "ing_quinoa",               name: "Quinoa",                  kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 500 },
   { id: "ing_polenta",              name: "Polenta/Maisgrieß",       kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 500 },
+  // Glutenfreie Grundlagen: tragen die Frühstücksschiene für Profile mit
+  // Zöliakie oder Soja-Allergie (s. rezepte-fruehstueck.js)
+  { id: "ing_hirse",                name: "Hirse",                   kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_buchweizenmehl",       name: "Buchweizenmehl",          kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_reisdrink",            name: "Reisdrink",               kategorie: "trocken",  art: "schuettgut", einheit: "ml", packung: 1000 },
   { id: "ing_dinkelmehl",           name: "Dinkelmehl",              kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 1000 },
   { id: "ing_backpulver",           name: "Backpulver",              kategorie: "trocken",  art: "zaehlbar",   einheit: "Pck" },
   { id: "ing_speisestaerke",        name: "Speisestärke",            kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 400 },
@@ -374,7 +380,7 @@ const REZEPTE_KERN = [
       { nr: 4, text: "Mit Sojasauce ablöschen und durchschwenken.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 10, garzeit: 12, gesamt: 22 },
-    ernaehrungsform: ["mit_gefluegel", "mit_fleisch"], allergene: ["soja"],
+    ernaehrungsform: ["mit_gefluegel", "mit_fleisch"], allergene: ["gluten", "soja"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Mageres Protein + Gemüse; passt zu Reis (PREP-001)." },
     substitutionen: [{ fehlt: "Hähnchenbrust", ersatz: "Tofu natur", hinweis: "Vegane Variante – Tofu vorher trockenpressen (PREP-013)." }],
     tags: ["high-protein", "schnell"], quelle_typ: "behoerde",
@@ -485,7 +491,7 @@ const REZEPTE_KERN = [
       { nr: 3, text: "Tofuwürfel zugeben und 2 Minuten ziehen lassen – ab jetzt nicht mehr kochen, das zerstört das Miso-Aroma.", dauer_sekunden: 120, timer_typ: "passiv", timer_name: "Ziehen lassen" },
     ],
     gesamtzeit_min: { vorbereitung: 5, garzeit: 10, gesamt: 15 },
-    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["soja"],
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["gluten", "sellerie", "soja"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "kalorienarm", makro_hinweis: "Leicht; Tofu liefert vollständiges Protein." },
     substitutionen: [], tags: ["schnell"], quelle_typ: "etablierte_kochseite",
   },
@@ -508,7 +514,7 @@ const REZEPTE_KERN = [
       { nr: 4, text: "Alles auf dem Reis anrichten, Gochujang und Sojasauce dazu.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 10, garzeit: 20, gesamt: 30 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["ei", "soja", "sesam"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["ei", "gluten", "sesam", "soja"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Bowl-Prinzip: Basis + Protein + 2 Gemüse + Sauce." },
     substitutionen: [{ fehlt: "Ei", ersatz: "gebratener Tofu", hinweis: "Vegane Variante." }],
     tags: [], quelle_typ: "etablierte_kochseite",
@@ -531,7 +537,7 @@ const REZEPTE_KERN = [
       { nr: 4, text: "Mit gehackten Erdnüssen und Limette servieren.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 15, garzeit: 15, gesamt: 30 },
-    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["soja", "erdnuss"],
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["erdnuss", "gluten", "soja"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "kohlenhydratreich", makro_hinweis: "Tofu + Erdnüsse liefern das Protein." },
     substitutionen: [], tags: [], quelle_typ: "etablierte_kochseite",
   },
@@ -550,7 +556,7 @@ const REZEPTE_KERN = [
       { nr: 3, text: "Pürieren, Sahne einrühren, abschmecken.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 10, garzeit: 20, gesamt: 30 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["laktose"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["laktose", "sellerie"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Mit Haferdrink/Kochsahne vegan machbar." },
     substitutionen: [{ fehlt: "Sahne", ersatz: "Kochsahne/Kokosmilch", hinweis: "Vegane Variante." }],
     tags: ["budget", "mealprep"], quelle_typ: "etablierte_kochseite",
@@ -705,7 +711,7 @@ const REZEPTE_KERN = [
       { nr: 4, text: "Ei und Sojasauce unterheben.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 5, garzeit: 12, gesamt: 17 },
-    ernaehrungsform: ["vegetarisch"], allergene: ["ei", "soja"],
+    ernaehrungsform: ["vegetarisch"], allergene: ["ei", "gluten", "soja"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Ideale Resteverwertung für gekochten Reis." },
     substitutionen: [], tags: ["resteverwertung", "schnell"], quelle_typ: "etablierte_kochseite",
   },
@@ -792,7 +798,7 @@ const REZEPTE_KERN = [
       { nr: 4, text: "Alles in Schüsseln schichten, heiße Brühe angießen, Kräuter und Limette dazu.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 10, garzeit: 30, gesamt: 40 },
-    ernaehrungsform: ["mit_gefluegel", "mit_fleisch"], allergene: [],
+    ernaehrungsform: ["mit_gefluegel", "mit_fleisch"], allergene: ["sellerie"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Leichte Protein-Suppe." },
     substitutionen: [{ fehlt: "Hähnchen", ersatz: "Tofu + Gemüsebrühe", hinweis: "Vegane Variante." }],
     tags: [], quelle_typ: "behoerde",
@@ -813,7 +819,7 @@ const REZEPTE_KERN = [
       { nr: 3, text: "Salat mit Dressing mischen, Croutons, Parmesan und Hähnchen darauf.", dauer_sekunden: null, timer_typ: null },
     ],
     gesamtzeit_min: { vorbereitung: 15, garzeit: 15, gesamt: 30 },
-    ernaehrungsform: ["mit_gefluegel", "mit_fleisch"], allergene: ["gluten", "ei", "fisch", "laktose"],
+    ernaehrungsform: ["mit_gefluegel", "mit_fleisch"], allergene: ["ei", "fisch", "gluten", "laktose"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Klassisches Dressing enthält Sardelle (Fisch-Allergen)." },
     substitutionen: [], tags: ["high-protein"], quelle_typ: "etablierte_kochseite",
   },
@@ -940,7 +946,7 @@ const REZEPTE_KERN = [
       { nr: 4, text: "Auf Backpapier 30–60 Min fest frieren. Funktioniert genauso mit Apfelspalten, Erdbeeren oder Datteln.", dauer_sekunden: 3600, timer_typ: "ruhen", timer_name: "Fest werden lassen" },
     ],
     gesamtzeit_min: { vorbereitung: 15, garzeit: 0, gesamt: 15 },
-    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["soja", "erdnuss"],
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["erdnuss", "soja"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Zartbitter (≥60 % Kakao) ist meist milchfrei – für streng vegan die Zutatenliste prüfen (Soja-Lecithin ist Standard)." },
     substitutionen: [{ fehlt: "Banane", ersatz: "Apfelspalten, Erdbeeren oder Datteln", hinweis: "Gleiche Technik, anderes Obst." }],
     tags: ["snack", "suess", "tk"], quelle_typ: "etablierte_kochseite",
@@ -985,7 +991,7 @@ const REZEPTE_KERN = [
       { nr: 4, text: "Mit leicht feuchten Händen ~15 Kugeln rollen, nach Lust in Kokosraspeln wälzen. Kühlschrank ~1 Woche, Gefrierfach ~3 Monate.", dauer_sekunden: 600, timer_typ: "aktiv", timer_name: "Rollen" },
     ],
     gesamtzeit_min: { vorbereitung: 20, garzeit: 0, gesamt: 50 },
-    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["schalenfruechte", "gluten", "erdnuss"],
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["erdnuss", "gluten", "schalenfruechte"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "ballaststoffreich", makro_hinweis: "Ohne Zuckerzusatz – Süße und Bindung kommen komplett aus den Datteln. Energiedicht: 2–3 Bällchen sind eine Portion." },
     substitutionen: [{ fehlt: "Mandeln", ersatz: "Nur Haferflocken (Menge verdoppeln)", hinweis: "Nussfreie Schul-/Kita-Variante." }],
     tags: ["snack", "suess", "mealprep", "budget"], quelle_typ: "etablierte_kochseite",
@@ -1231,6 +1237,7 @@ const REZEPTE = [
   ...REZEPTE_TOFU,
   ...REZEPTE_WELT,
   ...REZEPTE_ALLTAG,
+  ...REZEPTE_FRUEHSTUECK,
 ];
 
 export { ZUTATEN, REZEPTE, REZEPTE_KERN, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN };

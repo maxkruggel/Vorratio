@@ -6,6 +6,7 @@
 
 import { ZUTATEN } from "./data/kerndb.js";
 import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, ZIELE, gewaehlteVorlieben } from "./data/profil.js";
+import { allergeneFuerRezept } from "./data/allergene.js";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-opus-5";
@@ -123,6 +124,10 @@ function systemPrompt(profil) {
   const form = ERNAEHRUNGSFORMEN.find((f) => f.id === profil.ernaehrungsform);
   const ausschluesse = (profil.ausschluesse || [])
     .map((id) => AUSSCHLUESSE.find((a) => a.id === id)?.name || id);
+  // Freitext-Ausschlüsse ("Koriander", "Rosenkohl") gehören in den Prompt.
+  // Ohne sie generiert das Modell munter Rezepte, die der Filter danach
+  // wegwirft – der Nutzer wartet dann auf ein Ergebnis, das nie erscheint.
+  const eigene = (profil.eigeneAusschluesse || []).map((e) => String(e).trim()).filter(Boolean);
   const stile = (profil.stile || []).map((id) => STILE.find((s) => s.id === id)?.name || id);
   const ziele = (profil.ziele || []).map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean);
   // Achse 3: Lieblingszutaten der gewählten Ernährungsform (weiche Präferenz)
@@ -134,7 +139,10 @@ anfängertaugliche Rezepte, die sich strikt am Vorratsbestand des Nutzers orient
 
 ## Nutzerprofil (hart einhalten)
 - Ernährungsform: ${form?.name || "Mischkost"} (${form?.kurz || ""})
-- Harte Ausschlüsse (NIE verwenden, auch nicht in Spuren-relevanten Zutaten): ${ausschluesse.join(", ") || "keine"}
+- Harte Ausschlüsse (NIE verwenden, auch nicht in Spuren-relevanten Zutaten): ${ausschluesse.join(", ") || "keine"}${eigene.length ? `
+- Persönlich abgelehnt (NIE verwenden, auch nicht als Garnitur oder Option): ${eigene.join(", ")}` : ""}
+- Halal bedeutet zusätzlich: kein Schweinefleisch, keine Gelatine, kein Alkohol – auch nicht zum Ablöschen.
+- Koscher bedeutet zusätzlich: kein Schweinefleisch, keine Meeresfrüchte, Fleisch und Milchprodukte nie im selben Gericht.
 - Stil-Präferenzen (bevorzugen, nicht erzwingen): ${stile.join(", ") || "keine"}${vorlieben.length ? `
 - Lieblingszutaten (mag der Nutzer besonders – möglichst in mindestens einem der Rezepte einsetzen, aber nicht in jedes hineinzwingen und nie auf Kosten der Bestandsdeckung): ${vorlieben.map((v) => v.name).join(", ")}` : ""}
 ${ziele.length ? `
@@ -194,15 +202,23 @@ Maximiere die Bestandsdeckung (möglichst wenig zukaufen), variiere Cuisine und 
   });
 
   const jetzt = Date.now();
-  return (data.rezepte || []).slice(0, anzahl).map((r, i) => ({
-    ...r,
-    id: `AI-${jetzt}-${i}`,
-    typ: "rezept",
-    quelle_typ: "ai_generiert",
-    naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: r.makro_hinweis },
-    substitutionen: [],
-    erstellt: new Date(jetzt).toISOString(),
-  }));
+  return (data.rezepte || []).slice(0, anzahl).map((r, i) => {
+    const rezept = {
+      ...r,
+      id: `AI-${jetzt}-${i}`,
+      typ: "rezept",
+      quelle_typ: "ai_generiert",
+      naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: r.makro_hinweis },
+      substitutionen: [],
+      erstellt: new Date(jetzt).toISOString(),
+    };
+    // Die Allergen-Selbstauskunft des Modells wird nicht geglaubt, sondern
+    // gegen die Zutaten nachgerechnet und ergänzt. Ein vergessenes "gluten"
+    // hätte bei Zöliakie echte Folgen – und der Filter greift auf genau
+    // dieses Feld zu.
+    rezept.allergene = [...allergeneFuerRezept(rezept)].sort();
+    return rezept;
+  });
 }
 
 /* ------------------------------------------------------------------ Bon-Scan */

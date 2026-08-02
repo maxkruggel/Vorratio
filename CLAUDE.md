@@ -15,7 +15,9 @@ Rezeptvorschläge (3 je Essens-Slot + Snack-Ecke) → Kochmodus mit Timern →
 automatische Abbuchung mit Toleranz → Einkauf füllt den Bestand wieder auf.
 
 - Starten: `python3 -m http.server 8080` (statisch servieren reicht)
-- Keine Tests, kein Linter, keine CI im Repo
+- Prüfen: `node tools/validate-db.mjs` (Datenbank) + `node tools/test-engine.mjs`
+  (Engine). Beides läuft in der CI (`.github/workflows/ci.yml`), ohne
+  Abhängigkeiten. Kein Linter, kein Build-Schritt.
 - Sprache durchgehend Deutsch (Code-Bezeichner, Kommentare, UI)
 
 ## Dateibaum
@@ -23,22 +25,37 @@ automatische Abbuchung mit Toleranz → Einkauf füllt den Bestand wieder auf.
 ```
 index.html                 App-Shell: nur #app-Container + Tabbar (5 Tabs, Inline-SVGs), lädt js/app.js
 manifest.webmanifest       PWA-Manifest
-sw.js                      Service Worker: Network-first, Cache-Fallback. SHELL-Liste + CACHE-Version ("vorratio-vN")
-css/style.css              Gesamtes Styling: Design-Tokens in :root + alle Komponenten (~950 Z., Sektionen per Kommentar)
+sw.js                      Service Worker: Network-first mit 3s-Timeout, Cache-Fallback; cached nur res.ok.
+                           SHELL-Liste + CACHE-Version ("vorratio-vN")
+css/style.css              Gesamtes Styling: Design-Tokens in :root + alle Komponenten (~960 Z., Sektionen per Kommentar)
 fonts/                     Bricolage Grotesque (Display) + Figtree (Text) als lokale WOFF2 – kein CDN
 icons/                     App-Icon „Keimling-V" (SVG + PNG 180/512/maskable)
-js/app.js                  ~2200 Z. – Views, Steuerung, gesamtes UI (Details unten)
+js/app.js                  ~2200 Z. – Views, Steuerung, übriges UI (Details unten)
+js/ui.js                   UI-Grundbausteine ohne State-Kenntnis: esc, h, zeigeApp, dialog,
+                           bestaetige, toast, progressBar, fmtZeit
+js/kochmodus.js            Kochmodus: Portionswahl, Schrittkarten, Timer, Abbuchung.
+                           Zustand liegt im State (state.kochen), Timer rechnet gegen Zeitstempel
 js/engine.js               Rezept-Engine: Profilfilter, Bestandsabgleich, Scoring, Abbuchung (pure Funktionen)
-js/storage.js              State + Persistenz: DEFAULT_STATE, load/save, Export/Import, Migration
+js/storage.js              State + Persistenz: DEFAULT_STATE, load/save, Export/Import, Migration, lokalesDatum
 js/ai.js                   Claude API (clientseitig): Rezeptgenerierung, Bon-Scan, Barcode-Foto-Lesen
+js/generator.js            Offline-Generator: baut aus dem Bestand Rezepte nach Küchenmustern (ohne API-Key)
 js/scan.js                 Barcode: Open-Food-Facts-Lookup, Fuzzy-Zutat-Matching, Kamera-Scan (BarcodeDetector)
 js/angebote.js             Angebots-Crawl: Marktguru-Client, Suchprofile, Matching, Markt-Ranking
 js/substitution.js         Ersatz-Logik: Alternativen filtern/priorisieren nach Profil + Anwendungsfall
 js/icons.js                Duotone-Icon-Set (24er-Raster, 1,6 px Strich): icon(name, size, klasse), logoMark(size)
-js/data/kerndb.js          Kern-DB (Schema kruggel-recipe-db/v1): ZUTATEN, REZEPTE, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN
-js/data/profil.js          Profil-Achsen: ERNAEHRUNGSFORMEN, FORM_ERLAUBT, AUSSCHLUESSE, STILE, ZIELE, FORM_HINWEISE
+js/data/kerndb.js          Kern-DB: ZUTATEN + REZEPTE_KERN, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN.
+                           REZEPTE = Zusammenbau aller fünf Rezeptblöcke (Schema kruggel-recipe-db/v1)
+js/data/rezepte-kern|komplex|tofu|welt|alltag|fruehstueck.js
+                           Rezeptblöcke (RCP-/SNK- · KMX- · TOF- · WLT- · ALL- · FRU-)
+js/data/allergene.js       EINE Quelle für Allergene + Schwein/Alkohol: ZUTAT_ALLERGENE, NAME_MUSTER,
+                           FALSCHE_FREUNDE, allergeneFuerRezept, enthaeltSchwein, enthaeltAlkohol
+js/data/profil.js          Profil-Achsen: ERNAEHRUNGSFORMEN, FORM_ERLAUBT, AUSSCHLUESSE, VORLIEBEN, STILE, ZIELE
 js/data/substitutionen.js  Substitutions-DB (vorratio-substitutions-db/v1): SUBSTITUTIONEN, BASIS_ALLERGENE, SUB_*
 js/data/angebote-demo.js   DEMO_ANGEBOTE für den Crawl ohne API-Keys
+tools/validate-db.mjs      Datenbank-Validator (Schema, IDs, Allergen-Deklaration) – Exit 1 bei Fehlern
+tools/test-engine.mjs      Engine-Tests ohne Framework – Filter, Toleranzband, Abbuchung, Abdeckung
+tools/browsertest.mjs      Browser-Rauchtest (Onboarding→Tabs→Kochmodus→Neuladen). Nicht in der CI,
+                           braucht einmalig `npm install --no-save playwright-core`
 docs/                      Projektdoku (vorratio-doku.md), 5 Recherchen, angebots-crawl.md, design-handoff/
 ```
 
@@ -49,21 +66,26 @@ docs/                      Projektdoku (vorratio-doku.md), 5 Recherchen, angebot
   ein `save()`**. Neue State-Felder in `DEFAULT_STATE` ergänzen UND in
   `migriere()` für Alt-Sicherungen nachrüsten.
 - **Rendering:** Kein Framework. `app.js` hält den View-Zustand in
-  Modul-Variablen (`view`, `cook`, `detailRezept`, `scanPanel`, `bon`, …).
-  `render()` dispatcht auf `renderHeute/Vorrat/Einkauf/Wissen/Profil`; Kochmodus
-  und Rezept-Detail haben Vorrang. Jede View baut ihren Screen als
+  Modul-Variablen (`view`, `detailRezept`, `scanPanel`, `bon`, …).
+  `render(zielView?)` dispatcht auf `renderHeute/Vorrat/Einkauf/Wissen/Profil`;
+  Kochmodus und Rezept-Detail haben Vorrang. Jede View baut ihren Screen als
   Template-String, `zeigeApp(html, key)` tauscht den Inhalt (gleicher key =
   kein Fade, Scrollposition bleibt), danach werden Listener neu gebunden.
   **Jede Interpolation von Nutzdaten läuft durch `esc()`.**
+- **Kochmodus getrennt:** `kochmodus.js` bekommt per `initKochmodus()` nur
+  `{ render, findRezept, syncWochenliste }` gereicht – kein zirkulärer Import.
+  Sein Zustand liegt in `state.kochen` und wird bei jedem Schritt gespeichert.
 - **Engine ist pur:** `engine.js` kennt kein DOM und keinen State – bekommt
   Profil/Bestand als Argumente. Gute Stelle für Logik-Änderungen ohne UI-Risiko.
+  Getestet in `tools/test-engine.mjs`; Änderungen dort mit Test belegen.
 - **Daten sind Code:** Rezepte/Zutaten/Substitutionen liegen als JS-Konstanten
-  in `js/data/`. Neue Rezepte = Eintrag in `REZEPTE` nach v1-Schema (s. u.).
+  in `js/data/`. Neue Rezepte = Eintrag in einem `rezepte-*.js`-Block nach
+  v1-Schema (s. u.); der Block muss in `kerndb.js` in `REZEPTE` einfließen.
 
 ## State-Schema (storage.js → DEFAULT_STATE)
 
 ```
-profil        { name, ernaehrungsform, ausschluesse[], eigeneAusschluesse[], stile[], ziele[], onboarded }
+profil        { name, ernaehrungsform, ausschluesse[], eigeneAusschluesse[], vorlieben[], stile[], ziele[], onboarded }
 bestand       [{ id, zutat_id, name, kategorie, art, einheit, menge, packung?, eigen?, updated }]
 vorschlaege   { datum, slot, rezeptIds[], gewuerfelt, bestandLeer }   (Push-Fallback, tagesstabil)
 snackVorschlaege { datum, rezeptIds[], gewuerfelt }
@@ -71,9 +93,17 @@ historie      [{ rezeptId, name, portionen, datum }]
 einkauf       { rezept: [{zutat_id, name, menge, einheit, erledigt}], woche: [{zutat_id, name, erledigt, auto}], rezeptId }
 angebote      { plz, apikey, clientkey, proxy, demo, letzter }        (Marktguru; letzter gilt 1 ISO-KW)
 aiRezepte     [max. 24 AI-Rezepte, v1-kompatibel, id "AI-<ts>-<i>"]
-tipps         { klicks, gesehen[], reihenfolge[] }                    (Tipp-Dosierung: Pop-up alle 9 Taps)
-settings      { erstellt, apiKey }                                    (Claude-Key, nur lokal)
+vorratRezepte [max. 24 offline generierte Rezepte, id "GEN-<hash>"]
+kochen        { rezeptId, portionen, step, timer } | null             (laufender Kochdurchgang)
+tipps         { klicks, gesehen[] }                                   (Tipp-Dosierung: Pop-up alle 9 Taps)
+settings      { erstellt, apiKey }                                    (Claude-Key, nur lokal; NICHT im Export)
 ```
+
+`migriere()` füllt verschachtelte Teilbäume einzeln auf – der Spread beim Laden
+ersetzt sonst ein ganzes Objekt und hinterlässt fehlende Unterfelder.
+`save()` liefert `false`, wenn das Schreiben scheitert, und meldet es über
+`onSpeicherFehler()`; app.js zeigt dann einmalig den Hinweis auf den Export.
+Datumsstempel für Tagesvorschläge kommen aus `lokalesDatum()` (Ortszeit, nicht UTC).
 
 ## Zentrale Konzepte (Begriffe, die überall auftauchen)
 
@@ -92,14 +122,27 @@ settings      { erstellt, apiKey }                                    (Claude-Ke
 - **Snack-Ecke:** eigene Schiene außerhalb der Slots (`mahlzeitentyp: ["snack"]`,
   `SNK-`Rezepte). `nurSnack`-Rezepte tauchen nie in Essens-Slots auf, auch nicht
   beim Pool-Auffüllen.
-- **Profil-Achsen (unabhängig):** 1 Ernährungsform (genau eine, `FORM_ERLAUBT`
+- **Profil-Achsen (5, unabhängig):** 1 Ernährungsform (genau eine, `FORM_ERLAUBT`
   mappt auf Rezept-Tags) · 2 Ausschlüsse (EU-14 + halal/koscher + Freitext
-  `eigeneAusschluesse` – filtern hart in `rezeptErlaubt()`) · 3 Stile (+15
-  Score) · 4 Ziele (weich, ±18 Score via `zielBonus()`, UI-Badge via
-  `zielTreffer()`, fließen in den AI-Systemprompt).
-- **Scoring** (`vorschlaege()`): Bestandsdeckung ×100 + Stil 15 + Zielbonus ±18
-  + Wurf-Varianz ×20. `basis: true`-Zutaten (Öl, Brühe, Essig) und `optional`
-  zählen nie als fehlend.
+  `eigeneAusschluesse` – filtern **hart** in `rezeptErlaubt()`) · 3 Vorlieben
+  (weich, bis +14 via `vorliebenBonus()`) · 4 Stile (+15 Score) · 5 Ziele
+  (weich, ±18 Score via `zielBonus()`, UI-Badge via `zielTreffer()`).
+  Achsen 1–3 und 5 fließen in den AI-Systemprompt, inklusive der Freitext-Ausschlüsse.
+- **Allergene werden nie geglaubt, sondern abgeleitet:** Der harte Filter nutzt
+  `allergeneFuerRezept()` = Deklaration ∪ aus `zutat_id` abgeleitet ∪ aus
+  Zutatennamen erkannt (`js/data/allergene.js`). Damit rutscht auch ein
+  AI-Rezept mit falsch ausgefülltem `allergene`-Feld nicht durch. Wer die
+  Muster erweitert, prüft die `FALSCHE_FREUNDE`-Liste mit: „Kokosmilch" ist
+  keine Laktose, „Erdnuss" keine Schalenfrucht, „Reisnudeln" kein Gluten.
+- **halal/koscher** (`RELIGIOES` in engine.js): halal = kein Schwein, kein
+  Alkohol (auch verkocht), keine Krebs-/Weichtiere; koscher = kein Schwein,
+  keine Krebs-/Weichtiere, keine Fleisch-Milch-Kombination. Erkennung über
+  `enthaeltSchwein()`/`enthaeltAlkohol()` – zutat_id **und** Name.
+- **Scoring** (`bewerte()` – eine Stelle für Slots und Snacks): Bestandsdeckung
+  ×100 + Stil 15 + Vorlieben bis 14 + Zielbonus ±18 + Wurf-Varianz ×20.
+  `basis: true`-Zutaten (Öl, Brühe, Essig) und `optional` zählen nie als fehlend.
+  Ist ein Slot-Pool zu dünn, füllt `vorschlaege()` mit slot-fremden Rezepten auf –
+  bewertet und sortiert wie die anderen, in der UI als „eigentlich fürs …" markiert.
 - **Rezept-Schema kruggel-recipe-db/v1** (kerndb.js REZEPTE + ai.js
   REZEPT_SCHEMA): id, name, typ, kategorie, cuisine, mahlzeitentyp[],
   portionen, schwierigkeit, zutaten[{menge, einheit, zutat_id|null,
@@ -111,29 +154,50 @@ settings      { erstellt, apiKey }                                    (Claude-Ke
 ## Modul-Index (Exporte → Zweck; Funktionen per Grep auffindbar)
 
 **engine.js** – `aktuellerSlot`, `SLOT_NAMEN`, `rezeptErlaubt` (Achse 1+2 hart),
-`bestandsAbgleich` (→ {vorhanden, fehlt, quote}), `vorschlaege`,
-`snackVorschlaege`, `zielTreffer`, `tagesSeed`, `abbuchen`, `mengeAnzeige`,
-`wochenKandidaten` (leer/≤20 % Packung → Wochenliste), `mengeInBestandsEinheit`,
-`ZUTAT_INDEX`.
+`bestandsAbgleich` (→ {vorhanden, fehlt, quote}), `bestandsPosten`,
+`istVorhanden` (summiert über mehrere Posten derselben Zutat), `bewerte`,
+`vorschlaege`, `snackVorschlaege`, `zielTreffer`, `vorliebenTreffer`,
+`tagesSeed`, `pseudoZufall`, `abbuchen` (räumt mehrere Posten der Reihe nach ab),
+`mengeAnzeige`, `wochenKandidaten` (leer/≤20 % Packung → Wochenliste),
+`mengeInBestandsEinheit`, `ZUTAT_INDEX`.
+
+**ui.js** – `app`, `esc`, `h`, `zeigeApp`, `aktuellerScreen`, `dialog`,
+`bestaetige`, `toast` (ersetzen confirm/alert, hängen an body), `progressBar`,
+`fmtZeit`. Kennt weder State noch Views.
+
+**kochmodus.js** – `initKochmodus({render, findRezept, syncWochenliste})`,
+`startKochen`, `beendeKochen`, `darfVerlassen`, `istAktiv`, `stelleKochenWieder`
+(Start), `renderKochmodus`, `pruefeTimerNachPause` (`visibilitychange`).
+Timer rechnet gegen `ende`-Zeitstempel + 250-ms-Tick; nach Neuladen/Rückkehr
+wird gegen die Wanduhr nachgezogen und der Tick neu gestartet.
 
 **app.js** – Sektionen in Dateireihenfolge (Kommentar-Trennlinien im Code):
-Helpers (`esc`, `h`, `zeigeApp`) · Dialoge (`dialog`, `bestaetige`, `toast` –
-ersetzen confirm/alert, hängen an body) · Tipp-Pop-up (alle 9 Taps) ·
-`render()` + Tabbar · Onboarding (7 Schritte `OB_STEPS`, Zustand `ob`) ·
-Heute (`stelleVorschlaegeBereit`, `stelleSnacksBereit`, `rezeptKarte`,
-`starteAiGenerierung`) · Rezept-Detail (`ersatzIdeenHtml` = Substitutions-Teaser)
-· Kochmodus (`cook`-Objekt, Schrittkarten, Timer mit `ende`-Timestamp +
-250ms-Tick, Notification/Vibration) · Validierung/Abbuchung · Vorrat
+Tipp-Pop-up (alle 9 Taps) · `render(zielView?)` + Tabbar · Onboarding
+(7 Schritte `OB_STEPS`, Zustand `ob`) · Heute (`stelleVorschlaegeBereit`,
+`stelleSnacksBereit`, `rezeptKarte`, `slotHinweis`, `baueAusVorrat`,
+`starteAiGenerierung` inkl. Gegenprüfung der gelieferten Rezepte) ·
+Rezept-Detail (`ersatzIdeenHtml` = Substitutions-Teaser) · Vorrat
 (`zutatTreffer`-Suche inkl. Freitext-Anlage `addBestandFrei` mit `FREI_REGELN`,
 `renderVorratEdit` je `art`) · Barcode-UI (`scanPanel`-Statusmaschine:
 start→kamera/foto→laden→treffer/kein_treffer/fehler) · Einkauf
 (`syncWochenliste`, `buchZugang` = zentrale Zugangsbuchung über Packungsgrößen)
 · Bon-Scan (`bon`-Statusmaschine) · Angebots-Sektion (`starteCrawl`,
 `crawlListe`) · Wissen (Tabs: tipps/ersatz/preps/bases/techniken) · Profil
-(Achsen editieren, API-Key, Export/Import/Reset) · Start + `visibilitychange`.
+(Achsen editieren, API-Key, Export/Import/Reset) · Start (`initKochmodus`,
+`onSpeicherFehler`, `stelleKochenWieder`) + `visibilitychange`.
 
-**storage.js** – `load`, `save`, `getState`, `onChange`, `exportJson`,
-`importJson`, `resetAll`. Migration in `migriere()`.
+**storage.js** – `load`, `save` (→ bool), `getState`, `onChange`,
+`onSpeicherFehler`, `exportJson` (ohne API-Key), `importJson` (behält den Key
+des Geräts), `resetAll`, `lokalesDatum`. Migration in `migriere()`.
+
+**data/allergene.js** – `allergeneFuerRezept` (Deklaration ∪ Ableitung),
+`allergeneAusZutaten` (nur zutat_id, für den Validator), `enthaeltSchwein`,
+`enthaeltAlkohol`, `ZUTAT_ALLERGENE`, `NAME_MUSTER`, `SCHWEIN_IDS`, `ALKOHOL_IDS`.
+Wird von engine.js, ai.js, generator.js und tools/validate-db.mjs gemeinsam genutzt.
+
+**generator.js** – `generiereAusVorrat(profil, bestand, slot, anzahl, seed)`
+(Templates: Pfanne/Eintopf/Blech/Suppe/Pasta/Bowl/Salat, deterministisch pro
+Seed, Allergene über data/allergene.js), `vorratsTiefe` (belegte Rollen → UI-Hinweis).
 
 **ai.js** – `MODEL = "claude-opus-5"`, direkte Browser-Calls an
 api.anthropic.com (Header `anthropic-dangerous-direct-browser-access`).
@@ -166,6 +230,11 @@ Allergie-Filter über `BASIS_ALLERGENE[alt.basis]`, hart wie überall.
 | world.openfoodfacts.org | Barcode → Produktdaten | frei (ODbL), sparsam nutzen |
 | api.marktguru.de | Angebots-Crawl | inoffiziell; `angebote.apikey/clientkey` + PLZ, sonst Demo |
 
+Der optionale `angebote.proxy` schickt PLZ, Einkaufsliste und beide Schlüssel
+über einen fremden Server – die UI warnt, sobald das Feld gefüllt ist. Die
+Marktguru-Schnittstelle ist nicht offiziell und kann jederzeit wegbrechen;
+Fallback sind dann die Demo-Angebote.
+
 ## Design-Regeln (verbindlich)
 
 - Farbwelt „Papier & Tanne" (Variante 2A): Papier `#f3efe5`, Fläche `#fffdf8`,
@@ -184,16 +253,23 @@ Allergie-Filter über `BASIS_ALLERGENE[alt.basis]`, hart wie überall.
 
 - **sw.js:** Neue Datei → in `SHELL` eintragen UND `CACHE`-Version hochzählen
   („vorratio-vN"), sonst laden Alt-Clients sie offline nie.
+- **Neuer Rezeptblock:** Datei in `js/data/`, Import + Spread in `kerndb.js`
+  (`REZEPTE`), Eintrag in `sw.js` SHELL, danach `node tools/validate-db.mjs`.
 - Nach jeder State-Mutation `save()` aufrufen; UI danach über die passende
   `renderX()` neu zeichnen (Listener werden bei jedem Render neu gebunden).
 - `zeigeApp(html, key)`: gleicher key = kein Fade/kein Scroll-Reset. Für neue
   Screens eindeutigen key vergeben.
-- AI-Rezepte leben nur in `state.aiRezepte` – Rezeptzugriff daher immer über
+- AI-Rezepte leben nur in `state.aiRezepte` (Vorrats-Rezepte in
+  `state.vorratRezepte`) – Rezeptzugriff daher immer über
   `alleRezepte()`/`findRezept()` (app.js), nie direkt über `REZEPTE`.
 - Freitext-Zutaten bekommen `zutat_id` mit Präfix `frei_` und fehlen in
   `ZUTAT_INDEX` – Code, der `ZUTAT_INDEX[zutat_id]` liest, muss null-tolerant sein.
 - `mengeInBestandsEinheit()` gibt bewusst oft `null` zurück (= nicht rechnen,
   Toleranzprinzip) – nicht „reparieren".
+- **Kein `new Date().toISOString().slice(0,10)` für Tagesdaten** – das ist UTC
+  und wechselt in der Sommerzeit erst um 2 Uhr. `lokalesDatum()` nutzen.
+- Eine Zutat darf mehrfach im Bestand liegen. Wer über den Bestand rechnet,
+  nimmt `bestandsPosten()` und summiert – nicht `bestand.find()`.
 - Kommentare im Code verweisen auf Doku-Kapitel („Kap. 4.7") =
   `docs/vorratio-doku.md` und auf Design-Nummern („Design 19") =
   Screenshots in `docs/design-handoff/screenshots/`.
