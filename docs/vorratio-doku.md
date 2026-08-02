@@ -102,7 +102,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 **Datenmodell: drei unabhängige Achsen** (verhindert widersprüchliche Kombinationen):
 1. **Ernährungsform** (Radio, genau eine): Mischkost/omnivor · Flexitarier · Pescetarier · Ovo-Lacto-Vegetarier · Lacto-Vegetarier · Ovo-Vegetarier · Veganer · optional „überwiegend pflanzenbasiert".
 2. **Ausschlüsse** (Mehrfachauswahl): Allergien/Intoleranzen (EU-14-orientiert: Gluten, Laktose, Nüsse, Soja …) sowie religiös-kulturelle Regeln (halal, koscher) – harte Filter, quer zu allen Formen.
-3. **Stil-Präferenz** (optional, Mehrfachauswahl): priorisiert **mediterran, High-Protein, Low-Carb**; Keto/Paleo nur mit Evidenz-Hinweis; Intervallfasten als Timing-Thema, nicht als Rezeptfilter.
+3. **Stil-Präferenz** (optional, Mehrfachauswahl): priorisiert **mediterran, High-Protein, Low-Carb**; Keto/Paleo vorerst nicht zur Wahl, solange die Rezeptdatenbank keine passend getaggten Rezepte enthält (eine Auswahl ohne Wirkung wäre irreführend); Intervallfasten als Timing-Thema, nicht als Rezeptfilter.
 
 **AI-Rezeptregeln je Form (Auszug, quellenbelegt):**
 - **Vegan:** keine Tierprodukte inkl. Honig; Proteinziel je Hauptmahlzeit (Hülsenfrüchte/Tofu/Tempeh/Seitan), Getreide + Hülsenfrüchte kombinieren; eisenreiche Gerichte immer mit Vitamin-C-Komponente, Kaffee/Schwarztee nicht als Mahlzeitgetränk; Jodsalz als Default, Algen nicht als Jod-/B12-Quelle; Leinöl/Walnüsse (ALA), Mikroalgenöl als Einkaufshinweis. **B12 ist App-Hinweis, keine Rezeptregel** – nur per Präparat lösbar (DGE-Position 13.06.2024).

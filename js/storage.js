@@ -2,6 +2,8 @@
    Rein lokal (localStorage), JSON-Export/-Import als Backup gegen iOS-Storage-Eviction
    und als Migrationspfad Richtung Server-Variante. */
 
+import { STILE } from "./data/profil.js";
+
 const STORAGE_KEY = "vorratio_v1";
 
 const DEFAULT_STATE = {
@@ -64,7 +66,11 @@ function migriere(s) {
   s.vorratRezepte = liste(s.vorratRezepte);
   s.profil.ausschluesse = liste(s.profil.ausschluesse);
   s.profil.eigeneAusschluesse = liste(s.profil.eigeneAusschluesse);
-  s.profil.stile = liste(s.profil.stile);
+  /* Stile, die es nicht mehr gibt, fliegen raus. Sonst bleiben sie unsichtbar
+     im Profil hängen: Die Chips zeigen nur bekannte Stile, entfernen ließe
+     sich der Eintrag also nicht mehr – gehen würde er trotzdem weiter in den
+     Systemprompt der Rezeptgenerierung, die unbekannte IDs roh durchreicht. */
+  s.profil.stile = liste(s.profil.stile).filter((id) => STILE.some((st) => st.id === id));
   s.profil.ziele = liste(s.profil.ziele);
   s.einkauf.rezept = liste(s.einkauf.rezept);
   s.einkauf.woche = liste(s.einkauf.woche);

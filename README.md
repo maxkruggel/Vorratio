@@ -100,7 +100,7 @@ Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
 
 - **Onboarding** mit Ernährungsprofil auf vier unabhängigen Achsen (Kap. 6.1):
   Ernährungsform (8 Presets, DGE-basiert) · Ausschlüsse (EU-14-Allergene, halal/koscher) ·
-  Stil-Präferenzen (mediterran, High-Protein, Low-Carb; Keto/Paleo mit Evidenz-Hinweis) ·
+  Stil-Präferenzen (mediterran, High-Protein, Low-Carb) ·
   **Ziele** (mehr Energie, Abnehmen, fitter werden/Muskelaufbau, flacherer Bauch, mehr
   Konzentration, gesunde Verdauung) – nur Ziele, die wissenschaftlich belegt über
   Ernährung beeinflussbar sind (DGE, EFSA, ISSN 2017, DIETFITS 2018, PREDIMED/MIND);

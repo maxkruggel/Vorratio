@@ -51,12 +51,17 @@ const AUSSCHLUESSE = [
   { id: "koscher",         name: "Koscher",               gruppe: "religioes" },
 ];
 
+/* Achse 3: Stil-Präferenzen. Ein Stil wirkt nur, wenn Rezepte den passenden
+   Tag tragen – der Score-Bonus in engine.js greift über `tags`. Keto und Paleo
+   standen hier zur Wahl, ohne dass ein einziges Rezept die Tags trug: Die
+   Auswahl hat also nichts bewirkt. Sie bleiben vorerst draußen, bis die
+   Rezeptdatenbank sie tatsächlich bedienen kann. Wer sie wieder aufnimmt,
+   sollte vorher Rezepte entsprechend taggen – sonst ist es wieder eine
+   Option ohne Wirkung. */
 const STILE = [
   { id: "mediterran",   name: "Mediterran",   hinweis: null },
   { id: "high-protein", name: "High-Protein", hinweis: null },
   { id: "low-carb",     name: "Low-Carb",     hinweis: "Auf ausreichend Ballaststoffe achten (Vollkorn, Hülsenfrüchte, Gemüse)." },
-  { id: "keto",         name: "Keto",         hinweis: "Sehr restriktiv, Langzeitevidenz begrenzt – als Alltagskost nur mit Bedacht (DGEM/PRIO 2022)." },
-  { id: "paleo",        name: "Paleo",        hinweis: "Schließt ganze Lebensmittelgruppen aus (Vollkorn, Hülsenfrüchte) – widerspricht DGE-Empfehlungen." },
 ];
 
 /* Achse 4: Ziele – nur Ziele, die (a) wissenschaftlich belegt über Ernährung
