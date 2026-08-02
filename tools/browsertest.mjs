@@ -27,6 +27,19 @@ page.setDefaultTimeout(6000);
 page.on("pageerror", (e) => fehler.push(`JS-Fehler: ${e.message}`));
 page.on("console", (m) => { if (m.type() === "error") fehler.push(`Konsole: ${m.text()}`); });
 
+/* Die App blendet alle 9 Taps einen Küchentipp ein. Der liegt über der
+   Oberfläche und fängt Klicks ab – für den Nutzer gewollt, für den Test im Weg,
+   weil er mitten in einem Schritt auftaucht. Er wird deshalb nicht unterdrückt
+   (er soll sich weiter zeigen und dabei fehlerfrei rendern), sondern nur
+   klickdurchlässig gemacht. */
+await page.addInitScript(() => {
+  document.addEventListener("DOMContentLoaded", () => {
+    const s = document.createElement("style");
+    s.textContent = ".tipp-pop { pointer-events: none !important; }";
+    document.head.append(s);
+  });
+});
+
 const schritt = async (name, fn) => {
   try { await fn(); console.log(`  ok   ${name}`); }
   catch (e) { console.log(`  FEHL ${name}: ${e.message}`); fehler.push(`${name}: ${e.message}`); }
@@ -61,7 +74,7 @@ await schritt("7 Schritte durchklicken", async () => {
 });
 
 console.log("Tabs:");
-for (const tab of ["heute", "vorrat", "einkauf", "wissen", "profil"]) {
+for (const tab of ["heute", "kochbuch", "vorrat", "einkauf", "wissen", "profil"]) {
   await schritt(`Tab ${tab}`, async () => {
     await page.click(`[data-view="${tab}"]`);
     await page.waitForTimeout(250);

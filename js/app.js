@@ -21,6 +21,13 @@ import { generiereAusVorrat, vorratsTiefe } from "./generator.js";
 import { lookupBarcode, vorschlagZutat, kameraVerfuegbar, starteKameraScan } from "./scan.js";
 import { SUB_KATEGORIEN, SUB_ANWENDUNGEN } from "./data/substitutionen.js";
 import { subsFiltern, ersatzVorschlaege, produkteSortiert } from "./substitution.js";
+import {
+  KOCHBUCH_FILTER, QUELLE_LABEL, quelleVon, istGemerkt, findeGemerkt, merken, vergessen,
+  setzeNotiz, ersetze, kochbuchListe, gekochtAnzahl, katalogZutaten,
+  EDITOR_EINHEITEN, MAHLZEITEN, SCHWIERIGKEITEN,
+  leererEntwurf, entwurfAus, entwurfFehler, eigenesRezept, tagsAusZutaten,
+  leereZutat, leererSchritt,
+} from "./kochbuch.js";
 import { icon, logoMark } from "./icons.js";
 import { app, esc, h, zeigeApp, aktuellerScreen, dialog, bestaetige, toast, progressBar } from "./ui.js";
 import {
@@ -28,15 +35,29 @@ import {
   stelleKochenWieder, renderKochmodus, pruefeTimerNachPause,
 } from "./kochmodus.js";
 
-/* Kern-DB + AI-generierte + aus dem Vorrat kombinierte Rezepte als ein Pool. */
-const alleRezepte = () => [
-  ...REZEPTE,
-  ...(getState().aiRezepte || []),
-  ...(getState().vorratRezepte || []),
-];
+/* Kern-DB + AI-generierte + aus dem Vorrat kombinierte + gespeicherte Rezepte
+   als ein Pool. Das Kochbuch enthält Kopien – gleiche id gewinnt einmal, damit
+   ein gemerktes Rezept nicht doppelt in den Vorschlägen auftaucht. Eigene
+   Rezepte kommen so ganz nebenbei in die tägliche Vorschlagsrunde. */
+function alleRezepte() {
+  const s = getState();
+  const gesehen = new Set();
+  return [...REZEPTE, ...(s.aiRezepte || []), ...(s.vorratRezepte || []), ...(s.kochbuch || [])]
+    .filter((r) => !gesehen.has(r.id) && gesehen.add(r.id));
+}
 const findRezept = (id) => alleRezepte().find((r) => r.id === id);
-const istAi = (r) => r.quelle_typ === "ai_generiert";
-const istVorrat = (r) => r.quelle_typ === "vorrat_generiert";
+const istEigen = (r) => r.quelle_typ === "eigen";
+
+/* Meta-Zeile einer Rezeptkarte – eigene Rezepte haben oft keine Küche. */
+const rezeptMeta = (r) => [r.cuisine, r.schwierigkeit, portionenText(r.portionen)].filter(Boolean).join(" · ");
+
+/* Herkunfts-Pill. Kern-Rezepte tragen keine – sie sind der Normalfall. */
+const QUELLE_ICON = { eigen: "stift", ai: "claude", vorrat: "vorrat" };
+function quellenBadge(rezept) {
+  const q = quelleVon(rezept);
+  if (!QUELLE_ICON[q]) return "";
+  return `<span class="badge">${icon(QUELLE_ICON[q], 14)}${esc(QUELLE_LABEL[q])}</span>`;
+}
 
 const tabbar = document.getElementById("tabbar");
 let view = "heute";
@@ -111,8 +132,8 @@ document.addEventListener("click", (e) => {
   if (s.tipps.klicks < KLICKS_BIS_TIPP) { save(); return; }
   s.tipps.klicks = 0;
   save();
-  // Nicht mitten in einen Kochschritt oder einen offenen Dialog platzen
-  if (kochtGerade() || tippPopOffen || document.querySelector("dialog[open]")) return;
+  // Nicht mitten in einen Kochschritt, ein Rezept in Arbeit oder einen offenen Dialog platzen
+  if (kochtGerade() || editor || tippPopOffen || document.querySelector("dialog[open]")) return;
   zeigeTippPop();
 });
 
@@ -132,8 +153,12 @@ function render(zielView = null) {
   document.body.classList.remove("onboarding");
   tabbar.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   if (kochtGerade()) { renderKochmodus(); return; }
+  if (editor) { renderRezeptEditor(); return; }
   if (detailRezept) { renderRezeptDetail(detailRezept); return; }
-  ({ heute: renderHeute, vorrat: renderVorrat, einkauf: renderEinkauf, wissen: renderWissen, profil: renderProfil }[view] || renderHeute)();
+  ({
+    heute: renderHeute, kochbuch: renderKochbuch, vorrat: renderVorrat,
+    einkauf: renderEinkauf, wissen: renderWissen, profil: renderProfil,
+  }[view] || renderHeute)();
   // Nur beim echten Wechsel nach oben springen – sonst reißt es einen beim
   // Antippen mitten in der Liste an den Seitenanfang.
   if (aktuellerScreen() !== vorher) window.scrollTo(0, 0);
@@ -143,7 +168,13 @@ tabbar.addEventListener("click", async (e) => {
   const b = e.target.closest(".tab");
   if (!b) return;
   if (!await darfVerlassen()) return;
+  if (editor && !await bestaetige({
+    titel: "Rezept verwerfen?",
+    text: "Das angefangene Rezept ist noch nicht im Kochbuch.",
+    bestaetigen: "Verwerfen", abbrechen: "Weiter schreiben", danger: true, symbol: "achtung",
+  })) return;
   beendeKochen();
+  editor = null;
   view = b.dataset.view;
   detailRezept = null;
   render();
@@ -520,8 +551,6 @@ function stelleSnacksBereit(neuWuerfeln = false) {
   return s.snackVorschlaege;
 }
 
-/* Rezeptkarte (Design 07): Titel + Zeit-Pill, Meta-Zeile, darunter die
-   Status-Pills – „von claude", „alles da" bzw. „N fehlen" mit Namen. */
 /* Kommt der Vorschlag eigentlich aus einem anderen Slot? Passiert, wenn das
    Profil den Slot-Pool leerfiltert (z. B. Frühstück bei mehreren Allergien) –
    dann füllt die Engine mit Mittag/Abend auf. Das sagen wir dazu, statt ein
@@ -532,12 +561,15 @@ function slotHinweis(rezept, slot) {
   return eigener ? `<span class="badge neutral">eigentlich fürs ${SLOT_NAMEN[eigener]}</span>` : "";
 }
 
-function rezeptKarte(v, meta, gedimmt = false) {
+/* Rezeptkarte (Design 07): Titel + Zeit-Pill, Meta-Zeile, darunter die
+   Status-Pills – „von claude", „im Kochbuch", „alles da" bzw. „N fehlen". */
+function rezeptKarte(v, meta, { gedimmt = false, herkunft = true } = {}) {
   const fehlt = v.abgleich.fehlt;
+  const gemerkt = herkunft && istGemerkt(getState(), v.rezept.id);
   const tags = gedimmt ? "" : `
     <div class="card-tags">
-      ${istAi(v.rezept) ? `<span class="badge">${icon("claude", 14)}von claude</span>` : ""}
-      ${istVorrat(v.rezept) ? `<span class="badge">${icon("vorrat", 14)}aus deinem Vorrat</span>` : ""}
+      ${herkunft ? quellenBadge(v.rezept) : ""}
+      ${gemerkt ? `<span class="badge">${icon("gemerkt", 14)}im Kochbuch</span>` : ""}
       ${v.slotHinweis || ""}
       ${fehlt.length === 0
         ? `<span class="badge">${icon("check", 18)}alles da</span>`
@@ -592,7 +624,7 @@ function renderHeute() {
           <button class="btn" style="background:var(--surface);color:var(--accent-deep);margin-top:14px" data-go="vorrat">Bestand einrichten</button>
         </div>
         <h2 class="section-gap">Solange zeigen wir dir Klassiker</h2>` : ""}
-      ${vs.map((v) => rezeptKarte(v, `${esc(v.rezept.cuisine)} · ${esc(v.rezept.schwierigkeit)} · ${portionenText(v.rezept.portionen)}`, leererBestand)).join("")}
+      ${vs.map((v) => rezeptKarte(v, esc(rezeptMeta(v.rezept)), { gedimmt: leererBestand })).join("")}
       <div class="btn-row">
         <button class="btn secondary" id="wuerfeln">${icon("wuerfeln", 19)}Neu würfeln</button>
         <button class="btn secondary" id="vorrat-generieren" ${leererBestand ? "disabled" : ""}>${icon("vorrat", 19)}Aus Vorrat bauen</button>
@@ -617,8 +649,7 @@ function renderHeute() {
     </div>`, "heute");
 
   app.querySelectorAll("[data-rezept]").forEach((c) => c.addEventListener("click", () => {
-    detailRezept = findRezept(c.dataset.rezept);
-    render();
+    oeffneRezept(c.dataset.rezept);
   }));
   app.querySelector("#wuerfeln").addEventListener("click", () => { stelleVorschlaegeBereit(true); render(); });
   app.querySelector("#snack-wuerfeln").addEventListener("click", () => { stelleSnacksBereit(true); render(); });
@@ -705,21 +736,44 @@ async function starteAiGenerierung(slot) {
 }
 
 /* ---------------------------------------------------------- Rezept-Detail */
-function renderRezeptDetail(rezept) {
+/* Ein Rezept öffnen. Der Zurück-Link zeigt auf den Tab, aus dem es kam –
+   das Detail liegt über dem Screen, der Tab wechselt dabei nicht. */
+function oeffneRezept(id) {
+  const rezept = findRezept(id);
+  if (!rezept) return;
+  detailRezept = rezept;
+  render();
+}
+
+function renderRezeptDetail(vorlage) {
   const s = getState();
+  // Nach Bearbeiten/Merken kann das Objekt veraltet sein – über die id neu holen.
+  const rezept = findRezept(vorlage.id) || vorlage;
+  detailRezept = rezept;
   const ab = bestandsAbgleich(rezept, s.bestand);
   const tip = TIPPS[Math.abs(hashCode(rezept.id)) % TIPPS.length];
   // Sichtbare Rückkopplung Achse 5: auf welche gewählten Ziele zahlt das Rezept ein?
   const zielePassend = zielTreffer(rezept, s.profil.ziele || []).filter((t) => t.fit > 0).map((t) => t.ziel.name);
   // … und Achse 3: welche deiner Lieblingszutaten stecken drin?
   const vorliebenPassend = vorliebenTreffer(rezept, s.profil).map((v) => v.name);
+  const gemerkt = istGemerkt(s, rezept.id);
+  const gespeichert = gemerkt ? findeGemerkt(s, rezept.id) : null;
+  const meta = [rezept.cuisine, `${rezept.gesamtzeit_min.gesamt} Min`, rezept.schwierigkeit, portionenText(rezept.portionen)]
+    .filter(Boolean).join(" · ");
 
   zeigeApp(`
     <div class="fade-in">
-      <button class="backlink" id="zurueck">${icon("zurueck", 20)}Heute</button>
+      <div class="detail-head">
+        <button class="backlink" id="zurueck">${icon("zurueck", 20)}${view === "kochbuch" ? "Kochbuch" : "Heute"}</button>
+        ${istEigen(rezept) ? "" : `
+          <button class="merk-btn${gemerkt ? " an" : ""}" id="merken" aria-pressed="${gemerkt}">
+            ${icon(gemerkt ? "gemerkt" : "merken", 19)}${gemerkt ? "gemerkt" : "merken"}
+          </button>`}
+      </div>
       <div class="screen-header" style="margin-top:10px">
         <h1>${esc(rezept.name)}</h1>
-        <p class="subtle small">${esc(rezept.cuisine)} · ${rezept.gesamtzeit_min.gesamt} Min · ${esc(rezept.schwierigkeit)} · ${portionenText(rezept.portionen)}</p>
+        <p class="subtle small">${esc(meta)}</p>
+        ${quellenBadge(rezept) ? `<div class="card-tags" style="margin-top:8px">${quellenBadge(rezept)}</div>` : ""}
       </div>
       <div class="card">
         ${rezept.zutaten.map((z) => {
@@ -744,14 +798,49 @@ function renderRezeptDetail(rezept) {
           <div class="hint-body"><b>Gut zu wissen</b>${esc(rezept.naehrwert_einordnung.makro_hinweis)}</div>
         </div>` : ""}
       ${ersatzIdeenHtml(ab.fehlt, s.profil)}
+      ${gemerkt ? `
+        <div class="card">
+          <h2>Deine Notiz</h2>
+          <textarea id="rezept-notiz" rows="2" placeholder="z. B. mit doppelt Knoblauch, Backofen 10 Min länger">${esc(gespeichert.notiz || "")}</textarea>
+          <p class="subtle small" style="margin-top:8px">Wird beim Verlassen des Feldes gesichert.</p>
+        </div>` : ""}
       <div class="card hint-card">${icon("tipp", 20)}<span class="hint-body">${esc(tip.text)}</span></div>
       ${ab.fehlt.length > 0 ? `
         <button class="btn" id="einkauf-starten">${ab.fehlt.length === 1 ? "1 Sache" : `${ab.fehlt.length} Sachen`} auf die Einkaufsliste</button>
         <button class="btn secondary" id="kochen-trotzdem">Trotzdem kochen</button>`
         : `<button class="btn" id="kochen">Jetzt kochen</button>`}
+      ${istEigen(rezept) ? `
+        <button class="btn secondary" id="rezept-bearbeiten">${icon("stift", 19)}Rezept bearbeiten</button>
+        <button class="btn danger" id="rezept-loeschen">Rezept löschen</button>` : ""}
     </div>`, `rezept:${rezept.id}`);
 
   app.querySelector("#zurueck").addEventListener("click", () => { detailRezept = null; render(); });
+  /* Eigene Rezepte haben keinen Merken-Schalter: sie stehen ohnehin nur im
+     Kochbuch. Ihr Gegenstück ist „Rezept löschen" unten – mit Rückfrage. */
+  app.querySelector("#merken")?.addEventListener("click", () => {
+    if (!gemerkt) {
+      merken(s, rezept);
+      save();
+      toast("Im Kochbuch gespeichert");
+      renderRezeptDetail(rezept);
+      return;
+    }
+    vergessen(s, rezept.id);
+    save();
+    toast("Aus dem Kochbuch genommen");
+    if (view === "kochbuch") { detailRezept = null; render(); return; }
+    renderRezeptDetail(rezept);
+  });
+  app.querySelector("#rezept-notiz")?.addEventListener("change", (e) => {
+    setzeNotiz(s, rezept.id, e.target.value);
+    save();
+    toast("Notiz gesichert");
+  });
+  app.querySelector("#rezept-bearbeiten")?.addEventListener("click", () => {
+    editor = entwurfAus(rezept);
+    render();
+  });
+  app.querySelector("#rezept-loeschen")?.addEventListener("click", () => loescheEigenes(rezept));
   app.querySelector("#kochen")?.addEventListener("click", () => startKochen(rezept));
   app.querySelector("#kochen-trotzdem")?.addEventListener("click", () => startKochen(rezept));
   app.querySelector("#einkauf-starten")?.addEventListener("click", () => {
@@ -812,9 +901,349 @@ function hashCode(str) {
   return hsh;
 }
 
+/* ---------------------------------------------------------------- Kochbuch
+   Kap. 4.10: der Ort, an dem Rezepte bleiben. Gemerkte Vorschläge und eigene
+   Rezepte liegen hier nebeneinander – beides vollwertige Rezepte, die durch
+   Bestandsabgleich, Kochmodus und Abbuchung laufen. */
+let kochbuchSuche = "";
+let kochbuchFilter = "alle";
+let editor = null;          // Entwurf des eigenen Rezepts (siehe kochbuch.js)
+
+function kochbuchLeerHtml() {
+  const wege = [
+    ["merken", "Einen Vorschlag merken", "heute"],
+    ["stift", "Eigenes Rezept eintragen", "editor"],
+  ];
+  return `
+    <div class="empty-state">
+      ${icon("kochbuch", 52)}
+      <h3>Dein Kochbuch ist leer</h3>
+      <p>Was dir schmeckt, muss nicht jeden Tag neu gewürfelt werden. Tipp bei einem Rezept oben rechts auf „merken“ – dann liegt es hier, auch wenn Claude längst neue Ideen hatte.</p>
+    </div>
+    <div class="section-gap">
+      <h2>Zwei Wege hinein</h2>
+      ${wege.map(([ic, titel, ziel]) => `
+        <button class="card weg-karte" data-kweg="${ziel}">
+          ${icon(ic, 24)}
+          <span class="grow"><span class="name">${titel}</span></span>
+          ${icon("weiter", 20)}
+        </button>`).join("")}
+    </div>`;
+}
+
+function renderKochbuch() {
+  const s = getState();
+  const alle = s.kochbuch || [];
+  const kochbar = alle.filter((r) => bestandsAbgleich(r, s.bestand).fehlt.length === 0).length;
+
+  zeigeApp(`
+    <div class="fade-in">
+      <div class="screen-header">
+        <div class="card-row" style="align-items:center">
+          <h1>kochbuch</h1>
+          <div class="head-actions">
+            <button class="pill-btn" id="eigenes-neu">${icon("plus", 19)}Eigenes</button>
+          </div>
+        </div>
+        <p class="subtle small">${alle.length ? `${alle.length} ${alle.length === 1 ? "Rezept" : "Rezepte"} · ${kochbar} sofort kochbar` : "Noch nichts gespeichert"}</p>
+      </div>
+      ${alle.length ? `
+        <input type="text" id="kochbuch-suche" placeholder="Suchen – Name, Küche oder Zutat" value="${esc(kochbuchSuche)}" autocomplete="off">
+        <div class="chip-wrap chip-nav" style="margin:12px 0 16px">
+          ${KOCHBUCH_FILTER.map((f) => `
+            <button class="chip ${kochbuchFilter === f.id ? "selected" : ""}" data-kfilter="${f.id}">${esc(f.name)}</button>`).join("")}
+        </div>
+        <div id="kochbuch-liste">${kochbuchTrefferHtml()}</div>
+        <p class="centered-note">Gemerkte Rezepte bleiben, auch wenn Claude neue Ideen hat.<br>Sie tauchen ganz normal in den Tagesvorschlägen auf.</p>`
+        : kochbuchLeerHtml()}
+    </div>`, "kochbuch");
+
+  bindKochbuchKarten();
+  app.querySelectorAll("[data-kfilter]").forEach((b) => b.addEventListener("click", () => {
+    kochbuchFilter = b.dataset.kfilter;
+    renderKochbuch();
+  }));
+  app.querySelectorAll("[data-kweg]").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.kweg === "editor") { editor = leererEntwurf(); render(); return; }
+    view = "heute";
+    render();
+  }));
+  app.querySelector("#eigenes-neu").addEventListener("click", () => { editor = leererEntwurf(); render(); });
+  const feld = app.querySelector("#kochbuch-suche");
+  feld?.addEventListener("input", () => {
+    kochbuchSuche = feld.value;
+    // Nur die Trefferliste tauschen, damit die Tastatur den Fokus behält
+    app.querySelector("#kochbuch-liste").innerHTML = kochbuchTrefferHtml();
+    bindKochbuchKarten();
+  });
+}
+
+/* Trefferliste des Kochbuchs – „N× gekocht" kommt aus der Historie. */
+function kochbuchTrefferHtml() {
+  const s = getState();
+  const treffer = kochbuchListe(s, { suche: kochbuchSuche, quelle: kochbuchFilter });
+  if (!treffer.length) {
+    return `
+      <div class="empty-state">
+        ${icon("suche", 42)}
+        <h3>Nichts gefunden</h3>
+        <p>Kein gespeichertes Rezept passt zu dieser Suche.</p>
+      </div>`;
+  }
+  return treffer.map((rezept) => {
+    const oft = gekochtAnzahl(s, rezept.id);
+    const meta = [rezeptMeta(rezept), oft ? `${oft}× gekocht` : ""].filter(Boolean).join(" · ");
+    return rezeptKarte({ rezept, abgleich: bestandsAbgleich(rezept, s.bestand) }, esc(meta), { herkunft: false });
+  }).join("");
+}
+
+function bindKochbuchKarten() {
+  app.querySelectorAll("[data-rezept]").forEach((c) => c.addEventListener("click", () => {
+    oeffneRezept(c.dataset.rezept);
+  }));
+}
+
+async function loescheEigenes(rezept) {
+  if (!await bestaetige({
+    titel: "Rezept löschen?",
+    text: `„${rezept.name}“ steht nur in deinem Kochbuch – gelöscht ist es weg.`,
+    bestaetigen: "Löschen", danger: true, symbol: "achtung",
+  })) return;
+  vergessen(getState(), rezept.id);
+  save();
+  detailRezept = null;
+  view = "kochbuch";
+  toast("Rezept gelöscht");
+  render();
+}
+
+/* ------------------------------------------------------- Rezept-Editor
+   Eigene Rezepte im gleichen Schema wie alles andere – nur so laufen sie durch
+   Profilfilter, Bestandsabgleich, Timer und Abbuchung. Zumutbar bleibt das,
+   weil Vorratio die lästigen Teile übernimmt: Zutaten kommen per
+   Vorschlagsliste aus dem Katalog (nur ein eindeutiger Treffer wird mit dem
+   Vorrat verknüpft), Ernährungsform und Allergene werden aus den Zutaten
+   vorgeschlagen und bleiben korrigierbar. */
+const FORM_TAG_NAMEN = {
+  vegan: "vegan", vegetarisch: "vegetarisch", pescetarisch: "pescetarisch",
+  mit_fisch: "mit Fisch", mit_fleisch: "mit Fleisch", mit_gefluegel: "mit Geflügel",
+};
+
+/* Sichtbare Eingaben in den Entwurf übernehmen – vor jedem Neuzeichnen. */
+function uebernehmeEditorFelder() {
+  if (!editor) return;
+  app.querySelectorAll("[data-e]").forEach((el) => { editor[el.dataset.e] = el.value; });
+  for (const [attr, liste] of [["data-ez", editor.zutaten], ["data-es", editor.schritte]]) {
+    app.querySelectorAll(`[${attr}]`).forEach((el) => {
+      const [i, feld] = el.getAttribute(attr).split(".");
+      if (liste[i]) liste[i][feld] = el.value;
+    });
+  }
+}
+
+function zeichneEditor() {
+  uebernehmeEditorFelder();
+  renderRezeptEditor();
+}
+
+function editorZutatenHtml() {
+  return editor.zutaten.map((z, i) => `
+    <div class="zeile-zutat">
+      <input type="text" data-ez="${i}.menge" inputmode="decimal" placeholder="Menge" value="${esc(z.menge)}">
+      <select data-ez="${i}.einheit">
+        ${EDITOR_EINHEITEN.map((e) => `<option value="${e}" ${z.einheit === e ? "selected" : ""}>${e === "nach_Bedarf" ? "n. Bedarf" : e}</option>`).join("")}
+      </select>
+      <button class="icon-btn" data-zutat-weg="${i}" aria-label="Zutat entfernen">${icon("x", 20)}</button>
+      <input class="voll" type="text" data-ez="${i}.zutat_name" list="zutat-katalog" placeholder="Zutat – aus der Liste wählen" value="${esc(z.zutat_name)}">
+    </div>`).join("");
+}
+
+function editorSchritteHtml() {
+  return editor.schritte.map((s, i) => `
+    <div class="zeile-schritt">
+      <div class="card-row" style="align-items:center">
+        <h2 style="margin:0">Schritt ${i + 1}</h2>
+        <button class="icon-btn" data-schritt-weg="${i}" aria-label="Schritt entfernen">${icon("x", 20)}</button>
+      </div>
+      <textarea data-es="${i}.text" rows="2" placeholder="Was ist zu tun?">${esc(s.text)}</textarea>
+      <div class="zeile-timer">
+        <input type="text" data-es="${i}.minuten" inputmode="numeric" placeholder="Min" value="${esc(s.minuten)}">
+        <input type="text" data-es="${i}.timer_name" placeholder="Timer-Name (optional)" value="${esc(s.timer_name)}">
+      </div>
+    </div>`).join("");
+}
+
+function renderRezeptEditor() {
+  const s = getState();
+  const katalog = katalogZutaten(s);
+  const neu = !editor.id;
+  // Solange niemand die Chips angefasst hat, folgen sie den Zutaten.
+  if (!editor.tagsManuell) {
+    const auto = tagsAusZutaten(editor.zutaten.map((z) => ({ zutat_name: z.zutat_name })));
+    editor.ernaehrungsform = auto.ernaehrungsform;
+    editor.allergene = auto.allergene;
+  }
+  const allergene = AUSSCHLUESSE.filter((a) => a.gruppe === "allergie");
+
+  zeigeApp(`
+    <div class="fade-in">
+      <div class="detail-head">
+        <button class="backlink" id="editor-zurueck">${icon("zurueck", 20)}Kochbuch</button>
+        <span class="cook-step-count">${neu ? "Neues Rezept" : "Bearbeiten"}</span>
+      </div>
+      <div class="screen-header" style="margin-top:10px">
+        <h1>${neu ? "eigenes rezept" : "rezept bearbeiten"}</h1>
+        <p class="subtle small">Nur Name, Zutaten und Schritte sind Pflicht. Den Rest füllt Vorratio auf, so gut es geht.</p>
+      </div>
+
+      <div class="card">
+        <label class="field">Name
+          <input type="text" data-e="name" placeholder="z. B. Omas Kartoffelsuppe" value="${esc(editor.name)}"></label>
+        <label class="field">Kategorie
+          <input type="text" data-e="kategorie" placeholder="z. B. Suppe/Eintopf" value="${esc(editor.kategorie)}"></label>
+        <label class="field">Küche
+          <input type="text" data-e="cuisine" placeholder="z. B. deutsch" value="${esc(editor.cuisine)}"></label>
+        <label class="field" style="margin-bottom:0">Gesamtzeit in Minuten
+          <input type="text" data-e="zeit" inputmode="numeric" placeholder="leer = aus den Timern gerechnet" value="${esc(editor.zeit)}"></label>
+      </div>
+
+      <div class="card">
+        <div class="stepper">
+          <button id="e-p-minus" aria-label="Weniger Portionen">${icon("minus", 22)}</button>
+          <span style="display:flex;flex-direction:column;align-items:center;gap:2px">
+            <span class="count">${editor.portionen}</span>
+            <span class="subtle small">Portionen</span>
+          </span>
+          <button id="e-p-plus" class="primary" aria-label="Mehr Portionen">${icon("plus", 22)}</button>
+        </div>
+        <hr class="divider" style="margin:18px 0 14px">
+        <h2>Wann passt das?</h2>
+        <div class="chip-wrap">
+          ${MAHLZEITEN.map((m) => `
+            <button class="chip ${editor.mahlzeitentyp.includes(m.id) ? "selected" : ""}" data-emahl="${m.id}">${esc(m.name)}</button>`).join("")}
+        </div>
+        <h2 class="section-gap">Aufwand</h2>
+        <div class="chip-wrap">
+          ${SCHWIERIGKEITEN.map((g) => `
+            <button class="chip ${editor.schwierigkeit === g ? "selected" : ""}" data-egrad="${g}">${g}</button>`).join("")}
+        </div>
+      </div>
+
+      <h2 class="section-gap">Zutaten</h2>
+      <p class="subtle small" style="margin-bottom:12px">Zutaten aus der Vorschlagsliste werden mit deinem Vorrat verrechnet – abgeglichen, eingekauft, abgebucht. Frei getippte Namen stehen im Rezept, zählen aber nicht für den Bestand.</p>
+      <div class="card">
+        ${editorZutatenHtml()}
+        <button class="chip chip-plus" id="zutat-mehr">${icon("plus", 16)}Zutat</button>
+      </div>
+
+      <h2 class="section-gap">Schritte</h2>
+      <p class="subtle small" style="margin-bottom:12px">Ein Handgriff pro Schritt. Wo du eine Minutenzahl einträgst, gibt es im Kochmodus einen benannten Timer.</p>
+      <div class="card">
+        ${editorSchritteHtml()}
+        <button class="chip chip-plus" id="schritt-mehr">${icon("plus", 16)}Schritt</button>
+      </div>
+
+      <h2 class="section-gap">Für wen ist das Rezept?</h2>
+      <p class="subtle small" style="margin-bottom:10px">${editor.tagsManuell
+        ? "Von dir gesetzt – Vorratio filtert danach."
+        : "Aus den Zutaten abgeleitet. Stimmt etwas nicht, tipp es einfach an."}</p>
+      <div class="chip-wrap">
+        ${Object.entries(FORM_TAG_NAMEN).map(([id, name]) => `
+          <button class="chip ${editor.ernaehrungsform.includes(id) ? "selected" : ""}" data-eform="${id}">${esc(name)}</button>`).join("")}
+      </div>
+      <h2 class="section-gap">Enthält</h2>
+      <p class="subtle small" style="margin-bottom:10px">Harte Ausschlüsse: Wer eins davon im Profil ausgeschlossen hat, bekommt dieses Rezept nie vorgeschlagen.</p>
+      <div class="chip-wrap">
+        ${allergene.map((a) => `
+          <button class="chip ${editor.allergene.includes(a.id) ? "selected" : ""}" data-eall="${a.id}">${esc(a.name)}</button>`).join("")}
+      </div>
+
+      <label class="field section-gap">Gut zu wissen (optional)
+        <textarea data-e="hinweis" rows="2" placeholder="z. B. schmeckt aufgewärmt besser">${esc(editor.hinweis)}</textarea></label>
+
+      <button class="btn" id="editor-sichern">${neu ? "Ins Kochbuch legen" : "Änderungen sichern"}</button>
+      <button class="btn secondary" id="editor-abbrechen">Abbrechen</button>
+      <datalist id="zutat-katalog">${katalog.map((z) => `<option value="${esc(z.name)}"></option>`).join("")}</datalist>
+    </div>`, `editor:${editor.id || "neu"}`);
+
+  bindEditor();
+}
+
+function bindEditor() {
+  const zurueck = async () => {
+    uebernehmeEditorFelder();
+    const leer = !String(editor.name).trim()
+      && !editor.zutaten.some((z) => String(z.zutat_name).trim())
+      && !editor.schritte.some((s) => String(s.text).trim());
+    if (!leer && !await bestaetige({
+      titel: "Rezept verwerfen?",
+      text: editor.id ? "Die Änderungen gehen verloren." : "Das angefangene Rezept ist noch nicht im Kochbuch.",
+      bestaetigen: "Verwerfen", abbrechen: "Weiter schreiben", danger: true, symbol: "achtung",
+    })) return;
+    editor = null;
+    render();
+  };
+  app.querySelector("#editor-zurueck").addEventListener("click", zurueck);
+  app.querySelector("#editor-abbrechen").addEventListener("click", zurueck);
+
+  app.querySelector("#e-p-minus").addEventListener("click", () => { editor.portionen = Math.max(1, editor.portionen - 1); zeichneEditor(); });
+  app.querySelector("#e-p-plus").addEventListener("click", () => { editor.portionen++; zeichneEditor(); });
+  app.querySelectorAll("[data-emahl]").forEach((b) => b.addEventListener("click", () => { toggle(editor.mahlzeitentyp, b.dataset.emahl); zeichneEditor(); }));
+  app.querySelectorAll("[data-egrad]").forEach((b) => b.addEventListener("click", () => { editor.schwierigkeit = b.dataset.egrad; zeichneEditor(); }));
+  app.querySelectorAll("[data-eform]").forEach((b) => b.addEventListener("click", () => {
+    editor.tagsManuell = true;
+    toggle(editor.ernaehrungsform, b.dataset.eform);
+    zeichneEditor();
+  }));
+  app.querySelectorAll("[data-eall]").forEach((b) => b.addEventListener("click", () => {
+    editor.tagsManuell = true;
+    toggle(editor.allergene, b.dataset.eall);
+    zeichneEditor();
+  }));
+  app.querySelectorAll("[data-zutat-weg]").forEach((b) => b.addEventListener("click", () => {
+    uebernehmeEditorFelder();
+    editor.zutaten.splice(Number(b.dataset.zutatWeg), 1);
+    if (!editor.zutaten.length) editor.zutaten.push(leereZutat());
+    renderRezeptEditor();
+  }));
+  app.querySelectorAll("[data-schritt-weg]").forEach((b) => b.addEventListener("click", () => {
+    uebernehmeEditorFelder();
+    editor.schritte.splice(Number(b.dataset.schrittWeg), 1);
+    if (!editor.schritte.length) editor.schritte.push(leererSchritt());
+    renderRezeptEditor();
+  }));
+  app.querySelector("#zutat-mehr").addEventListener("click", () => {
+    uebernehmeEditorFelder();
+    editor.zutaten.push(leereZutat());
+    renderRezeptEditor();
+  });
+  app.querySelector("#schritt-mehr").addEventListener("click", () => {
+    uebernehmeEditorFelder();
+    editor.schritte.push(leererSchritt());
+    renderRezeptEditor();
+  });
+  app.querySelector("#editor-sichern").addEventListener("click", () => {
+    uebernehmeEditorFelder();
+    const s = getState();
+    const katalog = katalogZutaten(s);
+    const fehler = entwurfFehler(editor, katalog);
+    if (fehler) { toast(fehler, "warn"); return; }
+    const rezept = eigenesRezept(editor, katalog);
+    const neu = !editor.id;
+    if (neu) s.kochbuch.unshift(rezept); else ersetze(s, rezept);
+    save();
+    editor = null;
+    view = "kochbuch";
+    detailRezept = rezept;
+    toast(neu ? "Rezept im Kochbuch" : "Rezept aktualisiert");
+    render();
+  });
+}
+
 /* Kochmodus, Timer und Abbuchung liegen in js/kochmodus.js – der laufende
    Durchgang gehört in den State, damit ihn ein Wegwischen der App nicht
    zerstört. app.js reicht nur render/findRezept/syncWochenliste hinein. */
+
 
 /* ------------------------------------------------------------------ Vorrat */
 let vorratAddOffen = false;
@@ -835,7 +1264,7 @@ function renderVorrat() {
             <button class="pill-btn" id="add-toggle">${vorratAddOffen ? icon("x", 19) : icon("plus", 19)}${vorratAddOffen ? "Schließen" : "Erfassen"}</button>
           </div>
         </div>
-        <p class="subtle small">${s.bestand.length} ${s.bestand.length === 1 ? "Artikel" : "Artikel"}</p>
+        <p class="subtle small">${s.bestand.length} Artikel</p>
       </div>
       ${scanPanel ? barcodeUi() : ""}
       ${vorratAddOffen ? vorratAddForm() : ""}
@@ -870,7 +1299,17 @@ function renderVorrat() {
     app.querySelector("#bon-start")?.click();
     app.querySelector("#bon-key")?.scrollIntoView({ block: "center" });
   }));
-  app.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => renderVorratEdit(b.dataset.edit)));
+  /* Die Bestandszeilen sind Divs mit role="button" – dann müssen sie auch auf
+     Enter und Leertaste reagieren, sonst sind sie für Tastatur und Schaltersteuerung
+     zwar anspringbar, aber nicht auslösbar. */
+  app.querySelectorAll("[data-edit]").forEach((b) => {
+    b.addEventListener("click", () => renderVorratEdit(b.dataset.edit));
+    b.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      renderVorratEdit(b.dataset.edit);
+    });
+  });
 }
 
 /* Bestandszeile: Schüttgut bekommt den Füllstandsbalken der Übergabe (Design 14),
@@ -1388,24 +1827,32 @@ function renderEinkauf() {
   bindAngebote(s);
 
   app.querySelectorAll("[data-r-check]").forEach((b) => b.addEventListener("click", () => {
-    s.einkauf.rezept[b.dataset.rCheck].erledigt = !s.einkauf.rezept[b.dataset.rCheck].erledigt;
+    const e = s.einkauf.rezept[Number(b.dataset.rCheck)];
+    e.erledigt = !e.erledigt;
     save(); renderEinkauf();
   }));
   app.querySelectorAll("[data-w-check]").forEach((b) => b.addEventListener("click", () => {
-    s.einkauf.woche[b.dataset.wCheck].erledigt = !s.einkauf.woche[b.dataset.wCheck].erledigt;
+    const e = s.einkauf.woche[Number(b.dataset.wCheck)];
+    e.erledigt = !e.erledigt;
     save(); renderEinkauf();
   }));
   app.querySelectorAll("[data-w-del]").forEach((b) => b.addEventListener("click", () => {
-    s.einkauf.woche.splice(b.dataset.wDel, 1);
+    s.einkauf.woche.splice(Number(b.dataset.wDel), 1);
     save(); renderEinkauf();
   }));
   app.querySelector("#einkauf-fertig")?.addEventListener("click", async () => {
-    for (const e of s.einkauf.rezept) buchZugang(s, e.zutat_id);
-    s.einkauf.rezept = [];
+    /* Gebucht wird, was abgehakt ist – vorher wanderte die ganze Liste in den
+       Vorrat, auch die Punkte, die im Laden nicht zu bekommen waren. Wer gar
+       nichts abhakt, meint mit „Eingekauft" den ganzen Einkauf; nur dann zählt
+       die komplette Liste. Nicht Gekauftes bleibt stehen. */
+    const abgehakt = s.einkauf.rezept.filter((e) => e.erledigt);
+    const buchen = abgehakt.length ? abgehakt : s.einkauf.rezept;
+    for (const e of buchen) buchZugang(s, e.zutat_id);
+    s.einkauf.rezept = s.einkauf.rezept.filter((e) => !buchen.includes(e));
     const rid = s.einkauf.rezeptId;
-    s.einkauf.rezeptId = null;
+    if (!s.einkauf.rezept.length) s.einkauf.rezeptId = null;
     save();
-    const r = rid ? findRezept(rid) : null;
+    const r = rid && !s.einkauf.rezept.length ? findRezept(rid) : null;
     if (r && await bestaetige({
       titel: "Bestand aufgefüllt",
       text: `Direkt mit „${r.name}“ loslegen?`,
@@ -1498,7 +1945,7 @@ function bindBonScan(s) {
     renderEinkauf();
   });
   app.querySelectorAll("[data-bon-check]").forEach((b) => b.addEventListener("click", () => {
-    const a = bon.artikel[b.dataset.bonCheck];
+    const a = bon.artikel[Number(b.dataset.bonCheck)];
     a.buchen = !a.buchen;
     renderEinkauf();
   }));
@@ -2141,14 +2588,14 @@ function renderProfil() {
   app.querySelector("#ai-loeschen")?.addEventListener("click", async () => {
     if (await bestaetige({
       titel: "AI-Rezepte löschen?",
-      text: `${s.aiRezepte.length} von Claude generierte Rezepte werden entfernt. Die Kern-Rezepte bleiben.`,
+      text: `${s.aiRezepte.length} von Claude generierte Rezepte werden entfernt. Die Kern-Rezepte bleiben – und was du dir ins Kochbuch gelegt hast, ebenfalls.`,
       bestaetigen: "Löschen", danger: true, symbol: "achtung",
     })) { s.aiRezepte = []; save(); renderProfil(); }
   });
   app.querySelector("#vorrat-loeschen")?.addEventListener("click", async () => {
     if (await bestaetige({
       titel: "Vorrats-Rezepte löschen?",
-      text: `${s.vorratRezepte.length} aus deinem Bestand gebaute Rezepte werden entfernt. Die Kern-Rezepte bleiben.`,
+      text: `${s.vorratRezepte.length} aus deinem Bestand gebaute Rezepte werden entfernt. Die Kern-Rezepte bleiben – und was du dir ins Kochbuch gelegt hast, ebenfalls.`,
       bestaetigen: "Löschen", danger: true, symbol: "achtung",
     })) { s.vorratRezepte = []; save(); renderProfil(); }
   });
@@ -2167,7 +2614,15 @@ function renderProfil() {
       titel: "Wirklich alles löschen?",
       text: "Vorrat, Profil, Historie und Einkaufslisten werden entfernt. Ohne vorherigen Export ist das endgültig.",
       bestaetigen: "Alles löschen", danger: true, symbol: "achtung",
-    })) { resetAll(); ob = leeresOb(); profilOffen = { form: false, aus: false, vorlieben: false, stile: false, ziele: false }; render(); }
+    })) {
+      resetAll();
+      ob = leeresOb();
+      profilOffen = { form: false, aus: false, vorlieben: false, stile: false, ziele: false };
+      editor = null;
+      kochbuchSuche = "";
+      kochbuchFilter = "alle";
+      render();
+    }
   });
 }
 
@@ -2208,5 +2663,5 @@ document.addEventListener("visibilitychange", () => {
   const snacksVorher = getState().snackVorschlaege;
   const nachher = stelleVorschlaegeBereit();
   const snacksNachher = stelleSnacksBereit();
-  if (view === "heute" && !detailRezept && (nachher !== vorher || snacksNachher !== snacksVorher)) render();
+  if (view === "heute" && !editor && !detailRezept && (nachher !== vorher || snacksNachher !== snacksVorher)) render();
 });

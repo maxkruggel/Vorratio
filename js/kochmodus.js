@@ -15,7 +15,7 @@
 import { getState, save } from "./storage.js";
 import { abbuchen } from "./engine.js";
 import { icon } from "./icons.js";
-import { app, esc, zeigeApp, bestaetige, progressBar, fmtZeit } from "./ui.js";
+import { app, esc, zeigeApp, bestaetige, toast, progressBar, fmtZeit } from "./ui.js";
 
 /* Von app.js gestellt: render (Rückkehr in die normale Navigation),
    findRezept (Rezeptpool inkl. AI-/Vorratsrezepten) und syncWochenliste. */
@@ -318,12 +318,17 @@ function renderValidierung() {
     </div>`, "kochen-fertig");
   app.querySelector("#buchen").addEventListener("click", () => {
     const s = getState();
-    abbuchen(rezept, s.bestand, portionen);
+    const gebucht = abbuchen(rezept, s.bestand, portionen);
     s.historie.unshift({ rezeptId: rezept.id, name: rezept.name, portionen, datum: new Date().toISOString() });
     if (s.einkauf.rezeptId === rezept.id) { s.einkauf.rezept = []; s.einkauf.rezeptId = null; }
     hooks.syncWochenliste(s);
     beendeKochen();
+    // render("vorrat") räumt dabei auch das Rezept-Detail weg – sonst läge es
+    // nach dem Abbuchen noch über dem Vorrat.
     hooks.render("vorrat");
+    toast(gebucht.length
+      ? `Verbrauch abgebucht · ${gebucht.length} ${gebucht.length === 1 ? "Position" : "Positionen"}`
+      : "Gekocht – nichts abzubuchen");
   });
   app.querySelector("#ohne").addEventListener("click", () => { beendeKochen(); hooks.render("heute"); });
 }

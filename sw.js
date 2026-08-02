@@ -14,6 +14,7 @@ const SHELL = [
   "./js/icons.js",
   "./js/storage.js",
   "./js/engine.js",
+  "./js/kochbuch.js",
   "./js/angebote.js",
   "./js/ai.js",
   "./js/generator.js",
@@ -52,8 +53,10 @@ self.addEventListener("activate", (e) => {
    Fremd-APIs (Claude, Open Food Facts) werden nie gecacht.
 
    Zwei Dinge, die "network-first" naiv falsch macht:
-   1. Nur erfolgreiche Antworten gehören in den Cache. Ein 404 oder 500 vom
-      Server würde sonst eingelagert und danach dauerhaft offline ausgeliefert.
+   1. Nur vollständige, erfolgreiche Antworten gehören in den Cache. Ein 404
+      oder 500 würde sonst eingelagert und danach dauerhaft offline
+      ausgeliefert; Teilinhalte (206) lehnt cache.put ohnehin ab und quittiert
+      das mit einer unbehandelten Rejection in der Konsole.
    2. Ein hängendes Netz ist schlimmer als gar keins: Im schlechten Mobilnetz
       löst `fetch` weder aus noch schlägt es fehl, und die App startet nicht.
       Deshalb gewinnt nach TIMEOUT_MS der Cache, falls er etwas hat. */
@@ -67,9 +70,9 @@ async function netzZuerst(request) {
   const cacheTreffer = ausCache(request);
 
   const netz = fetch(request).then((res) => {
-    if (res && res.ok) {
+    if (res && res.ok && res.status === 200) {
       const copy = res.clone();
-      caches.open(CACHE).then((c) => c.put(request, copy));
+      caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
     }
     return res;
   });

@@ -20,7 +20,10 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <div id="app" aria-live="polite">
+  <!-- Kein aria-live auf dem Container: jede Interaktion zeichnet den Screen
+       komplett neu, VoiceOver hätte danach jedes Mal die ganze Seite vorgelesen.
+       Kurzmeldungen (Toast, Tipp-Pop-up) tragen ihr eigenes role="status". -->
+  <div id="app">
     <noscript>Vorratio braucht JavaScript.</noscript>
   </div>
   <!-- Tabbar-Icons: Duotone-Set aus der Design-Übergabe, identisch zu js/icons.js.
@@ -29,6 +32,10 @@
     <button data-view="heute" class="tab active" aria-label="Heute">
       <svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle class="duo" cx="12" cy="12" r="4.4" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       <span>heute</span>
+    </button>
+    <button data-view="kochbuch" class="tab" aria-label="Kochbuch">
+      <svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path class="duo" d="M6 4.4a1.8 1.8 0 0 1 1.8-1.8h10.6v18.8H7.8A1.8 1.8 0 0 1 6 19.6z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 17.4h12.4M10.4 2.6v6.4l2.3-1.6 2.3 1.6V2.6" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <span>kochbuch</span>
     </button>
     <button data-view="vorrat" class="tab" aria-label="Vorrat">
       <svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path class="duo" d="M6.6 9.2h10.8v9.6a2.6 2.6 0 0 1-2.6 2.6H9.2a2.6 2.6 0 0 1-2.6-2.6z" stroke="currentColor" stroke-width="1.6"/><path d="M8.4 9.2V5.4a1.8 1.8 0 0 1 1.8-1.8h3.6a1.8 1.8 0 0 1 1.8 1.8v3.8M6.6 14.4h10.8" stroke="currentColor" stroke-width="1.6"/></svg>

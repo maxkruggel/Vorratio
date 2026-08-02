@@ -2,6 +2,8 @@
    Rein lokal (localStorage), JSON-Export/-Import als Backup gegen iOS-Storage-Eviction
    und als Migrationspfad Richtung Server-Variante. */
 
+import { STILE } from "./data/profil.js";
+
 const STORAGE_KEY = "vorratio_v1";
 
 const DEFAULT_STATE = {
@@ -35,6 +37,10 @@ const DEFAULT_STATE = {
   },
   aiRezepte: [],             // AI-generierte Rezepte (kruggel-recipe-db/v1-kompatibel)
   vorratRezepte: [],         // offline aus dem Bestand kombinierte Rezepte (generator.js)
+  /* Kochbuch (Kap. 4.10): gemerkte und eigene Rezepte als vollständige Kopien
+     im Rezeptschema. Bewusst Kopien statt Verweisen – ein gemerktes Rezept
+     überlebt so die Rotation des AI- und des Generator-Pools. */
+  kochbuch: [],
   /* Laufender Kochmodus. Liegt im State, weil iOS PWA-Seiten im Hintergrund
      verwirft: Wer beim 25-Minuten-Köcheln kurz die App wechselt, stand sonst
      wieder auf Schritt 1. Der Timer merkt sich `ende` als Zeitstempel, läuft
@@ -49,29 +55,42 @@ const DEFAULT_STATE = {
   settings: { erstellt: null, apiKey: null },
 };
 
-/* Felder, die in älteren Sicherungen fehlen können. Verschachtelte Objekte
-   werden einzeln aufgefüllt: Der Spread beim Laden ersetzt einen Teilbaum
-   komplett, eine Sicherung mit `einkauf: { rezept: [] }` hätte sonst kein
-   `woche` und die Einkaufsansicht liefe auf undefined. */
+/* Felder, die in älteren Sicherungen fehlen können.
+
+   Wichtig: Das Zusammenführen mit DEFAULT_STATE ist eine flache Kopie – ein
+   mitgebrachtes `profil` ersetzt das Default-Profil komplett, statt sich mit
+   ihm zu mischen. Eine ältere oder von Hand bearbeitete Sicherung kann darum
+   verschachtelte Felder mitbringen, die halb leer sind; ohne die Auffüllung
+   hier stürzt die App beim ersten Zugriff ab (z. B. s.einkauf.rezept.length).
+   Darum werden alle Objekt- und Listenfelder einzeln nachgezogen. */
 function migriere(s) {
-  s.profil = { ...DEFAULT_STATE.profil, ...(s.profil || {}) };
-  s.profil.ziele ||= [];
-  s.profil.eigeneAusschluesse ||= [];
-  s.profil.vorlieben ||= [];
-  s.profil.ausschluesse ||= [];
-  s.profil.stile ||= [];
-  s.einkauf = { ...DEFAULT_STATE.einkauf, ...(s.einkauf || {}) };
-  s.einkauf.rezept ||= [];
-  s.einkauf.woche ||= [];
-  s.angebote = { ...DEFAULT_STATE.angebote, ...(s.angebote || {}) };
-  s.settings = { ...DEFAULT_STATE.settings, ...(s.settings || {}) };
-  s.tipps = { klicks: 0, gesehen: [], ...(s.tipps || {}) };
-  s.tipps.gesehen ||= [];
-  s.bestand ||= [];
-  s.historie ||= [];
-  s.aiRezepte ||= [];
-  s.vorratRezepte ||= [];
-  if (s.kochen === undefined) s.kochen = null;
+  const vorgabe = structuredClone(DEFAULT_STATE);
+
+  // Objektfelder: fehlende Unterschlüssel aus der Vorgabe ergänzen.
+  for (const feld of ["profil", "einkauf", "angebote", "tipps", "settings"]) {
+    s[feld] = { ...vorgabe[feld], ...(typeof s[feld] === "object" && s[feld] ? s[feld] : {}) };
+  }
+  // Listenfelder: alles, was keine Liste ist, gilt als leer.
+  const liste = (v) => (Array.isArray(v) ? v : []);
+  s.bestand = liste(s.bestand);
+  s.historie = liste(s.historie);
+  s.aiRezepte = liste(s.aiRezepte);
+  s.vorratRezepte = liste(s.vorratRezepte);
+  s.profil.ausschluesse = liste(s.profil.ausschluesse);
+  s.profil.eigeneAusschluesse = liste(s.profil.eigeneAusschluesse);
+  /* Stile, die es nicht mehr gibt, fliegen raus. Sonst bleiben sie unsichtbar
+     im Profil hängen: Die Chips zeigen nur bekannte Stile, entfernen ließe
+     sich der Eintrag also nicht mehr – gehen würde er trotzdem weiter in den
+     Systemprompt der Rezeptgenerierung, die unbekannte IDs roh durchreicht. */
+  s.profil.stile = liste(s.profil.stile).filter((id) => STILE.some((st) => st.id === id));
+  s.profil.ziele = liste(s.profil.ziele);
+  s.profil.vorlieben = liste(s.profil.vorlieben);
+  s.einkauf.rezept = liste(s.einkauf.rezept);
+  s.einkauf.woche = liste(s.einkauf.woche);
+  s.tipps.gesehen = liste(s.tipps.gesehen);
+  s.kochbuch = liste(s.kochbuch);
+  // Kochmodus: Objekt oder null, nie eine Liste – deshalb außerhalb von liste().
+  if (typeof s.kochen !== "object" || Array.isArray(s.kochen)) s.kochen = null;
   return s;
 }
 
@@ -135,8 +154,13 @@ function exportJson() {
   const datum = lokalesDatum();
   a.href = url;
   a.download = `vorratio-backup-${datum}.json`;
+  // Der Link muss im Dokument hängen (Firefox) und die Blob-URL darf erst nach
+  // dem Klick sterben – wird sie sofort widerrufen, bricht Safari den Download
+  // ab und das Backup landet nie auf dem Gerät.
+  a.style.display = "none";
+  document.body.append(a);
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 0);
 }
 
 /* Datum als YYYY-MM-DD in Ortszeit. toISOString() rechnet nach UTC um – in der

@@ -78,6 +78,38 @@ Vier gleichwertige Erfassungswege, frei kombinierbar:
 - Snack-Rezepte laufen als Vollrezepte (`SNK-…`) durch dieselbe Maschinerie wie Hauptgerichte: Profilfilter (alle drei Achsen), Bestandsabgleich, Kochmodus mit Timern, Abbuchung, Einkaufsliste. Reine Snack-Rezepte erscheinen **nie** in den Mahlzeiten-Slots – auch nicht beim Auffüllen dünner Pools.
 - Typisches Timer-Profil: lange **passive** Wartezeiten (`ruhen` fürs Gefrieren, `ofen` fürs Dörren bei behördlich empfohlenen 60–65 °C) statt aktiver Kochschritte.
 
+### 4.10 Kochbuch: Rezepte speichern
+
+Der tägliche Rhythmus (4.3) ist bewusst flüchtig: Jeder Tag würfelt neu, generierte
+Claude-Rezepte und die aus dem Bestand gebauten (`vorrat_generiert`) rotieren in ihrem
+Pool (jüngste 24). Genau darum braucht es einen Ort, an dem Rezepte **bleiben** –
+das Kochbuch als eigener Tab.
+
+- **Merken:** Jedes Rezept-Detail hat oben rechts den Lesezeichen-Schalter
+  („merken" / „gemerkt"). Gespeichert wird eine **vollständige Kopie** im Schema
+  `kruggel-recipe-db/v1`, nicht ein Verweis. Ein gemerktes Claude- oder
+  Vorrats-Rezept überlebt damit sowohl die Rotation seines Pools als auch das
+  Löschen im Profil.
+- **Eigene Rezepte:** Editor für alles, was nicht aus der App kommt (Omas Zettel,
+  Lieblingsessen). Pflicht sind nur Name, Zutaten und Schritte.
+  - Zutaten kommen über eine Vorschlagsliste aus dem Zutaten-Katalog **plus** den
+    selbst angelegten Vorratsartikeln. Nur ein **eindeutiger Namenstreffer** wird
+    mit einer `zutat_id` verknüpft – lieber „zählt nicht für den Bestand" als eine
+    falsche Abbuchung. Frei getippte Zutaten stehen trotzdem im Rezept.
+  - Wo eine Minutenzahl steht, entsteht ein benannter Timer im Kochmodus.
+  - **Ernährungsform und Allergene werden aus den Zutaten abgeleitet** und als
+    Chips vorgelegt (Mustererkennung in `js/kochbuch.js`); sobald der Nutzer einen
+    Chip antippt, gilt seine Auswahl. Beides muss stimmen, weil es hart filtert.
+- **Vollwertig:** Alles im Kochbuch läuft durch dieselbe Maschinerie – Profilfilter
+  (alle fünf Achsen), Bestandsabgleich, Einkaufsliste, Kochmodus mit Timern,
+  Abbuchung. Eigene und gemerkte Rezepte tauchen deshalb auch **in den täglichen
+  Vorschlägen** auf (gleiche `id` gewinnt einmal, keine Doppel).
+- **Wiederfinden:** Suche über Name, Küche, Kategorie und Zutaten, Filter nach
+  Herkunft (Eigene · Von Claude · Aus dem Vorrat · Aus Vorratio), „N× gekocht"
+  aus der Historie, Bestands-Pill („alles da" / „2 fehlen") direkt auf der Karte.
+- **Notiz:** Zu jedem gespeicherten Rezept ein Freitextfeld („mit doppelt
+  Knoblauch") – gesichert beim Verlassen des Feldes.
+
 ## 5. Bestandsmodell
 
 - **Kategorien:** Trockenware/Vorrat · Frischware · Konserven · Gewürze (dazu Kühl-/TK-Ware).
@@ -103,7 +135,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 1. **Ernährungsform** (Radio, genau eine): Mischkost/omnivor · Flexitarier · Pescetarier · Ovo-Lacto-Vegetarier · Lacto-Vegetarier · Ovo-Vegetarier · Veganer · optional „überwiegend pflanzenbasiert".
 2. **Ausschlüsse** (Mehrfachauswahl): Allergien/Intoleranzen (EU-14-orientiert: Gluten, Laktose, Nüsse, Soja …) sowie religiös-kulturelle Regeln (halal, koscher) – harte Filter, quer zu allen Formen.
 3. **Vorlieben** (optional, Mehrfachauswahl, **je Ernährungsform eine eigene Frage und eine eigene Liste**): Wer vegan isst, wird nach der Proteinquelle gefragt (Tofu, Tempeh, Seitan, Hülsenfrüchte, Nüsse/Kerne, Pflanzendrink, Ofengemüse, Vollkorn), Pescetarier nach dem Fisch, Mischköstler nach dem, was am häufigsten auf dem Teller landet – bewusst nicht für alle Formen derselbe Text und dieselbe Auswahl. **Tofu steht in jeder Form zur Wahl** (funktioniert als Proteinquelle in allen Ernährungsformen); als Vorratsartikel gibt es zusätzlich Räuchertofu, Tempeh und Seitan. Ausgeschlossenes wird gar nicht erst angeboten (Soja-Ausschluss → kein Tofu, halal/koscher → kein Schwein), und beim Formwechsel bleibt erhalten, was zur neuen Form passt. Rückkopplung: **weicher Bonus im Vorschlags-Score** (max. +14, unter dem Gewicht der Bestandsdeckung), Systemprompt der AI-Rezeptgenerierung und „Trifft deine Vorlieben"-Hinweis im Rezept-Detail – keine Filter.
-4. **Stil-Präferenz** (optional, Mehrfachauswahl): priorisiert **mediterran, High-Protein, Low-Carb**; Keto/Paleo nur mit Evidenz-Hinweis; Intervallfasten als Timing-Thema, nicht als Rezeptfilter.
+4. **Stil-Präferenz** (optional, Mehrfachauswahl): priorisiert **mediterran, High-Protein, Low-Carb**; Keto/Paleo vorerst nicht zur Wahl, solange die Rezeptdatenbank keine passend getaggten Rezepte enthält (eine Auswahl ohne Wirkung wäre irreführend); Intervallfasten als Timing-Thema, nicht als Rezeptfilter.
 5. **Ziele** (optional, Mehrfachauswahl): nur über Ernährung beeinflussbare Ziele, jeweils mit ehrlicher Evidenzeinordnung; weiche Präferenz im Score und im AI-Prompt.
 
 **AI-Rezeptregeln je Form (Auszug, quellenbelegt):**
@@ -127,6 +159,8 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 
 **Entscheidungen:** Output direkt für die App weiterverarbeitbar (strukturierte Datensätze); Fisch und Fleisch von Anfang an abgedeckt (Ernährungsform filtert); Küche international breit (17 Cuisines).
 
+**Herkunft über `quelle_typ`:** `etablierte_kochseite` u. Ä. (Kern-DB) · `ai_generiert` (Claude, `AI-…`) · `vorrat_generiert` (offline aus dem Bestand gebaut, `js/generator.js`) · `eigen` (selbst eingetragen, `EIG-…`, Kap. 4.10). Alle vier liegen im selben Schema und im selben Rezept-Pool – die Herkunft steuert nur Badges und den Kochbuch-Filter, nicht die Verarbeitung.
+
 **Governance:** Kerntemperaturen sind Pflichtfelder bei Fleisch/Fisch/Geflügel und dürfen USDA/FSIS-Minima nie unterschreiten (Geflügel 74 °C, Hack 71 °C, ganze Stücke 63 °C + 3 Min Ruhe, Fisch 63 °C); jeder Datensatz trägt `quelle_typ`, erfundene Zeiten sind unzulässig; OFF-abgeleitete Daten physisch getrennt halten (Share-Alike-Isolierung).
 
 ### 6.3 DB Produkte (Recherche 3)
@@ -146,6 +180,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 - **Auto-Save als Grundprinzip: eine Aktion = ein Save.** Jede Buchung, Profil- oder Bestandsänderung wird sofort persistiert – nie ein expliziter Speichern-Button, nie Datenverlust beim Schließen.
 - **Strukturierte lokale Speicherung**, sodass alle eingegebenen und sich aktualisierenden Informationen dauerhaft aktuell und erhalten bleiben (Bestand, Profil, Rezepthistorie, Listen).
 - **JSON-Export und JSON-Import**: vollständiger Datenbestand als Datei sicherbar und wieder einspielbar – zugleich Backup gegen iOS-Storage-Eviction und späterer Migrationspfad Richtung Server-Variante.
+- **Kochbuch (`state.kochbuch`)**: gemerkte und eigene Rezepte als vollständige Kopien im Rezeptschema, nicht als Verweise (Kap. 4.10). Ein gemerktes Rezept bleibt damit auch dann lesbar und kochbar, wenn seine Quelle verschwindet (AI- und Vorrats-Pool halten nur die jüngsten 24 Einträge) – Export und Import nehmen es unverändert mit.
 
 ### 6.5 DB Substitutionen (Recherche Substitutionen, 08/2026 – umgesetzt)
 

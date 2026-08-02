@@ -15,15 +15,16 @@ Rezeptvorschläge (3 je Essens-Slot + Snack-Ecke) → Kochmodus mit Timern →
 automatische Abbuchung mit Toleranz → Einkauf füllt den Bestand wieder auf.
 
 - Starten: `python3 -m http.server 8080` (statisch servieren reicht)
-- Prüfen: `node tools/validate-db.mjs` (Datenbank) + `node tools/test-engine.mjs`
+- Prüfen: `node tools/validate-db.mjs` (Rezeptdaten) + `node tools/test-engine.mjs`
   (Engine). Beides läuft in der CI (`.github/workflows/ci.yml`), ohne
-  Abhängigkeiten. Kein Linter, kein Build-Schritt.
+  Abhängigkeiten. Dazu `node tools/pr-aktuell.mjs` (Branch-Stand vor einer PR,
+  s. u.). Kein Linter, kein Build-Schritt.
 - Sprache durchgehend Deutsch (Code-Bezeichner, Kommentare, UI)
 
 ## Dateibaum
 
 ```
-index.html                 App-Shell: nur #app-Container + Tabbar (5 Tabs, Inline-SVGs), lädt js/app.js
+index.html                 App-Shell: nur #app-Container + Tabbar (6 Tabs, Inline-SVGs), lädt js/app.js
 manifest.webmanifest       PWA-Manifest
 sw.js                      Service Worker: Network-first mit 3s-Timeout, Cache-Fallback; cached nur res.ok.
                            SHELL-Liste + CACHE-Version ("vorratio-vN")
@@ -36,6 +37,7 @@ js/ui.js                   UI-Grundbausteine ohne State-Kenntnis: esc, h, zeigeA
 js/kochmodus.js            Kochmodus: Portionswahl, Schrittkarten, Timer, Abbuchung.
                            Zustand liegt im State (state.kochen), Timer rechnet gegen Zeitstempel
 js/engine.js               Rezept-Engine: Profilfilter, Bestandsabgleich, Scoring, Abbuchung (pure Funktionen)
+js/kochbuch.js             Kochbuch: merken/vergessen/Notiz, Suche+Filter, eigene Rezepte, Tag-Ableitung aus Zutaten
 js/storage.js              State + Persistenz: DEFAULT_STATE, load/save, Export/Import, Migration, lokalesDatum
 js/ai.js                   Claude API (clientseitig): Rezeptgenerierung, Bon-Scan, Barcode-Foto-Lesen
 js/generator.js            Offline-Generator: baut aus dem Bestand Rezepte nach Küchenmustern (ohne API-Key)
@@ -56,6 +58,7 @@ tools/validate-db.mjs      Datenbank-Validator (Schema, IDs, Allergen-Deklaratio
 tools/test-engine.mjs      Engine-Tests ohne Framework – Filter, Toleranzband, Abbuchung, Abdeckung
 tools/browsertest.mjs      Browser-Rauchtest (Onboarding→Tabs→Kochmodus→Neuladen). Nicht in der CI,
                            braucht einmalig `npm install --no-save playwright-core`
+tools/pr-aktuell.mjs       PR-Aktualitätsprüfung gegen main (node tools/pr-aktuell.mjs)
 docs/                      Projektdoku (vorratio-doku.md), 5 Recherchen, angebots-crawl.md, design-handoff/
 ```
 
@@ -66,9 +69,10 @@ docs/                      Projektdoku (vorratio-doku.md), 5 Recherchen, angebot
   ein `save()`**. Neue State-Felder in `DEFAULT_STATE` ergänzen UND in
   `migriere()` für Alt-Sicherungen nachrüsten.
 - **Rendering:** Kein Framework. `app.js` hält den View-Zustand in
-  Modul-Variablen (`view`, `detailRezept`, `scanPanel`, `bon`, …).
-  `render(zielView?)` dispatcht auf `renderHeute/Vorrat/Einkauf/Wissen/Profil`;
-  Kochmodus und Rezept-Detail haben Vorrang. Jede View baut ihren Screen als
+  Modul-Variablen (`view`, `detailRezept`, `editor`, `scanPanel`, `bon`, …).
+  `render(zielView?)` dispatcht auf
+  `renderHeute/Kochbuch/Vorrat/Einkauf/Wissen/Profil`; Kochmodus, Rezept-Editor
+  und Rezept-Detail haben Vorrang (in dieser Reihenfolge). Jede View baut ihren Screen als
   Template-String, `zeigeApp(html, key)` tauscht den Inhalt (gleicher key =
   kein Fade, Scrollposition bleibt), danach werden Listener neu gebunden.
   **Jede Interpolation von Nutzdaten läuft durch `esc()`.**
@@ -94,6 +98,7 @@ einkauf       { rezept: [{zutat_id, name, menge, einheit, erledigt}], woche: [{z
 angebote      { plz, apikey, clientkey, proxy, demo, letzter }        (Marktguru; letzter gilt 1 ISO-KW)
 aiRezepte     [max. 24 AI-Rezepte, v1-kompatibel, id "AI-<ts>-<i>"]
 vorratRezepte [max. 24 offline generierte Rezepte, id "GEN-<hash>"]
+kochbuch      [gemerkte + eigene Rezepte als vollständige v1-Kopien, je + gespeichert, notiz]
 kochen        { rezeptId, portionen, step, timer } | null             (laufender Kochdurchgang)
 tipps         { klicks, gesehen[] }                                   (Tipp-Dosierung: Pop-up alle 9 Taps)
 settings      { erstellt, apiKey }                                    (Claude-Key, nur lokal; NICHT im Export)
@@ -119,6 +124,13 @@ Datumsstempel für Tagesvorschläge kommen aus `lokalesDatum()` (Ortszeit, nicht
   Grenzen 11:00/16:00). **Push-Fallback:** kein Push-Server – Vorschläge werden
   beim Öffnen/`visibilitychange` erzeugt und persistiert
   (`stelleVorschlaegeBereit()`), tagesstabil via `tagesSeed()` + `pseudoZufall()`.
+- **Kochbuch (`state.kochbuch`):** speichert **Kopien**, keine Verweise – ein
+  gemerktes AI- oder Vorrats-Rezept überlebt so die Rotation seines Pools und
+  das Löschen im Profil. Herkunft steckt in `quelle_typ` (`ai_generiert`,
+  `vorrat_generiert`, `eigen`, sonst Kern-DB) und steuert nur Pill und Filter.
+  Eigene Rezepte (`EIG-…`) entstehen im Editor; Ernährungsform und Allergene
+  werden dort aus den Zutaten abgeleitet (`tagsAusZutaten`) und sind
+  korrigierbar – beide filtern hart.
 - **Snack-Ecke:** eigene Schiene außerhalb der Slots (`mahlzeitentyp: ["snack"]`,
   `SNK-`Rezepte). `nurSnack`-Rezepte tauchen nie in Essens-Slots auf, auch nicht
   beim Pool-Auffüllen.
@@ -174,9 +186,12 @@ wird gegen die Wanduhr nachgezogen und der Tick neu gestartet.
 **app.js** – Sektionen in Dateireihenfolge (Kommentar-Trennlinien im Code):
 Tipp-Pop-up (alle 9 Taps) · `render(zielView?)` + Tabbar · Onboarding
 (7 Schritte `OB_STEPS`, Zustand `ob`) · Heute (`stelleVorschlaegeBereit`,
-`stelleSnacksBereit`, `rezeptKarte`, `slotHinweis`, `baueAusVorrat`,
-`starteAiGenerierung` inkl. Gegenprüfung der gelieferten Rezepte) ·
-Rezept-Detail (`ersatzIdeenHtml` = Substitutions-Teaser) · Vorrat
+`stelleSnacksBereit`, `rezeptKarte`, `quellenBadge`, `slotHinweis`,
+`baueAusVorrat`, `starteAiGenerierung` inkl. Gegenprüfung der gelieferten
+Rezepte) · Rezept-Detail (`ersatzIdeenHtml` = Substitutions-Teaser,
+Merken-Schalter, Notiz) · Kochbuch (`renderKochbuch`, `kochbuchTrefferHtml`)
++ Rezept-Editor (`editor`-Entwurf, `uebernehmeEditorFelder` liest sichtbare
+Felder vor jedem Neuzeichnen zurück) · Vorrat
 (`zutatTreffer`-Suche inkl. Freitext-Anlage `addBestandFrei` mit `FREI_REGELN`,
 `renderVorratEdit` je `art`) · Barcode-UI (`scanPanel`-Statusmaschine:
 start→kamera/foto→laden→treffer/kein_treffer/fehler) · Einkauf
@@ -189,6 +204,14 @@ start→kamera/foto→laden→treffer/kein_treffer/fehler) · Einkauf
 **storage.js** – `load`, `save` (→ bool), `getState`, `onChange`,
 `onSpeicherFehler`, `exportJson` (ohne API-Key), `importJson` (behält den Key
 des Geräts), `resetAll`, `lokalesDatum`. Migration in `migriere()`.
+
+**kochbuch.js** – `merken`/`vergessen`/`setzeNotiz`/`ersetze` (State-Mutationen,
+`save()` bleibt Sache des Aufrufers), `istGemerkt`/`findeGemerkt`,
+`kochbuchListe` (Suche + Herkunftsfilter), `gekochtAnzahl` (aus `historie`),
+`katalogZutaten` (Kern-Zutaten + eigene Vorratsartikel für die Editor-Auswahl),
+`tagsAusZutaten` (Muster → Ernährungsform/Allergene), `leererEntwurf`/
+`entwurfAus`/`entwurfFehler`/`eigenesRezept` (Editor-Entwurf ↔ v1-Rezept),
+`KOCHBUCH_FILTER`, `QUELLE_LABEL`, `quelleVon`.
 
 **data/allergene.js** – `allergeneFuerRezept` (Deklaration ∪ Ableitung),
 `allergeneAusZutaten` (nur zutat_id, für den Validator), `enthaeltSchwein`,
@@ -259,9 +282,13 @@ Fallback sind dann die Demo-Angebote.
   `renderX()` neu zeichnen (Listener werden bei jedem Render neu gebunden).
 - `zeigeApp(html, key)`: gleicher key = kein Fade/kein Scroll-Reset. Für neue
   Screens eindeutigen key vergeben.
-- AI-Rezepte leben nur in `state.aiRezepte` (Vorrats-Rezepte in
-  `state.vorratRezepte`) – Rezeptzugriff daher immer über
+- Rezepte liegen in vier Töpfen (`REZEPTE`, `state.aiRezepte`,
+  `state.vorratRezepte`, `state.kochbuch`) – Zugriff daher immer über
   `alleRezepte()`/`findRezept()` (app.js), nie direkt über `REZEPTE`.
+  `alleRezepte()` dedupliziert über die `id`, weil das Kochbuch Kopien hält.
+- Im Rezept-Editor lösen nur Struktur-Änderungen (Zeile zu/weg, Chip, Stepper)
+  ein Neuzeichnen aus, und immer erst nach `uebernehmeEditorFelder()` – sonst
+  ist das Getippte weg.
 - Freitext-Zutaten bekommen `zutat_id` mit Präfix `frei_` und fehlen in
   `ZUTAT_INDEX` – Code, der `ZUTAT_INDEX[zutat_id]` liest, muss null-tolerant sein.
 - `mengeInBestandsEinheit()` gibt bewusst oft `null` zurück (= nicht rechnen,
@@ -273,6 +300,35 @@ Fallback sind dann die Demo-Angebote.
 - Kommentare im Code verweisen auf Doku-Kapitel („Kap. 4.7") =
   `docs/vorratio-doku.md` und auf Design-Nummern („Design 19") =
   Screenshots in `docs/design-handoff/screenshots/`.
+
+## Pull Requests: an diesem Repo arbeiten mehrere Prozesse parallel
+
+Während ein Branch reift, wandern andere PRs nach `main`. Ein Branch, der beim
+Anlegen noch sauber war, ist beim Mergen womöglich veraltet – und `main` fasst
+regelmäßig dieselben Stellen an (`js/storage.js` bekommt mit jeder neuen
+Funktion ein State-Feld, `sw.js` eine SHELL-Zeile, `js/data/profil.js` eine
+Achse). Erfahrungswert aus der Praxis: drei Nachzüge innerhalb einer Sitzung.
+
+**Pflicht vor jedem `git push`, vor dem Anlegen einer PR und bevor eine PR als
+fertig oder mergebar gemeldet wird:**
+
+```bash
+node tools/validate-db.mjs && node tools/pr-aktuell.mjs
+```
+
+`tools/pr-aktuell.mjs` prüft in einem Lauf: Arbeitsbaum committet · alles
+gepusht (sonst zeigt die PR einen älteren Head) · `origin/main` vollständig
+enthalten · Merge liefe konfliktfrei. Exit 1 = erst nachziehen, die Ausgabe
+nennt den Befehl. Exit 2 = Prüfung selbst nicht möglich (kein Netz, kein
+Repo) – das ist **kein** Freifahrtschein.
+
+Die Statusanzeige von GitHub ist dafür kein Ersatz: `mergeable_state` wird
+asynchron berechnet und liefert direkt nach einem Push `unknown` oder einen
+veralteten Wert. Im Zweifel gilt der lokale Lauf.
+
+Nach jedem Nachziehen die inhaltlichen Prüfungen wiederholen – ein Merge kann
+Rezeptdaten, Icon-Verwendung oder State-Felder verändern, ohne dass es
+Konflikte gibt.
 
 ## Roadmap (nächste Ausbaustufen, Doku Kap. 9)
 
