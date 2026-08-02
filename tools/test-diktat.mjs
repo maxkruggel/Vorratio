@@ -34,7 +34,7 @@ function gleich(ist, soll, hinweis = "") {
 /* Kurzschreibweise: Diktat → Liste aus "zutat_id|Anzeige" je Eintrag. */
 const lies = (text, bestand = []) => parseDiktat(text, bestand)
   .map((e) => `${e.zutat_id || "frei"}|${diktatAnzeige(e)}`);
-const ids = (text) => parseDiktat(text).map((e) => e.zutat_id);
+const ids = (text, bestand = []) => parseDiktat(text, bestand).map((e) => e.zutat_id);
 
 /* ------------------------------------------------------ Aufzählung trennen */
 beschreibe("Aufzählung");
@@ -158,6 +158,43 @@ pruefe("leerer Text ergibt nichts", () => {
 
 pruefe("reines Füllwort-Geplapper ergibt nichts", () => {
   gleich(parseDiktat("also ähm ich glaube ja").length, 0);
+});
+
+/* ------------------------------------------------------- Eigener Wortschatz */
+beschreibe("Eigener Wortschatz");
+
+/* Der Katalog kennt keine Backoblaten und keine Fertigsuppe. Wer sie einmal
+   angelegt hat, soll sie beim nächsten Diktat wiedererkannt bekommen –
+   sonst müsste man denselben Namen jedes Mal von Hand nachtragen. */
+const EIGENE = [
+  { zutat_id: "frei_backoblaten", name: "Backoblaten", einheit: "g", art: "schuettgut" },
+  { zutat_id: "frei_maggi_zwiebelsuppe", name: "Maggi Zwiebelsuppe", einheit: "Pck", art: "zaehlbar" },
+];
+
+pruefe("Unbekanntes wird als eigener Artikel vorgeschlagen", () => {
+  const e = parseDiktat("Backoblaten")[0];
+  gleich(e.zutat_id, null);
+  gleich(e.name, "Backoblaten");
+});
+
+pruefe("eigene Artikel werden wiedererkannt", () => {
+  gleich(ids("Backoblaten", EIGENE), ["frei_backoblaten"]);
+});
+
+pruefe("und trennen sich dann auch ohne Satzzeichen", () => {
+  gleich(ids("Backoblaten Maggi Zwiebelsuppe Kokosraspeln", EIGENE),
+    ["frei_backoblaten", "frei_maggi_zwiebelsuppe", "ing_kokosraspel"]);
+});
+
+pruefe("mit Menge und Zustand wie jede andere Zutat", () => {
+  gleich(lies("zwei Packungen Maggi Zwiebelsuppe Backoblaten sind alle", EIGENE),
+    ["frei_maggi_zwiebelsuppe|2 Pck", "frei_backoblaten|leer"]);
+});
+
+/* Ein Treffer darf sich seine Vorgänger nicht einverleiben. */
+pruefe("ein Fenster hängt an seinem ersten Wort", () => {
+  gleich(ids("Kokosraspeln Maggi Zwiebelsuppe", EIGENE),
+    ["ing_kokosraspel", "frei_maggi_zwiebelsuppe"]);
 });
 
 /* ------------------------------------------------------------------ Ausgabe */

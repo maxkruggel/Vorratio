@@ -1591,6 +1591,19 @@ function diktatUi() {
 function diktatErgebnisUi(d) {
   const s = getState();
   const zuBuchen = d.eintraege.filter((e) => e.buchen).length;
+  /* Eigene Artikel stehen in der Auswahl vor dem Katalog – wer sich einmal
+     „Backoblaten" angelegt hat, sucht sie dort und nicht unter 249 Zutaten. */
+  const eigene = s.bestand.filter((b) => b.zutat_id && !ZUTAT_INDEX[b.zutat_id]);
+  const auswahl = (e) => `
+    <select data-dik-zutat="${d.eintraege.indexOf(e)}" style="margin-top:8px">
+      <option value="">Als eigenen Artikel anlegen</option>
+      ${eigene.length ? `<optgroup label="Eigene Artikel">${eigene.map((b) =>
+        `<option value="${esc(b.zutat_id)}" ${e.zutat_id === b.zutat_id ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</optgroup>` : ""}
+      <optgroup label="Zutaten-Katalog">
+        ${ZUTATEN.map((z) => `<option value="${z.id}" ${e.zutat_id === z.id ? "selected" : ""}>${esc(z.name)}</option>`).join("")}
+      </optgroup>
+    </select>`;
+
   return `
     <div class="section-gap">
       <div class="section-head">
@@ -1605,15 +1618,16 @@ function diktatErgebnisUi(d) {
           <div class="list-item" style="align-items:flex-start">
             <button class="check" data-dik-check="${i}" aria-label="Übernehmen" style="margin-top:0">${icon(e.buchen ? "check" : "checkLeer", 24)}</button>
             <div class="grow">
-              <span class="name">${esc(e.name)}</span>
+              ${e.zutat_id
+                ? `<span class="name">${esc(e.name)}</span>`
+                /* Nicht im Katalog: Der Name ist hier direkt korrigierbar. Bei
+                   ungewohnten Wörtern verhört sich die Spracherkennung gern
+                   ("Backoblaten" → "Backupladen") – tippt man es einmal
+                   gerade, wird es angelegt und beim nächsten Mal erkannt. */
+                : `<input type="text" class="name-edit" data-dik-name="${i}" value="${esc(e.name)}" aria-label="Name des Artikels" autocomplete="off" autocapitalize="words">`}
               <span class="small mute" style="display:block">„${esc(e.rohtext)}“${vorhanden ? ` · bisher ${esc(mengeAnzeige(vorhanden))}` : ""}</span>
-              ${e.zutat_id ? "" : '<span class="small warn-text" style="display:block">Nicht im Katalog – wird als eigener Artikel angelegt</span>'}
-              ${e.offen ? `
-                <select data-dik-zutat="${i}" style="margin-top:8px">
-                  <option value="">Als eigenen Artikel anlegen</option>
-                  ${ZUTATEN.map((z) => `<option value="${z.id}" ${e.zutat_id === z.id ? "selected" : ""}>${esc(z.name)}</option>`).join("")}
-                </select>`
-                : `<button class="mini-link" data-dik-oeffnen="${i}">Zutat ändern</button>`}
+              ${e.zutat_id ? "" : '<span class="small" style="display:block;color:var(--ink-mute)">Wird als eigener Artikel angelegt und künftig wiedererkannt.</span>'}
+              ${e.offen ? auswahl(e) : `<button class="mini-link" data-dik-oeffnen="${i}">Zutat ändern</button>`}
             </div>
             <span class="value">${esc(diktatAnzeige(e))}</span>
           </div>`;
@@ -1652,14 +1666,23 @@ async function werteDiktatAus(text) {
     eintraege = parseDiktat(roh, s.bestand);
   }
 
-  /* Zutat-IDs gegen den Katalog prüfen: eine erfundene ID würde sonst als
-     Geisterzutat im Bestand landen, die kein Rezept je findet. Anteile
-     kommen mal als 0,5 und mal als 50 (Prozent) zurück – beides wird hier
-     auf denselben Bereich gebracht. */
+  /* Zutat-IDs prüfen: eine erfundene ID würde sonst als Geisterzutat im
+     Bestand landen, die kein Rezept je findet. Gültig ist der Katalog – und
+     was der Haushalt sich selbst angelegt hat. Anteile kommen mal als 0,5 und
+     mal als 50 (Prozent) zurück; beides wird hier auf denselben Bereich
+     gebracht. */
   eintraege = eintraege.map((e) => {
     const kat = e.zutat_id ? ZUTAT_INDEX[e.zutat_id] : null;
+    const eigener = !kat && e.zutat_id ? s.bestand.find((b) => b.zutat_id === e.zutat_id) : null;
+    const gueltig = !!(kat || eigener);
     const anteil = e.anteil == null ? null : Math.min(1, Math.max(0, e.anteil > 1 ? e.anteil / 100 : e.anteil));
-    return { ...e, zutat_id: kat?.id || null, name: kat?.name || e.name, anteil, buchen: true, offen: !kat || !e.sicher };
+    return {
+      ...e,
+      zutat_id: gueltig ? e.zutat_id : null,
+      name: kat?.name || eigener?.name || e.name,
+      anteil, buchen: true,
+      offen: !gueltig || !e.sicher,
+    };
   }).filter((e) => e.name && e.name.trim().length > 1);
 
   if (!eintraege.length) {
@@ -1712,11 +1735,15 @@ function bindDiktat() {
     diktat.eintraege[Number(b.dataset.dikOeffnen)].offen = true;
     renderVorrat();
   }));
+  /* Kein Neuzeichnen beim Tippen – sonst ist der Fokus nach jedem Buchstaben weg. */
+  app.querySelectorAll("[data-dik-name]").forEach((f) => f.addEventListener("input", () => {
+    diktat.eintraege[Number(f.dataset.dikName)].name = f.value;
+  }));
   app.querySelectorAll("[data-dik-zutat]").forEach((sel) => sel.addEventListener("change", () => {
     const e = diktat.eintraege[Number(sel.dataset.dikZutat)];
-    const kat = ZUTAT_INDEX[sel.value];
-    e.zutat_id = kat?.id || null;
-    if (kat) e.name = kat.name;
+    const gewaehlt = ZUTAT_INDEX[sel.value] || getState().bestand.find((b) => b.zutat_id === sel.value);
+    e.zutat_id = sel.value || null;
+    if (gewaehlt) e.name = gewaehlt.name;
     renderVorrat();
   }));
   app.querySelector("#dik-verwerfen")?.addEventListener("click", () => { diktat = null; renderVorrat(); });
@@ -1728,6 +1755,9 @@ function uebernehmeDiktat() {
   let gebucht = 0;
   for (const e of diktat.eintraege) {
     if (!e.buchen) continue;
+    // Ein leergeräumtes Namensfeld ergibt keinen Artikel – lieber überspringen
+    // als eine Zeile ohne Namen in den Vorrat legen.
+    if (!e.zutat_id && e.name.trim().length < 2) continue;
     const item = e.zutat_id ? bestandFuer(s, e.zutat_id) : freierBestand(s, e.name);
     if (!item) continue;
     item.menge = diktatMenge(item, e);
@@ -1851,6 +1881,10 @@ function bindVorratAdd() {
    zeigt (Stepper, Füllstandsregler oder da/leer). */
 const FREI_REGELN = [
   { kat: "tk",      art: "schuettgut", packung: 450, muster: /tk|tiefkühl|gefroren|rahmspinat|eis\b/ },
+  /* Fertigprodukte stehen vor den Zutatenregeln, sonst zieht ein Wort im
+     Produktnamen die falsche Führungsart nach sich: „Maggi Zwiebelsuppe“ ist
+     kein Bund Zwiebeln, sondern eine Packung. */
+  { kat: "trocken", art: "zaehlbar",   einheit: "Pck", muster: /suppe|soße|sosse|\bfix\b|backmischung|oblaten|riegel|tafel|tütchen/ },
   { kat: "gewuerz", art: "pauschal",   muster: /gewürz|pulver|pfeffer|salz|paprika|curry|zimt|kümmel|muskat|chili/ },
   { kat: "konserve", art: "zaehlbar",  einheit: "Dose", muster: /dose|konserve|glas\b/ },
   { kat: "kuehl",   art: "schuettgut", packung: 250, muster: /käse|quark|joghurt|sahne|milch|butter|wurst|schinken|tofu|tempeh|seitan|fleisch|hack|fisch|filet|creme|dip/ },
