@@ -12,6 +12,7 @@
    Vorschläge, Kochmodus mit Timern und Abbuchung greifen unverändert. */
 
 import { ZUTATEN } from "./data/kerndb.js";
+import { sucheTrifft } from "./engine.js";
 
 /* --------------------------------------------------------------- Quellen
    Drei der vier Quellen sind vergänglich: Claude-Rezepte und die aus dem
@@ -77,19 +78,14 @@ function ersetze(s, rezept) {
   buch(s)[i] = { ...rezept, gespeichert: buch(s)[i].gespeichert, notiz: buch(s)[i].notiz || rezept.notiz || "" };
 }
 
-/* Suche über Name, Küche, Kategorie, Tags und Zutaten – ein Suchfeld reicht. */
-function passt(rezept, q) {
-  if (!q) return true;
-  const felder = [rezept.name, rezept.cuisine, rezept.kategorie, ...(rezept.tags || [])];
-  if (felder.some((f) => String(f || "").toLowerCase().includes(q))) return true;
-  return (rezept.zutaten || []).some((z) => String(z.zutat_name || "").toLowerCase().includes(q));
-}
-
+/* Suche über Name, Küche, Kategorie, Tags und Zutaten – ein Suchfeld reicht.
+   Dieselbe Funktion sucht beim Stöbern über den ganzen Bestand (engine.js);
+   zwei Suchen, die unterschiedlich treffen, wären nur verwirrend. */
 function kochbuchListe(s, { suche = "", quelle = "alle" } = {}) {
   const q = suche.trim().toLowerCase();
   return buch(s)
     .filter((r) => quelle === "alle" || quelleVon(r) === quelle)
-    .filter((r) => passt(r, q));
+    .filter((r) => sucheTrifft(r, q));
 }
 
 /* „3× gekocht" auf der Kochbuch-Karte – aus der Historie, ohne Extra-Zähler. */

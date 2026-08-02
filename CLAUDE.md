@@ -33,10 +33,10 @@ index.html                 App-Shell: nur #app-Container + Tabbar (6 Tabs, Inlin
 manifest.webmanifest       PWA-Manifest
 sw.js                      Service Worker: Network-first mit 3s-Timeout + Revalidierung, Cache-Fallback;
                            cached nur res.ok. SHELL-Liste + CACHE-Version ("vorratio-vN"), Versionsauskunft per postMessage
-css/style.css              Gesamtes Styling: Design-Tokens in :root + alle Komponenten (~960 Z., Sektionen per Kommentar)
+css/style.css              Gesamtes Styling: Design-Tokens in :root + alle Komponenten (~1190 Z., Sektionen per Kommentar)
 fonts/                     Bricolage Grotesque (Display) + Figtree (Text) als lokale WOFF2 – kein CDN
 icons/                     App-Icon „Keimling-V" (SVG + PNG 180/512/maskable)
-js/app.js                  ~2200 Z. – Views, Steuerung, übriges UI (Details unten)
+js/app.js                  ~3900 Z. – Views, Steuerung, übriges UI (Details unten)
 js/ui.js                   UI-Grundbausteine ohne State-Kenntnis: esc, h, zeigeApp, dialog,
                            bestaetige, toast, progressBar, fmtZeit
 js/kochmodus.js            Kochmodus: Portionswahl, Schrittkarten, Timer, Abbuchung.
@@ -161,6 +161,13 @@ Datumsstempel für Tagesvorschläge kommen aus `lokalesDatum()` (Ortszeit, nicht
   Eigene Rezepte (`EIG-…`) entstehen im Editor; Ernährungsform und Allergene
   werden dort aus den Zutaten abgeleitet (`tagsAusZutaten`) und sind
   korrigierbar – beide filtern hart.
+- **Stöbern (zweite Schiene im Kochbuch):** Der Tageswurf zeigt drei Rezepte je
+  Slot – gut zum Entscheiden, nutzlos zum Suchen. „alle Rezepte" zeigt denselben
+  Pool (`alleRezepte()`) als durchsuchbare Liste, sortiert nach Bestandsdeckung.
+  Der Profilfilter gilt dort genauso hart wie überall; wie viele Rezepte er
+  aussortiert, steht in der Kopfzeile, statt still zu verschwinden. Snacks sind
+  ohne Slot-Filter dabei – die Liste zeigt, was es gibt, sie schlägt nichts für
+  eine Uhrzeit vor.
 - **Snack-Ecke:** eigene Schiene außerhalb der Slots (`mahlzeitentyp: ["snack"]`,
   `SNK-`Rezepte). `nurSnack`-Rezepte tauchen nie in Essens-Slots auf, auch nicht
   beim Pool-Auffüllen.
@@ -228,7 +235,11 @@ Datumsstempel für Tagesvorschläge kommen aus `lokalesDatum()` (Ortszeit, nicht
 `bestandsAbgleich` (→ {vorhanden, fehlt, quote}), `bestandsPosten`,
 `istVorhanden` (summiert über mehrere Posten derselben Zutat), `bewerte`,
 `vorschlaege`, `snackVorschlaege`, `zielTreffer`, `vorliebenTreffer`,
-`tagesSeed`, `pseudoZufall`, `abbuchen` (räumt mehrere Posten der Reihe nach ab),
+`tagesSeed`, `pseudoZufall`, `stoeberListe` (ganzer Pool als Liste: Profilfilter
+hart, Suche/Slot/„nur Kochbares", sortiert nach Bestandsdeckung – zählt mit,
+wie viele das Profil aussortiert hat), `sucheTrifft` (ein Suchbegriff über Name,
+Küche, Kategorie, Tags, Zutaten – auch vom Kochbuch benutzt),
+`abbuchen` (räumt mehrere Posten der Reihe nach ab),
 `mengeAnzeige`, `wochenKandidaten` (je Zutat **über alle Posten summiert**: leer /
 ≤20 % Packung / bei Zählbarem ohne Packungsgröße per `REST_SCHWELLE` nach
 Kategorie), `istGrundzutat` (`basis: true` → wandert ungefragt auf die Liste),
@@ -250,8 +261,10 @@ Tipp-Pop-up (alle 9 Taps) · `render(zielView?)` + Tabbar · Onboarding
 `stelleSnacksBereit`, `rezeptKarte`, `quellenBadge`, `slotHinweis`,
 `baueAusVorrat`, `starteAiGenerierung` inkl. Gegenprüfung der gelieferten
 Rezepte) · Rezept-Detail (`ersatzIdeenHtml` = Substitutions-Teaser,
-Merken-Schalter, Notiz) · Kochbuch (`renderKochbuch`, `kochbuchTrefferHtml`,
-`zuletztGekochtHtml` = Gekochtes aus der Historie nachträglich merken)
+Merken-Schalter, Notiz) · Kochbuch (`renderKochbuch` mit zwei Schienen über
+`kochbuchModus`: „gemerkt" = `kochbuchTrefferHtml`, „alle Rezepte" =
+`stoeberTrefferHtml`/`zeichneStoeberListe` über `stoeberListe`, seitenweise per
+`STOEBER_SCHRITT`; `zuletztGekochtHtml` = Gekochtes aus der Historie nachträglich merken)
 + Rezept-Editor (`editor`-Entwurf, `uebernehmeEditorFelder` liest sichtbare
 Felder vor jedem Neuzeichnen zurück) · Vorrat
 (`zutatTreffer`-Suche inkl. Freitext-Anlage `addBestandFrei` mit `FREI_REGELN`,

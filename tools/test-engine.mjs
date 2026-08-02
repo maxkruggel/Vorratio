@@ -13,7 +13,7 @@ import { REZEPTE, ZUTATEN } from "../js/data/kerndb.js";
 import {
   rezeptErlaubt, bestandsAbgleich, istVorhanden, abbuchen, vorschlaege, snackVorschlaege,
   mengeInBestandsEinheit, wochenKandidaten, istGrundzutat, tagesSeed, pseudoZufall, mengeAnzeige,
-  aktuellerSlot,
+  aktuellerSlot, stoeberListe, sucheTrifft,
   ZUTAT_INDEX,
 } from "../js/engine.js";
 import { fotoEintraege, passeEintragAn } from "../js/vorratsfoto.js";
@@ -361,6 +361,72 @@ pruefe("gleicher Seed = gleiches Ergebnis, anderer Seed = andere Reihenfolge", (
   const c = vorschlaege(profil(), bestandVoll, "mittag", 43, 3).map((v) => v.rezept.id);
   gleich(a, b, "derselbe Wurf muss stabil sein: ");
   wahr(JSON.stringify(a) !== JSON.stringify(c), "ein neuer Wurf soll etwas ändern");
+});
+
+/* --------------------------------------------------------------- Stöbern */
+beschreibe("stoeberListe");
+
+pruefe("zeigt den ganzen erlaubten Pool, nicht nur eine Auswahl", () => {
+  const st = stoeberListe(REZEPTE, profil(), bestandVoll, {});
+  gleich(st.treffer.length, st.erlaubt);
+  wahr(st.erlaubt > 100, `nur ${st.erlaubt} Rezepte – die Liste kürzt zu früh`);
+});
+
+/* Der Profilfilter ist überall hart – eine Stöberliste, die daran vorbeigeht,
+   zeigt jemandem mit Allergie genau das Rezept, das er nie kochen darf. */
+pruefe("der Profilfilter gilt auch beim Stöbern", () => {
+  const p = profil({ ernaehrungsform: "vegan", ausschluesse: ["gluten"] });
+  const st = stoeberListe(REZEPTE, p, bestandVoll, {});
+  for (const v of st.treffer) wahr(rezeptErlaubt(v.rezept, p), `${v.rezept.id} verstößt gegen das Profil`);
+  gleich(st.ausgefiltert, REZEPTE.length - st.erlaubt);
+});
+
+pruefe("Ausgefiltertes wird gezählt, nicht verschwiegen", () => {
+  const st = stoeberListe(REZEPTE, profil({ ernaehrungsform: "vegan" }), [], {});
+  wahr(st.ausgefiltert > 0, "kein einziges Rezept ausgefiltert – unplausibel");
+  gleich(st.erlaubt + st.ausgefiltert, REZEPTE.length);
+});
+
+pruefe("was der Bestand hergibt, steht oben", () => {
+  const quoten = stoeberListe(REZEPTE, profil(), [posten("ing_nudeln", 2000)], {})
+    .treffer.map((v) => v.abgleich.quote);
+  for (let i = 1; i < quoten.length; i++) {
+    wahr(quoten[i - 1] >= quoten[i], `Sortierung bricht bei ${i}: ${quoten[i - 1]} vor ${quoten[i]}`);
+  }
+});
+
+pruefe("Slot-Filter lässt nur den gewählten Slot durch", () => {
+  for (const v of stoeberListe(REZEPTE, profil(), [], { slot: "fruehstueck" }).treffer) {
+    wahr(v.rezept.mahlzeitentyp.includes("fruehstueck"), `${v.rezept.id} gehört nicht zum Frühstück`);
+  }
+});
+
+/* Anders als in den Slot-Vorschlägen gehören Snacks hier dazu: Die Liste zeigt,
+   was es gibt, sie schlägt nichts für eine Uhrzeit vor. */
+pruefe("ohne Slot-Filter sind auch reine Snacks dabei", () => {
+  const st = stoeberListe(REZEPTE, profil(), [], {});
+  wahr(st.treffer.some((v) => v.rezept.mahlzeitentyp.every((t) => t === "snack")),
+    "kein reiner Snack in der Gesamtliste");
+});
+
+pruefe('"nur was jetzt geht" lässt nichts Fehlendes durch', () => {
+  const st = stoeberListe(REZEPTE, profil(), [posten("ing_nudeln", 2000)], { nurKochbar: true });
+  for (const v of st.treffer) gleich(v.abgleich.fehlt.length, 0, `${v.rezept.id}: `);
+  gleich(st.treffer.length, st.kochbar);
+});
+
+pruefe("Suche greift auf Name, Küche, Tag und Zutat", () => {
+  const r = rezept({ name: "Ofenkürbis", cuisine: "libanesisch", tags: ["budget"], zutaten: [zutat("ing_kichererbsen")] });
+  for (const q of ["ofenkürbis", "OFENKÜRBIS", "libanes", "budget", "kicher"]) {
+    wahr(stoeberListe([r], profil(), [], { suche: q }).treffer.length === 1, `"${q}" findet nichts`);
+  }
+  gleich(stoeberListe([r], profil(), [], { suche: "lachs" }).treffer.length, 0);
+});
+
+pruefe("leere Suche filtert nichts weg", () => {
+  wahr(sucheTrifft(rezept(), ""));
+  gleich(stoeberListe(REZEPTE, profil(), [], { suche: "   " }).treffer.length,
+    stoeberListe(REZEPTE, profil(), [], {}).treffer.length);
 });
 
 /* ------------------------------------------------ Abdeckung der ganzen Datenbank */
