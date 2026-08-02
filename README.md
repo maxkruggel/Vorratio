@@ -96,6 +96,7 @@ Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
 ## Struktur
 
 ```
+CLAUDE.md             Code-Map für Claude: Architektur, Modul-Index, Konzepte, Konventionen
 index.html            App-Shell (PWA)
 manifest.webmanifest  Web-App-Manifest
 sw.js                 Service Worker (Offline-Shell)
