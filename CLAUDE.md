@@ -21,7 +21,7 @@ automatische Abbuchung mit Toleranz → Einkauf füllt den Bestand wieder auf.
   nicht zum Installieren
 - Prüfen: `node tools/validate-db.mjs` (Rezeptdaten) + `node tools/test-engine.mjs`
   (Engine) + `node tools/test-diktat.mjs` (Diktat-Parser) + `node tools/test-rezept-import.mjs`
-  (Rezept-Import). Alles läuft in der CI (`.github/workflows/ci.yml`), ohne
+  (Rezept-Import) + `node tools/test-generator.mjs` (Offline-Generator). Alles läuft in der CI (`.github/workflows/ci.yml`), ohne
   Abhängigkeiten. Dazu `node tools/pr-aktuell.mjs` (Branch-Stand vor einer PR,
   s. u.). Kein Linter, kein Build-Schritt.
 - Sprache durchgehend Deutsch (Code-Bezeichner, Kommentare, UI)
@@ -66,6 +66,7 @@ tools/validate-db.mjs      Datenbank-Validator (Schema, IDs, Allergen-Deklaratio
 tools/rezept-import.mjs    docs/rezepte/*.md → Blockdatei in js/data/ (Trockenlauf, --schreiben)
 tools/test-engine.mjs      Engine-Tests ohne Framework – Filter, Toleranzband, Abbuchung, Abdeckung
 tools/test-diktat.mjs      Diktat-Tests ohne Framework – Zerlegung ohne Satzzeichen, Mengen, Anteile, Zuordnung
+tools/test-generator.mjs   Generator-Tests – Bauen, Determinismus, Profilfilter, erklärbarer Misserfolg
 tools/test-rezept-import.mjs  Import-Tests – Zutatenzeilen, Timer-Umrechnung, Ableitungen, Literal
 tools/browsertest.mjs      Browser-Rauchtest (Onboarding→Tabs→Kochmodus→Neuladen). Nicht in der CI,
                            braucht einmalig `npm install --no-save playwright-core`

@@ -723,17 +723,23 @@ function bauVersuch(s, slot) {
     return "Der Vorrats-Generator baut Hauptmahlzeiten. Snack-Ideen kommen aus der Rezeptdatenbank oder von Claude.";
   }
   if (!s.bestand.length) return "";
-  const tiefe = vorratsTiefe(s.bestand);
-  if (tiefe.belegt < 3) {
-    return `Neu gebaut wurde nichts – dafür ist der Vorrat noch zu dünn (${tiefe.belegt} von ${tiefe.gesamt} Bausteinen). `
-      + "Es fehlt vor allem: " + tiefe.fehlend.map((f) => BAUSTEIN_NAMEN[f] || f).join(", ") + ".";
-  }
+  // Kein Vorab-Tor mehr: `vorratsTiefe` zählt nur, wie viele der fünf Rollen
+  // überhaupt belegt sind, und meldete ab 3 „genug" – gebaut wird aber erst,
+  // wenn ein konkretes Küchenmuster ALLE seine Rollen zusammenbekommt. In dem
+  // Band dazwischen ließ das Tor durch und der Generator lieferte null, was
+  // sich anfühlte, als täte der Knopf gar nichts. Also einfach versuchen; der
+  // Grund fürs Scheitern kommt danach aus denselben Daten, nur genauer.
   vorratWurf += 1;
   const neue = generiereAusVorrat(s.profil, s.bestand, slot, 3, tagesSeed(heuteStr(), vorratWurf));
-  if (!neue.length) return "Aus diesem Bestand ließ sich gerade nichts Neues bauen, das zu deinem Profil passt.";
-  s.vorratRezepte = [...neue, ...(s.vorratRezepte || []).filter((r) => !neue.some((n) => n.id === r.id))].slice(0, 24);
-  save();
-  return `${neue.length} Rezepte frisch aus deinem Bestand gebaut – erkennbar am Vorrats-Etikett.`;
+  if (neue.length) {
+    s.vorratRezepte = [...neue, ...(s.vorratRezepte || []).filter((r) => !neue.some((n) => n.id === r.id))].slice(0, 24);
+    save();
+    return `${neue.length} Rezepte frisch aus deinem Bestand gebaut – erkennbar am Vorrats-Etikett.`;
+  }
+  const fehlend = vorratsTiefe(s.bestand).fehlend.map((f) => BAUSTEIN_NAMEN[f] || f);
+  return fehlend.length
+    ? `Neu gebaut wurde nichts – dafür fehlt im Vorrat noch: ${fehlend.join(", ")}.`
+    : "Aus diesem Bestand ließ sich gerade nichts Neues bauen, das zu deinem Profil passt.";
 }
 
 /* AI-Rezeptgenerierung (Kap. 4.3): 3 frische Vorschläge aus dem Bestand. */

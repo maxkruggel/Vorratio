@@ -28,3 +28,6 @@ jobs:
 
       - name: Rezept-Import-Tests
         run: node tools/test-rezept-import.mjs
+
+      - name: Generator-Tests
+        run: node tools/test-generator.mjs
