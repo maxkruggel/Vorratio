@@ -347,6 +347,87 @@ ${katalog}`,
   }));
 }
 
+/* ----------------------------------------------------------- Schrankfoto
+   Kap. 4.2/7.6: Foto vom offenen Schubfach oder Vorratsregal → sichtbare
+   Artikel. Das Modell soll hier ausdrücklich WENIGER liefern, als es könnte:
+   nur was zu sehen ist, keine Mengen, die es nicht sehen kann. Was fehlt,
+   trägt der Mensch danach mit einem Tap nach – eine erfundene Zahl im Bestand
+   verdirbt jede spätere Rezeptrechnung. */
+const SCHRANK_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["ort", "artikel"],
+  properties: {
+    ort: { type: ["string", "null"] },
+    artikel: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["gesehen", "name", "zutat_id", "anzahl", "fuellstand", "sicher"],
+        properties: {
+          gesehen: { type: "string" },
+          name: { type: "string" },
+          zutat_id: { type: ["string", "null"] },
+          anzahl: { type: ["number", "null"] },
+          fuellstand: { type: ["number", "null"] },
+          sicher: { type: "boolean" },
+        },
+      },
+    },
+  },
+};
+
+async function leseSchrankfoto(apiKey, bilder) {
+  const katalog = ZUTATEN.map((z) => `${z.id} = ${z.name} (${z.art})`).join("\n");
+  const fotos = (bilder || []).slice(0, 4);
+  const data = await anfrage(apiKey, {
+    model: MODEL,
+    max_tokens: 8000,
+    output_config: { format: { type: "json_schema", schema: SCHRANK_SCHEMA } },
+    system: `Du siehst Fotos aus dem Vorrat eines Haushalts – ein geöffnetes Schubfach, ein Regalbrett,
+ein Kühlschrankfach – und listest für die Vorrats-App Vorratio auf, was darauf zu sehen ist.
+
+Grundregel: Lieber wenige sichere Einträge als viele geratene. Der Nutzer bestätigt jede Zeile
+und trägt fehlende Mengen selbst nach – eine erfundene Angabe kostet ihn mehr Zeit als eine fehlende.
+
+- Nur Lebensmittel und Getränke. Geschirr, Verpackungsmüll, Reiniger, Deko: weglassen.
+- Nur was wirklich im Bild ist. Ergänze nichts, was in so einem Fach üblicherweise steht.
+- "gesehen": knapp, was dich darauf gebracht hat, auf Deutsch – "drei Dosen hinten links",
+  "Tüte mit Etikett Basmatireis", "angebrochenes Glas Gurken". Das liest der Nutzer beim Prüfen.
+- "name": die Zutat auf Deutsch, ohne Marke ("Passierte Tomaten", nicht "Mutti Passata").
+- "zutat_id": passende ID aus dem Katalog, sonst null. Achte auf die Führungsart:
+  "Kichererbsen (Dose)" ist eine andere Zutat als getrocknete Kichererbsen.
+- "anzahl": nur bei zählbaren Dingen und nur, wenn du sie wirklich zählen kannst
+  (5 sichtbare Dosen = 5). Verdeckt gestapelt oder unklar: null.
+- "fuellstand": 0 bis 1, NUR wenn der Inhalt sichtbar ist – durchsichtiges Glas, Flasche,
+  offene Schale. Blickdichte Packungen (Mehltüte, Karton, Dose): immer null. Rate nie.
+- "sicher": true nur bei lesbarem Etikett oder eindeutiger Form. Alles Erahnte: false.
+- Steht dieselbe Sache mehrfach im Bild oder auf mehreren Fotos, nenne sie einmal.
+- "ort": drei bis fünf Worte, was da fotografiert wurde ("Schubfach mit Trockenware").
+
+Zutaten-Katalog:
+${katalog}`,
+    messages: [{
+      role: "user",
+      content: [
+        ...fotos.map((b) => ({
+          type: "image",
+          source: { type: "base64", media_type: b.mediaType || "image/jpeg", data: b.base64 },
+        })),
+        {
+          type: "text",
+          text: fotos.length > 1
+            ? `Das sind ${fotos.length} Fotos aus demselben Vorrat. Was ist darauf zu sehen?`
+            : "Was steht in diesem Fach?",
+        },
+      ],
+    }],
+  });
+
+  return { ort: data.ort || null, artikel: data.artikel || [] };
+}
+
 /* ------------------------------------------------------------ Barcode-Foto
    iOS Safari hat keinen BarcodeDetector – dort wäre der Kamera-Button tot.
    Fallback: Foto vom Strichcode, Claude liest die Ziffernfolge darunter ab.
@@ -378,4 +459,4 @@ Nur Ziffern, keine Leer- oder Trennzeichen. Ist kein Strichcode erkennbar oder d
   return ean.length >= 8 ? ean : null;
 }
 
-export { generiereRezepte, scanBon, leseDiktat, leseBarcodeVomFoto, MODEL };
+export { generiereRezepte, scanBon, leseDiktat, leseSchrankfoto, leseBarcodeVomFoto, MODEL };

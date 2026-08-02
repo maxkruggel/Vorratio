@@ -43,10 +43,11 @@ js/kochmodus.js            Kochmodus: Portionswahl, Schrittkarten, Timer, Abbuch
 js/engine.js               Rezept-Engine: Profilfilter, Bestandsabgleich, Scoring, Abbuchung (pure Funktionen)
 js/kochbuch.js             Kochbuch: merken/vergessen/Notiz, Suche+Filter, eigene Rezepte, Tag-Ableitung aus Zutaten
 js/storage.js              State + Persistenz: DEFAULT_STATE, load/save, Export/Import, Migration, lokalesDatum
-js/ai.js                   Claude API (clientseitig): Rezeptgenerierung, Bon-Scan, Diktat-Auswertung, Barcode-Foto-Lesen
+js/ai.js                   Claude API (clientseitig): Rezeptgenerierung, Bon-Scan, Diktat-Auswertung, Schrankfoto, Barcode-Foto-Lesen
 js/generator.js            Offline-Generator: baut aus dem Bestand Rezepte nach Küchenmustern (ohne API-Key)
 js/scan.js                 Barcode: Open-Food-Facts-Lookup, Fuzzy-Zutat-Matching, Kamera-Scan (BarcodeDetector)
 js/diktat.js               Diktat: Web-Speech-Aufnahme + lokaler Parser (Zahlwörter, Einheiten, Anteile, Katalog-Matching)
+js/vorratsfoto.js          Schrankfoto: Bilder verkleinern + Modellantwort → Bestandseinträge (pur, getestet)
 js/angebote.js             Angebots-Crawl: Marktguru-Client, Suchprofile, Matching, Markt-Ranking
 js/substitution.js         Ersatz-Logik: Alternativen filtern/priorisieren nach Profil + Anwendungsfall
 js/icons.js                Duotone-Icon-Set (24er-Raster, 1,6 px Strich): icon(name, size, klasse), logoMark(size)
@@ -156,6 +157,16 @@ Datumsstempel für Tagesvorschläge kommen aus `lokalesDatum()` (Ortszeit, nicht
   Bon-Scan und Barcode **addieren** über `buchZugang()`. Eine additive
   Diktat-Variante fehlt absichtlich – nicht vergessen, sondern entschieden
   (Doku 7.5); wer sie nachrüstet, ändert damit ein zugesagtes Verhalten.
+- **Schrankfoto (`js/vorratsfoto.js`, UI im Vorrat):** Foto vom offenen
+  Schubfach → `leseSchrankfoto()` (Claude Vision) → Bestätigungsliste. Die
+  Arbeitsteilung ist der Kern: Das Modell liefert **nur, WAS dasteht**, der
+  Mensch die Menge. Was das Foto nicht hergibt (blickdichte Packung, verdeckter
+  Stapel), kommt als `nachfragen: true` zurück, zeigt „?" statt einer Zahl und
+  bringt in der Zeile gleich das Bedienelement der Führungsart mit (Stepper /
+  Viertel-Raster / da-leer). Ein Tap darauf löst die Markierung. Füllstände
+  liefert das Modell nur bei sichtbarem Inhalt – Prompt-Regel, nicht Zufall.
+  **Setzt** den Stand wie das Diktat. Ohne Claude-Key gibt es diesen Weg nicht:
+  Bilder lassen sich, anders als ein Diktat, nicht lokal auswerten.
 - **Profil-Achsen (5, unabhängig):** 1 Ernährungsform (genau eine, `FORM_ERLAUBT`
   mappt auf Rezept-Tags) · 2 Ausschlüsse (EU-14 + halal/koscher + Freitext
   `eigeneAusschluesse` – filtern **hart** in `rezeptErlaubt()`) · 3 Vorlieben
@@ -219,7 +230,10 @@ Felder vor jedem Neuzeichnen zurück) · Vorrat
 start→kamera/foto→laden→treffer/kein_treffer/fehler) · Diktat-UI
 (`diktat`-Statusmaschine: start→hoeren→lesen→ergebnis/fehler; `werteDiktatAus`
 = Claude oder lokaler Parser, `uebernehmeDiktat`, `diktatMenge` = diktierte
-Angabe → Bestandsmenge) · Einkauf
+Angabe → Bestandsmenge) · Schrankfoto-UI (`foto`-Statusmaschine:
+start→lesen→ergebnis/fehler; `nimmFotos` sammelt bis zu `MAX_FOTOS` Fächer,
+`werteFotosAus`, `fotoMengeUi` = Mengen-Bedienelement je Führungsart,
+`uebernehmeSchrankfoto`) · Einkauf
 (`syncWochenliste`, `bestandFuer`/`freierBestand` = Bestandszeile holen/anlegen,
 `buchZugang` = zentrale Zugangsbuchung über Packungsgrößen)
 · Bon-Scan (`bon`-Statusmaschine) · Angebots-Sektion (`starteCrawl`,
@@ -256,12 +270,22 @@ Strukturierte Ausgaben via `output_config.format json_schema`:
 `generiereRezepte` (Systemprompt = Profilregeln DGE/BfR/USDA + Zutatenkatalog;
 Bestand im User-Prompt), `scanBon` (Vision → Artikel mit zutat_id-Mapping),
 `leseDiktat` (Diktattext → Artikel mit zustand menge/anteil/vorraetig/leer),
+`leseSchrankfoto` (bis zu 4 Bilder → {ort, artikel} mit anzahl/fuellstand/sicher;
+der Prompt verbietet ausdrücklich das Raten von Mengen),
 `leseBarcodeVomFoto` (iOS-Fallback: Foto → EAN-Ziffern).
 
 **scan.js** – `lookupBarcode` (OFF v2, „1 API call = 1 real scan"),
 `vorschlagZutat` (Wortüberlappungs-Fuzzy → Nutzer bestätigt immer),
 `kameraVerfuegbar`/`starteKameraScan` (BarcodeDetector; iOS Safari hat keinen →
 Foto-Weg über ai.js).
+
+**vorratsfoto.js** – `verkleinereBild(file)` → {base64, mediaType, vorschau}
+(Canvas, max. 1568 px – dieselbe Kante, auf die Claude ohnehin herunterrechnet;
+Fallback = Originalbild), `fotoEintraege(artikel, freieDaten)` → Einträge
+{rohtext, name, zutat_id, art, einheit, packung, menge, nachfragen, buchen, offen}
+inkl. Katalogprüfung, Anteil-Normierung (0–1 oder Prozent) und Zusammenlegen
+doppelter Nennungen über mehrere Fotos, `passeEintragAn` (Führungsart nachziehen,
+wenn im Ergebnis eine andere Zutat gewählt wird), `MAX_FOTOS`.
 
 **diktat.js** – `diktatVerfuegbar`/`starteDiktat` (Web Speech, de-DE, hört nach
 jeder Sprechpause von allein weiter), `parseDiktat(text, bestand)` → Einträge
@@ -292,7 +316,7 @@ Allergie-Filter über `BASIS_ALLERGENE[alt.basis]`, hart wie überall.
 
 | Dienst | Wofür | Zugang |
 |---|---|---|
-| api.anthropic.com | AI-Rezepte, Bon-Scan, Diktat-Auswertung, Barcode-Foto | Nutzer-Key in `settings.apiKey` (nur lokal) |
+| api.anthropic.com | AI-Rezepte, Bon-Scan, Diktat-Auswertung, Schrankfoto, Barcode-Foto | Nutzer-Key in `settings.apiKey` (nur lokal) |
 | Spracherkennung des Browsers | Diktat aufnehmen (Web Speech API) | ohne Key; die Erkennung läuft beim Plattformbetreiber (iOS: Apple), nicht bei Vorratio |
 | world.openfoodfacts.org | Barcode → Produktdaten | frei (ODbL), sparsam nutzen |
 | api.marktguru.de | Angebots-Crawl | inoffiziell; `angebote.apikey/clientkey` + PLZ, sonst Demo |
@@ -380,5 +404,6 @@ Konflikte gibt.
 2. Picnic-Anbindung (Rechtsrecherche liegt vor: docs/recherche-5-picnic-recht.md)
 3. Web-Push für feste Vorschlagszeiten (braucht Push-Server; bis dahin gilt der
    dokumentierte Öffnen-Fallback) + automatischer Freitags-Crawl
-4. Chatbot- und Schrankfoto-Erfassung (Diktat ist umgesetzt, s. `js/diktat.js`)
+4. Chatbot-Erfassung (Diktat und Schrankfoto sind umgesetzt, s. `js/diktat.js`
+   und `js/vorratsfoto.js`)
 5. Produkt-Icons je Zutat (Brief: docs/design-handoff/ICON-BRIEF-PRODUKT-ICONS.md)

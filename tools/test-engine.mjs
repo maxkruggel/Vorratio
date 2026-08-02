@@ -13,7 +13,9 @@ import { REZEPTE, ZUTATEN } from "../js/data/kerndb.js";
 import {
   rezeptErlaubt, bestandsAbgleich, istVorhanden, abbuchen, vorschlaege, snackVorschlaege,
   mengeInBestandsEinheit, wochenKandidaten, tagesSeed, pseudoZufall, mengeAnzeige, aktuellerSlot,
+  ZUTAT_INDEX,
 } from "../js/engine.js";
+import { fotoEintraege, passeEintragAn } from "../js/vorratsfoto.js";
 import { allergeneFuerRezept, enthaeltSchwein, enthaeltAlkohol } from "../js/data/allergene.js";
 import { lokalesDatum } from "../js/storage.js";
 import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE } from "../js/data/profil.js";
@@ -463,6 +465,94 @@ pruefe("pseudoZufall bleibt im Intervall [0,1)", () => {
     const v = pseudoZufall(id, 7);
     wahr(v >= 0 && v < 1, `${id} → ${v}`);
   }
+});
+
+/* --------------------------------------------------- Schrankfoto (Kap. 7.6)
+   Ein Foto sieht, WAS dasteht, nicht WIE VIEL. Diese Tests halten genau das
+   fest: erfundene Mengen dürfen nicht in den Bestand rutschen, und was das
+   Modell nicht sehen konnte, muss als offen markiert bleiben. */
+beschreibe("Schrankfoto");
+
+// Ersatzangaben für alles ohne Katalogtreffer (in der App: freieZutatDaten).
+const freiTest = () => ({ kategorie: "trocken", art: "schuettgut", einheit: "g", packung: 500 });
+const gesehen = (over = {}) => ({
+  gesehen: "im Fach", name: "Nudeln", zutat_id: "ing_nudeln",
+  anzahl: null, fuellstand: null, sicher: true, ...over,
+});
+
+pruefe("Katalogtreffer bringt Führungsart, Einheit und Packung mit", () => {
+  const [e] = fotoEintraege([gesehen()], freiTest);
+  gleich(e.zutat_id, "ing_nudeln");
+  gleich(e.art, "schuettgut");
+  gleich(e.einheit, "g");
+  gleich(e.packung, 500);
+  falsch(e.offen, "sicherer Treffer zeigt die Zutatenwahl nicht offen");
+});
+
+pruefe("Erfundene zutat_id wird zum eigenen Artikel statt zur Geisterzutat", () => {
+  const [e] = fotoEintraege([gesehen({ zutat_id: "ing_gibt_es_nicht", name: "Wunderpulver" })], freiTest);
+  gleich(e.zutat_id, null);
+  gleich(e.name, "Wunderpulver");
+  wahr(e.offen, "ohne Katalogtreffer steht die Zutatenwahl offen");
+});
+
+pruefe("Blickdichte Packung: Menge bleibt geraten und wird als offen markiert", () => {
+  const [e] = fotoEintraege([gesehen({ fuellstand: null })], freiTest);
+  gleich(e.menge, 250, "halbe 500-g-Packung als Vorgabe: ");
+  wahr(e.nachfragen, "ohne sichtbaren Füllstand muss nachgefragt werden");
+});
+
+pruefe("Sichtbarer Füllstand wird übernommen – auch als Prozentangabe", () => {
+  const [anteil] = fotoEintraege([gesehen({ fuellstand: 0.25 })], freiTest);
+  gleich(anteil.menge, 130, "0,25 × 500 g auf 10er gerundet: ");
+  falsch(anteil.nachfragen, "sichtbarer Füllstand ist keine Rückfrage");
+  const [prozent] = fotoEintraege([gesehen({ fuellstand: 80 })], freiTest);
+  gleich(prozent.menge, 400, "80 % × 500 g: ");
+  const [ueber] = fotoEintraege([gesehen({ fuellstand: 130 })], freiTest);
+  gleich(ueber.menge, 500, "über voll wird gedeckelt: ");
+});
+
+pruefe("Zählbares: gezählte Stückzahl gilt, ungezähltes wird nachgefragt", () => {
+  const dosen = { gesehen: "drei Dosen", name: "Kichererbsen", zutat_id: "ing_kichererbsen_dose", anzahl: 3, fuellstand: null, sicher: true };
+  const [e] = fotoEintraege([dosen], freiTest);
+  gleich(e.art, "zaehlbar");
+  gleich(e.menge, 3);
+  falsch(e.nachfragen, "gezählte Dosen sind keine Rückfrage");
+  const [offen] = fotoEintraege([{ ...dosen, anzahl: null }], freiTest);
+  gleich(offen.menge, 1);
+  wahr(offen.nachfragen, "verdeckt gestapelt → nachfragen");
+});
+
+pruefe("Pauschale Zutaten bekommen nie eine Menge angedichtet", () => {
+  const [e] = fotoEintraege([gesehen({ name: "Sesamöl", zutat_id: "ing_sesamoel", fuellstand: 0.4 })], freiTest);
+  gleich(e.art, "pauschal");
+  gleich(e.menge, null, "pauschal kennt nur da/leer: ");
+  gleich(mengeAnzeige(e), "vorrätig");
+});
+
+pruefe("Dieselbe Zutat auf zwei Fotos wird zusammengelegt", () => {
+  const dose = (anzahl, text) => ({ gesehen: text, name: "Kichererbsen", zutat_id: "ing_kichererbsen_dose", anzahl, fuellstand: null, sicher: true });
+  const zaehlbar = fotoEintraege([dose(3, "vorne"), dose(2, "hinten")], freiTest);
+  gleich(zaehlbar.length, 1, "einmal listen, nicht zweimal: ");
+  gleich(zaehlbar[0].menge, 5, "zählbares addiert sich: ");
+  wahr(zaehlbar[0].rohtext.includes("vorne") && zaehlbar[0].rohtext.includes("hinten"));
+
+  const schuett = fotoEintraege([gesehen({ fuellstand: 0.3 }), gesehen({ fuellstand: 0.8 })], freiTest);
+  gleich(schuett.length, 1);
+  gleich(schuett[0].menge, 400, "beim Füllstand gewinnt der bessere Blick: ");
+});
+
+pruefe("Unbrauchbare Zeilen fliegen raus", () => {
+  gleich(fotoEintraege([{ name: "", zutat_id: null }, { name: "x", zutat_id: null }], freiTest).length, 0);
+  gleich(fotoEintraege(null, freiTest).length, 0);
+});
+
+pruefe("Zutatenwechsel zieht die Führungsart nach", () => {
+  const [e] = fotoEintraege([gesehen({ zutat_id: "ing_kichererbsen_dose", name: "Kichererbsen", anzahl: 3 })], freiTest);
+  passeEintragAn(e, ZUTAT_INDEX.ing_nudeln);
+  gleich(e.art, "schuettgut");
+  gleich(e.einheit, "g");
+  gleich(e.menge, 250, "aus 3 Dosen darf kein 3 g werden: ");
 });
 
 /* ------------------------------------------------------------------ Ausgabe */
