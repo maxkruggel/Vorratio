@@ -16,7 +16,8 @@ import {
   zielTreffer, vorliebenTreffer, tagesSeed, bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
 } from "./engine.js";
 import { angebotsCrawl, isoWoche, liveKonfiguriert } from "./angebote.js";
-import { generiereRezepte, scanBon, leseBarcodeVomFoto } from "./ai.js";
+import { generiereRezepte, scanBon, leseDiktat, leseBarcodeVomFoto } from "./ai.js";
+import { diktatVerfuegbar, starteDiktat, parseDiktat, diktatAnzeige } from "./diktat.js";
 import { generiereAusVorrat, vorratsTiefe } from "./generator.js";
 import { lookupBarcode, vorschlagZutat, kameraVerfuegbar, starteKameraScan } from "./scan.js";
 import { SUB_KATEGORIEN, SUB_ANWENDUNGEN } from "./data/substitutionen.js";
@@ -175,6 +176,9 @@ tabbar.addEventListener("click", async (e) => {
   })) return;
   beendeKochen();
   editor = null;
+  // Ein Mikrofon, das im nächsten Tab weiterhört, gehört in keine Vorrats-App.
+  diktat = null;
+  stoppeAufnahme();
   view = b.dataset.view;
   detailRezept = null;
   render();
@@ -1260,15 +1264,17 @@ function renderVorrat() {
         <div class="card-row" style="align-items:center">
           <h1>vorrat</h1>
           <div class="head-actions">
+            <button class="square-btn" id="diktat-toggle" aria-label="Bestandsaufnahme diktieren">${icon("mikro", 21)}</button>
             <button class="square-btn" id="scan-toggle" aria-label="Barcode scannen">${icon("barcode", 21)}</button>
             <button class="pill-btn" id="add-toggle">${vorratAddOffen ? icon("x", 19) : icon("plus", 19)}${vorratAddOffen ? "Schließen" : "Erfassen"}</button>
           </div>
         </div>
         <p class="subtle small">${s.bestand.length} Artikel</p>
       </div>
+      ${diktat ? diktatUi() : ""}
       ${scanPanel ? barcodeUi() : ""}
       ${vorratAddOffen ? vorratAddForm() : ""}
-      ${s.bestand.length === 0 && !vorratAddOffen && !scanPanel ? vorratLeerHtml() : ""}
+      ${s.bestand.length === 0 && !vorratAddOffen && !scanPanel && !diktat ? vorratLeerHtml() : ""}
       ${Object.entries(KATEGORIE_NAMEN).filter(([k]) => gruppen[k]?.length).map(([k, titel]) => `
         <div class="section-gap">
           <h2>${titel}</h2>
@@ -1280,18 +1286,31 @@ function renderVorrat() {
     </div>`, "vorrat");
 
   app.querySelector("#add-toggle").addEventListener("click", () => { vorratAddOffen = !vorratAddOffen; renderVorrat(); });
+  /* Die drei Erfassungswege teilen sich den Platz über der Liste – wer einen
+     aufmacht, schließt die anderen. */
   app.querySelector("#scan-toggle").addEventListener("click", () => {
     stoppeKamera();
+    stoppeAufnahme();
+    diktat = null;
     scanPanel = scanPanel ? null : { status: "start" };
+    renderVorrat();
+  });
+  app.querySelector("#diktat-toggle").addEventListener("click", () => {
+    stoppeKamera();
+    stoppeAufnahme();
+    scanPanel = null;
+    diktat = diktat ? null : { status: "start", text: "" };
     renderVorrat();
   });
   bindVorratAdd();
   bindBarcode();
+  bindDiktat();
   /* Die drei Wege hinein führen jeweils direkt in ihren Ablauf. */
   app.querySelectorAll("[data-weg]").forEach((b) => b.addEventListener("click", () => {
     const weg = b.dataset.weg;
     if (weg === "erfassen") { vorratAddOffen = true; renderVorrat(); return; }
     if (weg === "barcode") { scanPanel = { status: "start" }; renderVorrat(); return; }
+    if (weg === "mikro") { diktat = { status: "start", text: "" }; renderVorrat(); return; }
     // Kassenbon: liegt im Einkauf. Der Klick zählt noch als Nutzergeste,
     // darum öffnet der Dateidialog (= Kamera auf dem iPhone) direkt mit.
     view = "einkauf";
@@ -1328,10 +1347,11 @@ function vorratZeile(item) {
     </div>`;
 }
 
-/* Leerer Vorrat (Design 15): Erklärkarte + die drei Wege hinein. Die drei Wege
-   sind echte Buttons – sie sahen vorher tippbar aus, waren es aber nicht. */
+/* Leerer Vorrat (Design 15): Erklärkarte + die Wege hinein. Sie sind echte
+   Buttons – sie sahen vorher tippbar aus, waren es aber nicht. */
 function vorratLeerHtml() {
   const wege = [
+    ["mikro", "Vorräte aufzählen"],
     ["erfassen", "Aus der Liste tippen"],
     ["barcode", "Barcode scannen"],
     ["kamera", "Kassenbon fotografieren"],
@@ -1343,7 +1363,7 @@ function vorratLeerHtml() {
       <p>Einmalige Aufnahme: Trockenware, Frisches, Konserven, Gewürze. Danach hält vorratio den Stand von allein aktuell.</p>
     </div>
     <div class="section-gap">
-      <h2>Drei Wege hinein</h2>
+      <h2>Vier Wege hinein</h2>
       ${wege.map(([ic, titel]) => `
         <button class="card weg-karte" data-weg="${ic}">
           ${icon(ic, 24)}
@@ -1500,6 +1520,261 @@ function bindBarcode() {
   });
 }
 
+/* ------------------------------------ Bestandsaufnahme diktieren (Kap. 4.2)
+   Aufzählen statt antippen: Schranktür auf, Mikro an, alles der Reihe nach
+   sagen. Der Text wird lokal ausgewertet (diktat.js) – ohne Netz und ohne
+   Key. Liegt ein Claude-Key vor, übernimmt das Modell die Zuordnung; fällt
+   es aus, springt der lokale Parser ein, statt das Diktat verpuffen zu lassen.
+   Am Ende steht immer die Bestätigungsliste: Vorratio rät, der Mensch nickt ab.
+
+   Bewusst nur eine Ist-Aufnahme: Diktiertes **setzt** den Stand. Eine additive
+   Variante („zwei Dosen dazu") gibt es absichtlich nicht – Zukauf läuft über
+   Bon-Scan und Barcode, die den Weg über `buchZugang()` nehmen. Ein Diktat,
+   das mal addiert und mal ersetzt, wäre am Schrank nicht mehr vorhersagbar. */
+let diktat = null;      // null | { status:'start'|'hoeren'|'lesen'|'fehler'|'ergebnis', text, … }
+let aufnahme = null;    // laufende Spracherkennung { stop }
+
+function stoppeAufnahme() { aufnahme?.stop?.(); aufnahme = null; }
+
+const DIKTAT_BEISPIEL = "Zwei Kilo Mehl, eine Dose Kichererbsen, drei Zwiebeln, Milch ist fast leer, Salz ist da.";
+
+function diktatUi() {
+  const d = diktat;
+  if (d.status === "hoeren") return `
+    <div class="section-gap">
+      <div class="card mic-panel">
+        <span class="mic-round aktiv">${icon("mikro", 38)}</span>
+        <p class="mic-live" id="dik-live"><span class="mute">Leg los – zähl einfach auf, was da ist.</span></p>
+      </div>
+      <button class="btn" id="dik-stopp">Fertig – Liste erstellen</button>
+      <button class="btn ghost" id="dik-abbruch">Abbrechen</button>
+    </div>`;
+
+  if (d.status === "lesen") return `
+    <div class="section-gap"><div class="card"><p class="subtle small">Claude sortiert dein Diktat …</p></div></div>`;
+
+  if (d.status === "fehler") return `
+    <div class="section-gap">
+      <div class="card hint-card warn">${icon("achtung", 20)}<span class="hint-body">${esc(d.msg)}</span></div>
+      <button class="btn secondary" id="dik-zurueck">Zurück</button>
+    </div>`;
+
+  if (d.status === "ergebnis") return diktatErgebnisUi(d);
+
+  // Start: Mikro, wo der Browser zuhören kann – das Textfeld immer.
+  const live = diktatVerfuegbar();
+  return `
+    <div class="section-gap">
+      <div class="section-head"><h2>Bestandsaufnahme</h2><button class="backlink" id="dik-schliessen">Abbrechen</button></div>
+      ${live ? `
+        <button class="card mic-panel" id="dik-start">
+          <span class="mic-round">${icon("mikro", 38)}</span>
+          <span class="name">Vorräte aufzählen</span>
+          <span class="subtle small">„${esc(DIKTAT_BEISPIEL)}“</span>
+        </button>
+        <div class="or-line"><span>oder eintippen</span></div>` : ""}
+      <textarea id="dik-text" rows="4" placeholder="Ein Artikel je Komma – Menge, Anteil („halb voll“) oder „ist alle“ dahinter.">${esc(d.text || "")}</textarea>
+      ${live ? "" : `
+        <div class="card hint-card" style="margin-top:10px">${icon("mikro", 20)}
+          <span class="hint-body">Dieser Browser hört nicht selbst zu. Auf dem iPhone diktierst du über die Mikrofontaste der Tastatur direkt ins Feld – der Rest läuft gleich.</span>
+        </div>`}
+      <button class="btn" id="dik-auswerten">Liste erstellen</button>
+      <div class="card hint-card" style="margin-top:12px">${icon("vorrat", 20)}
+        <span class="hint-body"><b>Das Diktat nimmt auf, es kauft nicht ein</b>Genannte Mengen ersetzen den bisherigen Stand – gedacht für die erste Aufnahme und fürs Nachzählen. Was du eingekauft hast, buchst du über Bon-Scan oder Barcode dazu.</span>
+      </div>
+      <p class="centered-note">${getState().settings.apiKey
+        ? "Claude sortiert das Diktat, du bestätigst. Mengen bleiben Schätzwerte."
+        : "Die Auswertung läuft auf dem Gerät – ohne Key, ohne Netz. Mit Claude-Key wird sie treffsicherer."}</p>
+    </div>`;
+}
+
+function diktatErgebnisUi(d) {
+  const s = getState();
+  const zuBuchen = d.eintraege.filter((e) => e.buchen).length;
+  return `
+    <div class="section-gap">
+      <div class="section-head">
+        <h2>Verstanden</h2>
+        <button class="backlink" id="dik-text-zurueck">Text ändern</button>
+      </div>
+      <p class="subtle small" style="margin-bottom:10px">${d.eintraege.length} Artikel erkannt. Bestätigtes ersetzt den bisherigen Stand – das Diktat ist eine Aufnahme, kein Zukauf.</p>
+      <div class="card">
+        ${d.eintraege.map((e, i) => {
+          const vorhanden = e.zutat_id ? s.bestand.find((b) => b.zutat_id === e.zutat_id) : null;
+          return `
+          <div class="list-item" style="align-items:flex-start">
+            <button class="check" data-dik-check="${i}" aria-label="Übernehmen" style="margin-top:0">${icon(e.buchen ? "check" : "checkLeer", 24)}</button>
+            <div class="grow">
+              <span class="name">${esc(e.name)}</span>
+              <span class="small mute" style="display:block">„${esc(e.rohtext)}“${vorhanden ? ` · bisher ${esc(mengeAnzeige(vorhanden))}` : ""}</span>
+              ${e.zutat_id ? "" : '<span class="small warn-text" style="display:block">Nicht im Katalog – wird als eigener Artikel angelegt</span>'}
+              ${e.offen ? `
+                <select data-dik-zutat="${i}" style="margin-top:8px">
+                  <option value="">Als eigenen Artikel anlegen</option>
+                  ${ZUTATEN.map((z) => `<option value="${z.id}" ${e.zutat_id === z.id ? "selected" : ""}>${esc(z.name)}</option>`).join("")}
+                </select>`
+                : `<button class="mini-link" data-dik-oeffnen="${i}">Zutat ändern</button>`}
+            </div>
+            <span class="value">${esc(diktatAnzeige(e))}</span>
+          </div>`;
+        }).join("")}
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary" id="dik-verwerfen">Verwerfen</button>
+        <button class="btn" id="dik-buchen" ${zuBuchen ? "" : "disabled"}>${zuBuchen} übernehmen</button>
+      </div>
+      <p class="centered-note">Mengen sind Schätzwerte – vorratio rechnet mit ±10–15 % Spielraum.</p>
+    </div>`;
+}
+
+/* Diktattext auswerten. Mit Key über Claude, ohne Key (und wenn Claude nicht
+   erreichbar ist) über den lokalen Parser. */
+async function werteDiktatAus(text) {
+  const s = getState();
+  const roh = String(text || "").trim();
+  if (roh.length < 3) {
+    diktat = { status: "fehler", text: roh, msg: "Da war nichts zu hören. Sag oder tipp zum Beispiel: „Zwei Kilo Mehl, eine Dose Kichererbsen, Milch ist fast leer.“" };
+    renderVorrat();
+    return;
+  }
+
+  let eintraege = [];
+  if (s.settings.apiKey) {
+    diktat = { status: "lesen", text: roh };
+    renderVorrat();
+    try {
+      eintraege = await leseDiktat(s.settings.apiKey, roh);
+    } catch (e) {
+      eintraege = parseDiktat(roh, s.bestand);
+      toast(eintraege.length ? "Claude nicht erreichbar – lokal ausgewertet." : e.message, "warn");
+    }
+  } else {
+    eintraege = parseDiktat(roh, s.bestand);
+  }
+
+  /* Zutat-IDs gegen den Katalog prüfen: eine erfundene ID würde sonst als
+     Geisterzutat im Bestand landen, die kein Rezept je findet. Anteile
+     kommen mal als 0,5 und mal als 50 (Prozent) zurück – beides wird hier
+     auf denselben Bereich gebracht. */
+  eintraege = eintraege.map((e) => {
+    const kat = e.zutat_id ? ZUTAT_INDEX[e.zutat_id] : null;
+    const anteil = e.anteil == null ? null : Math.min(1, Math.max(0, e.anteil > 1 ? e.anteil / 100 : e.anteil));
+    return { ...e, zutat_id: kat?.id || null, name: kat?.name || e.name, anteil, buchen: true, offen: !kat || !e.sicher };
+  }).filter((e) => e.name && e.name.trim().length > 1);
+
+  if (!eintraege.length) {
+    diktat = { status: "fehler", text: roh, msg: "Aus dem Diktat ließ sich kein Artikel lesen. Nenn die Sachen einzeln, mit Komma dazwischen." };
+  } else {
+    diktat = { status: "ergebnis", text: roh, eintraege };
+  }
+  renderVorrat();
+}
+
+function bindDiktat() {
+  app.querySelector("#dik-schliessen")?.addEventListener("click", () => { stoppeAufnahme(); diktat = null; renderVorrat(); });
+  app.querySelector("#dik-zurueck")?.addEventListener("click", () => { diktat = { status: "start", text: diktat.text }; renderVorrat(); });
+  app.querySelector("#dik-text-zurueck")?.addEventListener("click", () => { diktat = { status: "start", text: diktat.text }; renderVorrat(); });
+  app.querySelector("#dik-auswerten")?.addEventListener("click", () => werteDiktatAus(app.querySelector("#dik-text").value));
+
+  app.querySelector("#dik-start")?.addEventListener("click", () => {
+    // Getipptes geht beim Wechsel in die Aufnahme nicht verloren.
+    const bisher = app.querySelector("#dik-text")?.value || "";
+    diktat = { status: "hoeren", text: bisher };
+    renderVorrat();
+    const feld = app.querySelector("#dik-live");
+    aufnahme = starteDiktat({
+      /* Läuft bei jedem Zwischenergebnis – darum nur den Textknoten
+         auffrischen statt den Screen neu zu zeichnen. */
+      onText: (fertig, zwischen) => {
+        diktat.text = [bisher, fertig].filter(Boolean).join(" ");
+        if (!feld) return;
+        feld.innerHTML = `${esc(diktat.text)}${zwischen ? ` <span class="mute">${esc(zwischen)}</span>` : ""}`
+          || '<span class="mute">Leg los – zähl einfach auf, was da ist.</span>';
+      },
+      onFehler: (msg) => { aufnahme = null; diktat = { status: "fehler", text: diktat.text, msg }; renderVorrat(); },
+      onEnde: () => { aufnahme = null; if (diktat?.status === "hoeren") werteDiktatAus(diktat.text); },
+    });
+  });
+  app.querySelector("#dik-stopp")?.addEventListener("click", () => {
+    const text = diktat.text;
+    stoppeAufnahme();
+    // Nicht auf onEnde warten: Safari lässt sich damit Zeit.
+    werteDiktatAus(text);
+  });
+  app.querySelector("#dik-abbruch")?.addEventListener("click", () => { stoppeAufnahme(); diktat = { status: "start", text: diktat.text }; renderVorrat(); });
+
+  app.querySelectorAll("[data-dik-check]").forEach((b) => b.addEventListener("click", () => {
+    const e = diktat.eintraege[Number(b.dataset.dikCheck)];
+    e.buchen = !e.buchen;
+    renderVorrat();
+  }));
+  app.querySelectorAll("[data-dik-oeffnen]").forEach((b) => b.addEventListener("click", () => {
+    diktat.eintraege[Number(b.dataset.dikOeffnen)].offen = true;
+    renderVorrat();
+  }));
+  app.querySelectorAll("[data-dik-zutat]").forEach((sel) => sel.addEventListener("change", () => {
+    const e = diktat.eintraege[Number(sel.dataset.dikZutat)];
+    const kat = ZUTAT_INDEX[sel.value];
+    e.zutat_id = kat?.id || null;
+    if (kat) e.name = kat.name;
+    renderVorrat();
+  }));
+  app.querySelector("#dik-verwerfen")?.addEventListener("click", () => { diktat = null; renderVorrat(); });
+  app.querySelector("#dik-buchen")?.addEventListener("click", () => uebernehmeDiktat());
+}
+
+function uebernehmeDiktat() {
+  const s = getState();
+  let gebucht = 0;
+  for (const e of diktat.eintraege) {
+    if (!e.buchen) continue;
+    const item = e.zutat_id ? bestandFuer(s, e.zutat_id) : freierBestand(s, e.name);
+    if (!item) continue;
+    item.menge = diktatMenge(item, e);
+    item.updated = new Date().toISOString();
+    gebucht++;
+  }
+  save();
+  diktat = null;
+  toast(gebucht === 1 ? "1 Artikel übernommen" : `${gebucht} Artikel übernommen`);
+  renderVorrat();
+}
+
+/* Diktierte Angabe → Menge in der Einheit des Artikels. Toleranzprinzip:
+   Was sich nicht sauber umrechnen lässt, wird als Packungszahl gelesen statt
+   scheinpräzise geschätzt; Gramm und Milliliter runden auf 10er. */
+const CONTAINER_EINHEIT = new Set(["Pck", "Glas", "Becher", "Flasche", "Rolle", "Scheibe"]);
+
+function diktatMenge(item, e) {
+  const kat = ZUTAT_INDEX[item.zutat_id];
+  const voll = item.packung || kat?.packung || 500;
+  const rund10 = (n) => Math.max(0, Math.round(n / 10) * 10);
+
+  if (item.art === "pauschal") return e.aktion === "leer" ? 0 : null;
+  if (e.aktion === "leer") return 0;
+  if (e.aktion === "anteil") {
+    if (item.art === "zaehlbar") return Math.max(1, Math.round((e.anteil ?? 0.5) * Math.max(item.menge || 0, 4)));
+    return rund10((e.anteil ?? 0.5) * voll);
+  }
+  if (e.aktion !== "menge" || e.menge == null) {
+    // „hab ich noch“ ohne Menge: Erfasstes bleibt stehen, Neues gilt als voll.
+    if (item.menge) return item.menge;
+    return item.art === "zaehlbar" ? 1 : voll;
+  }
+
+  const n = e.menge;
+  const eh = e.einheit;
+  if (item.art === "zaehlbar") {
+    // Gewicht auf einer zählbaren Zutat: über den Doseninhalt in Stück rechnen
+    if ((eh === "g" || eh === "kg") && kat?.inhalt_g) return Math.max(1, Math.round((eh === "kg" ? n * 1000 : n) / kat.inhalt_g));
+    return Math.max(0, Math.round(n));
+  }
+  const faktor = { g: 1, kg: 1000, ml: 1, l: 1000 }[eh];
+  if (faktor) return rund10(n * faktor);          // ml ≈ g liegt im Toleranzband
+  if (!eh || CONTAINER_EINHEIT.has(eh) || eh === "Stk") return rund10(n * voll);   // „zwei Packungen Mehl“
+  return rund10(n * voll);
+}
+
 /* Zutatensuche: erst wörtliche Treffer, dann klanglich nahe Einträge
    ("Rahmspinat" findet auch "Blattspinat"). Bleibt beides leer, wird die
    Eingabe als eigener Artikel angelegt – die Liste ist ein Startpunkt,
@@ -1594,13 +1869,13 @@ function freieZutatDaten(name) {
   };
 }
 
-function addBestandFrei(rohName) {
+/* Eigener Bestandsartikel zu einem freien Namen – vorhandener zuerst.
+   Auch der Weg, auf dem diktierte Artikel ohne Katalogtreffer landen. */
+function freierBestand(s, rohName) {
   const name = rohName.trim().replace(/\s+/g, " ");
-  if (name.length < 2) return;
-  const s = getState();
   const zutatId = `frei_${name.toLowerCase().replace(/[^a-z0-9äöüß]+/g, "_").replace(/^_|_$/g, "")}`;
   const vorhanden = s.bestand.find((b) => b.zutat_id === zutatId);
-  if (vorhanden) { vorratSuche = ""; renderVorratEdit(vorhanden.id); return; }
+  if (vorhanden) return vorhanden;
   const daten = freieZutatDaten(name);
   const item = {
     id: `b_${Date.now()}_${Math.floor(Math.random() * 1e4)}`,
@@ -1612,6 +1887,14 @@ function addBestandFrei(rohName) {
     updated: new Date().toISOString(),
   };
   s.bestand.push(item);
+  return item;
+}
+
+function addBestandFrei(rohName) {
+  const name = rohName.trim().replace(/\s+/g, " ");
+  if (name.length < 2) return;
+  const s = getState();
+  const item = freierBestand(s, name);
   vorratSuche = "";
   save();
   renderVorratEdit(item.id);
@@ -1975,19 +2258,26 @@ function dateiAlsBase64(file) {
 
 /* Zugang buchen: Packungsgröße liefert die Menge – kein Wiegen (Kap. 5).
    Optional mit erkannter Menge (Bon-Scan / Barcode: Packungsgröße vom Produkt). */
+/* Bestandszeile zu einer Katalogzutat – legt sie leer an, wenn es sie noch
+   nicht gibt. Die Menge setzt der Aufrufer. */
+function bestandFuer(s, zutatId) {
+  const vorhanden = s.bestand.find((b) => b.zutat_id === zutatId);
+  if (vorhanden) return vorhanden;
+  const kat = ZUTAT_INDEX[zutatId];
+  const item = {
+    id: `b_${Date.now()}_${Math.floor(Math.random() * 1e4)}`,
+    zutat_id: zutatId, name: kat?.name || zutatId, kategorie: kat?.kategorie || "trocken",
+    art: kat?.art || "schuettgut", einheit: kat?.einheit || "g", packung: kat?.packung || null,
+    menge: 0, updated: null,
+  };
+  s.bestand.push(item);
+  return item;
+}
+
 function buchZugang(s, zutatId, menge = null, einheit = null) {
   if (!zutatId) return;
   const kat = ZUTAT_INDEX[zutatId];
-  let item = s.bestand.find((b) => b.zutat_id === zutatId);
-  if (!item) {
-    item = {
-      id: `b_${Date.now()}_${Math.floor(Math.random() * 1e4)}`,
-      zutat_id: zutatId, name: kat?.name || zutatId, kategorie: kat?.kategorie || "trocken",
-      art: kat?.art || "schuettgut", einheit: kat?.einheit || "g", packung: kat?.packung || null,
-      menge: 0, updated: null,
-    };
-    s.bestand.push(item);
-  }
+  const item = bestandFuer(s, zutatId);
   if (item.art === "pauschal") {
     item.menge = null;
   } else if (menge != null && einheit === item.einheit) {
@@ -2651,6 +2941,16 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 render();
+
+/* Wandert die App in den Hintergrund, endet ein laufendes Diktat sofort –
+   das Gesagte bleibt als Text stehen und lässt sich beim Zurückkommen
+   auswerten. */
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" || !aufnahme) return;
+  const text = diktat?.text || "";
+  stoppeAufnahme();
+  diktat = { status: "start", text };
+});
 
 /* iOS-PWAs werden meist fortgesetzt statt neu geladen – beim Zurückkehren in
    den Vordergrund zählt das als "Öffnen": Slot prüfen, Vorschläge bereitlegen.

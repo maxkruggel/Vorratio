@@ -39,7 +39,7 @@ Vorratio verspricht: Überblick ohne Buchhaltung, täglich passende Rezeptideen 
 Einmalige vollständige Aufnahme des Haushalts: **Trockenware, Frischware, Konserven, Gewürze.** Der Stand liegt danach klar in der Datenbank und aktualisiert sich fortlaufend.
 
 Vier gleichwertige Erfassungswege, frei kombinierbar:
-- **Diktat / Chatbot-Interaktion** (Chatbot-Name noch offen) – Nutzer spricht, die App parst in Buchungen.
+- **Diktat / Chatbot-Interaktion** (Chatbot-Name noch offen) – Nutzer spricht, die App parst in Buchungen. **Diktat umgesetzt** (Vorrat-Tab, Details in 7.5); die Chatbot-Fläche bleibt offen.
 - **Fotos in der App** – insbesondere Schrank-/Schubladen-Analyse: Foto vom geöffneten Vorratsschrank, die App erkennt sichtbare Produkte (Glas Gurken = eindeutig); wo der Füllstand nicht sichtbar ist (Mehltüte), wählt der Nutzer per Tap nach, wie voll es ist. So sind die meisten Informationen erfasst, ohne sie eintippen zu müssen.
 - **Schriftlich** – klassische Eingabe.
 - **Auswahlfenster** – vorstrukturierte Optionen, z. B. Mehl Type 405 / Type 1050.
@@ -222,6 +222,14 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 - **Quelle festgelegt: Marktguru** (inoffizielle, zugängliche API; PLZ-basiert, viele Ketten). REWE verworfen (seit 2024 mTLS – wird nicht umgangen); Bonial/kaufDA ohne offene API. Die öffentlichen Web-App-Keys werden nicht eingebrannt, sondern einmalig aus marktguru.de kopiert und in der App hinterlegt; ohne Keys läuft ein Demo-Modus mit Beispieldatensatz (gleicher Codepfad).
 - Logik: Wocheneinkaufsliste × Standort-Angebote → Markt-Empfehlung mit Abdeckung und Konditionen. **Prototypisch umgesetzt** (`js/angebote.js`, UI im Einkauf-Tab): Suchprofile + Textabgleich je Zutat, Ranking Abdeckung → Ø-Rabatt → Angebotszahl, 1 Empfehlung + max. 2 Alternativen (kein Markt-Hopping), Ergebnis gilt eine Kalenderwoche. Details, Grenzen und Key-Beschaffung: `docs/angebots-crawl.md`.
 - Automatischer Freitags-Lauf hängt an Web Push/Background Sync (offener Punkt 6); bis dahin manueller Ein-Tap-Start.
+
+### 7.5 Diktat (Kapitel 4.2, erster der vier Erfassungswege)
+- **Umgesetzt** (`js/diktat.js`, UI im Vorrat-Tab): Mikro an, Schranktür auf, aufzählen – „zwei Kilo Mehl, eine Dose Kichererbsen, Milch ist fast leer".
+- Aufnahme über die Web-Speech-API des Browsers. Die Erkennung läuft dabei beim Plattformbetreiber (iOS: Apple, Chrome: Google), nicht bei Vorratio; es wird nichts gespeichert. Wo es die API nicht gibt, bleibt das Textfeld – die Mikrofontaste der iOS-Tastatur diktiert genauso hinein. Beim Wechsel in einen anderen Tab oder in den Hintergrund endet die Aufnahme sofort.
+- Auswertung zweigleisig, gleiche Ergebnisform: **lokal** (Segmentierung an Komma/„und", Zahlwörter, Einheiten, Katalog-Matching mit Einheiten-Schärfung – „zwei Dosen Tomaten" ≠ „zwei Tomaten") oder **über Claude**, wenn ein Key hinterlegt ist. Fällt die API aus, springt der lokale Parser ein; ohne Key ist das Diktat vollständig offline nutzbar.
+- Toleranzprinzip: „halb voll", „fast leer", „noch ein Rest" werden als Anteil der Packung gebucht, nicht in Scheingramm. Zutat-IDs aus dem Modell werden gegen den Katalog geprüft; was nicht zugeordnet werden kann, wird als eigener Artikel angelegt.
+- **Bewusst auf die Bestandsaufnahme beschränkt:** Ein Diktat **setzt** den Stand (Ist-Aufnahme) – für die Ersterfassung und fürs spätere Nachzählen. Eine additive Variante („zwei Dosen dazu") gibt es absichtlich nicht; Zukauf läuft über Bon-Scan und Barcode, die über `buchZugang()` addieren. Ein Diktat, das mal addiert und mal ersetzt, wäre am Schrank nicht mehr vorhersagbar. Ein Umschalter bleibt möglich, wenn sich in der Praxis Bedarf zeigt (Entscheidung 08/2026).
+- Vor dem Buchen steht immer die Bestätigungsliste mit Zutatenwahl je Zeile.
 
 ## 8. Design & UI
 

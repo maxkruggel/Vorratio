@@ -769,6 +769,56 @@ button.check { width: 44px; height: 44px; margin: -10px; }
 .scan-view video { width: 100%; border-radius: 20px; background: #000; }
 button.scan-view { border: none; padding: 0; }
 
+/* Diktat: aufzählen statt antippen. Der Mikrofonkreis ist Startknopf und
+   Aufnahmeanzeige in einem – im Ruhezustand still, beim Hören mit einem
+   ruhigen Puls, der niemanden hetzt. */
+.mic-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 26px 20px;
+  text-align: center;
+}
+button.mic-panel { transition: transform 0.06s ease; }
+button.mic-panel:active { transform: scale(0.985); }
+.mic-panel .name { font-size: 17px; font-weight: 600; }
+.mic-panel .subtle { max-width: 34ch; }
+.mic-round {
+  --duo: rgba(255, 253, 248, 0.2);
+  width: 84px; height: 84px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  display: grid; place-items: center;
+  margin-bottom: 4px;
+}
+.mic-round.aktiv { animation: mic-puls 1.9s ease-in-out infinite; }
+@keyframes mic-puls {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(44, 91, 67, 0.32); }
+  55% { box-shadow: 0 0 0 16px rgba(44, 91, 67, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .mic-round.aktiv { animation: none; } }
+/* Mitschrift: das schon Erkannte in Tinte, das noch Wackelige gedämpft */
+.mic-live {
+  min-height: 72px;
+  font-size: 17px;
+  line-height: 1.5;
+  text-align: left;
+  width: 100%;
+}
+
+/* Kleine Textaktion in einer Listenzeile („Zutat ändern") */
+.mini-link {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
 /* ---------------------------------------------------------- Onboarding
    Der Weiter-Button folgt dem Inhalt – mit festem, spürbarem Abstand, statt
    an der letzten Karte zu kleben. Kein Strecken auf volle Höhe mehr: das zog
