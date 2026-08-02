@@ -822,6 +822,54 @@ button.mic-panel:active { transform: scale(0.985); }
 }
 .name-edit:focus { border-style: solid; }
 
+/* Schrankfoto: Die Miniaturen zeigen genau das Bild, das ausgewertet wurde –
+   wer prüft, ob die Liste stimmt, will das Fach daneben sehen. */
+.foto-streifen { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.foto-mini {
+  position: relative;
+  width: 76px; height: 76px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--accent-soft);
+  flex: none;
+}
+.foto-mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.foto-weg {
+  position: absolute; top: 4px; right: 4px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: rgba(28, 35, 30, 0.72);
+  color: #fffdf8;
+  display: grid; place-items: center;
+}
+
+/* Erkannte Zeile + ihr Mengen-Bedienelement gehören zusammen – erst die
+   Trennlinie darunter macht die nächste Zeile auf. */
+.foto-zeile { border-bottom: 1px solid var(--line); }
+.foto-zeile:last-child { border-bottom: none; }
+.foto-menge { padding: 10px 0 14px 44px; }
+.foto-menge .quick-row .chip { padding: 8px 0; font-size: 14px; }
+
+/* Stepper im Zeilenformat – gleiche Bedienung wie im Mengen-Screen, nur klein. */
+.mini-stepper { display: flex; align-items: center; gap: 16px; }
+.mini-stepper button {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  display: grid; place-items: center;
+  flex: none;
+}
+.mini-stepper button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.mini-stepper .count { font-family: "Bricolage Grotesque", sans-serif; font-size: 21px; font-weight: 700; }
+.mini-stepper .count .einheit {
+  font-family: "Figtree", sans-serif;
+  font-size: 13px; font-weight: 600;
+  color: var(--ink-mute);
+  margin-left: 6px;
+}
+
 /* Kleine Textaktion in einer Listenzeile („Zutat ändern") */
 .mini-link {
   display: inline-block;

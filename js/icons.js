@@ -31,6 +31,12 @@ const PFADE = {
     <circle cx="12" cy="13" r="3.8" stroke="currentColor" stroke-width="1.6"/>
     <path d="M8.6 6.4l1.3-2.2h4.2l1.3 2.2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`,
   barcode: `<path d="M3.6 5.6v12.8M7 5.6v12.8M10.8 5.6v12.8M14.2 5.6v12.8M17.4 5.6v12.8M20.4 5.6v12.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`,
+  /* Schrankfoto: Fach mit Gläsern oben, Kiste unten – abgesetzt von der Kamera
+     (Kassenbon) und vom Vorrats-Icon der Tabbar. */
+  regal: `<rect class="duo" x="3.6" y="3.8" width="16.8" height="16.4" rx="2.6" stroke="currentColor" stroke-width="1.6"/>
+    <path d="M3.6 12h16.8" stroke="currentColor" stroke-width="1.6"/>
+    <path d="M7.6 12V8.4a1.5 1.5 0 0 1 1.5-1.5h.9a1.5 1.5 0 0 1 1.5 1.5V12M14.4 12V9.6a1.5 1.5 0 0 1 1.5-1.5h.2a1.5 1.5 0 0 1 1.5 1.5V12" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+    <rect x="7.6" y="14.6" width="8.8" height="4.2" rx="1.2" stroke="currentColor" stroke-width="1.6"/>`,
   mikro: `<rect class="duo" x="8.6" y="2.6" width="6.8" height="12.2" rx="3.4" stroke="currentColor" stroke-width="1.6"/>
     <path d="M5.6 11.6a6.4 6.4 0 0 0 12.8 0M12 18v3.2M9.4 21.4h5.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`,
   erfassen: `<circle class="duo" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/>

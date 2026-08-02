@@ -16,8 +16,9 @@ import {
   zielTreffer, vorliebenTreffer, tagesSeed, bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
 } from "./engine.js";
 import { angebotsCrawl, isoWoche, liveKonfiguriert } from "./angebote.js";
-import { generiereRezepte, scanBon, leseDiktat, leseBarcodeVomFoto } from "./ai.js";
+import { generiereRezepte, scanBon, leseDiktat, leseSchrankfoto, leseBarcodeVomFoto } from "./ai.js";
 import { diktatVerfuegbar, starteDiktat, parseDiktat, diktatAnzeige } from "./diktat.js";
+import { MAX_FOTOS, verkleinereBild, fotoEintraege, passeEintragAn } from "./vorratsfoto.js";
 import { generiereAusVorrat, vorratsTiefe } from "./generator.js";
 import { lookupBarcode, vorschlagZutat, kameraVerfuegbar, starteKameraScan } from "./scan.js";
 import { SUB_KATEGORIEN, SUB_ANWENDUNGEN } from "./data/substitutionen.js";
@@ -1264,6 +1265,7 @@ function renderVorrat() {
         <div class="card-row" style="align-items:center">
           <h1>vorrat</h1>
           <div class="head-actions">
+            <button class="square-btn" id="foto-toggle" aria-label="Schubfach fotografieren">${icon("regal", 21)}</button>
             <button class="square-btn" id="diktat-toggle" aria-label="Bestandsaufnahme diktieren">${icon("mikro", 21)}</button>
             <button class="square-btn" id="scan-toggle" aria-label="Barcode scannen">${icon("barcode", 21)}</button>
             <button class="pill-btn" id="add-toggle">${vorratAddOffen ? icon("x", 19) : icon("plus", 19)}${vorratAddOffen ? "Schließen" : "Erfassen"}</button>
@@ -1271,10 +1273,11 @@ function renderVorrat() {
         </div>
         <p class="subtle small">${s.bestand.length} Artikel</p>
       </div>
+      ${foto ? schrankfotoUi() : ""}
       ${diktat ? diktatUi() : ""}
       ${scanPanel ? barcodeUi() : ""}
       ${vorratAddOffen ? vorratAddForm() : ""}
-      ${s.bestand.length === 0 && !vorratAddOffen && !scanPanel && !diktat ? vorratLeerHtml() : ""}
+      ${s.bestand.length === 0 && !vorratAddOffen && !scanPanel && !diktat && !foto ? vorratLeerHtml() : ""}
       ${Object.entries(KATEGORIE_NAMEN).filter(([k]) => gruppen[k]?.length).map(([k, titel]) => `
         <div class="section-gap">
           <h2>${titel}</h2>
@@ -1292,6 +1295,7 @@ function renderVorrat() {
     stoppeKamera();
     stoppeAufnahme();
     diktat = null;
+    foto = null;
     scanPanel = scanPanel ? null : { status: "start" };
     renderVorrat();
   });
@@ -1299,18 +1303,35 @@ function renderVorrat() {
     stoppeKamera();
     stoppeAufnahme();
     scanPanel = null;
+    foto = null;
     diktat = diktat ? null : { status: "start", text: "" };
+    renderVorrat();
+  });
+  app.querySelector("#foto-toggle").addEventListener("click", () => {
+    stoppeKamera();
+    stoppeAufnahme();
+    scanPanel = null;
+    diktat = null;
+    foto = foto ? null : { status: "start" };
     renderVorrat();
   });
   bindVorratAdd();
   bindBarcode();
   bindDiktat();
-  /* Die drei Wege hinein führen jeweils direkt in ihren Ablauf. */
+  bindSchrankfoto();
+  /* Die Wege hinein führen jeweils direkt in ihren Ablauf. */
   app.querySelectorAll("[data-weg]").forEach((b) => b.addEventListener("click", () => {
     const weg = b.dataset.weg;
     if (weg === "erfassen") { vorratAddOffen = true; renderVorrat(); return; }
     if (weg === "barcode") { scanPanel = { status: "start" }; renderVorrat(); return; }
     if (weg === "mikro") { diktat = { status: "start", text: "" }; renderVorrat(); return; }
+    if (weg === "regal") {
+      foto = { status: "start" };
+      renderVorrat();
+      // Der Klick zählt noch als Nutzergeste – die Kamera darf direkt aufgehen.
+      app.querySelector("#fot-kamera")?.click();
+      return;
+    }
     // Kassenbon: liegt im Einkauf. Der Klick zählt noch als Nutzergeste,
     // darum öffnet der Dateidialog (= Kamera auf dem iPhone) direkt mit.
     view = "einkauf";
@@ -1351,6 +1372,7 @@ function vorratZeile(item) {
    Buttons – sie sahen vorher tippbar aus, waren es aber nicht. */
 function vorratLeerHtml() {
   const wege = [
+    ["regal", "Schubfach fotografieren"],
     ["mikro", "Vorräte aufzählen"],
     ["erfassen", "Aus der Liste tippen"],
     ["barcode", "Barcode scannen"],
@@ -1363,7 +1385,7 @@ function vorratLeerHtml() {
       <p>Einmalige Aufnahme: Trockenware, Frisches, Konserven, Gewürze. Danach hält vorratio den Stand von allein aktuell.</p>
     </div>
     <div class="section-gap">
-      <h2>Vier Wege hinein</h2>
+      <h2>Fünf Wege hinein</h2>
       ${wege.map(([ic, titel]) => `
         <button class="card weg-karte" data-weg="${ic}">
           ${icon(ic, 24)}
@@ -1803,6 +1825,291 @@ function diktatMenge(item, e) {
   if (faktor) return rund10(n * faktor);          // ml ≈ g liegt im Toleranzband
   if (!eh || CONTAINER_EINHEIT.has(eh) || eh === "Stk") return rund10(n * voll);   // „zwei Packungen Mehl“
   return rund10(n * voll);
+}
+
+/* ------------------------------------------- Schrankfoto (Kap. 4.2 / 7.6)
+   Schubfach auf, ein Foto, Liste prüfen. Claude erkennt, WAS dasteht; die
+   Menge kommt vom Menschen – Foto und Modell sehen nicht in eine Mehltüte.
+   Darum bringt jede Zeile ihr Mengen-Bedienelement gleich mit (Stepper,
+   Viertel-Raster oder da/leer, je Führungsart), und was geraten ist, sagt es.
+
+   Wie das Diktat ist das eine **Bestandsaufnahme**: Bestätigtes setzt den
+   Stand, es addiert nicht. Zukauf läuft über Bon-Scan und Barcode
+   (`buchZugang()`) – siehe Kap. 7.5. Ohne Claude-Key gibt es diesen Weg
+   nicht: Bilder lassen sich, anders als ein Diktat, nicht lokal auswerten. */
+let foto = null;  // null | { status:'start'|'lesen'|'ergebnis'|'fehler', bilder[], ort, eintraege[], msg }
+
+function fotoStreifen(bilder, entfernbar = false) {
+  if (!bilder?.length) return "";
+  return `
+    <div class="foto-streifen">
+      ${bilder.map((b, i) => `
+        <span class="foto-mini">
+          <img src="${b.vorschau}" alt="Foto ${i + 1}">
+          ${entfernbar ? `<button class="foto-weg" data-fot-weg="${i}" aria-label="Foto ${i + 1} entfernen">${icon("x", 15)}</button>` : ""}
+        </span>`).join("")}
+    </div>`;
+}
+
+function schrankfotoUi() {
+  const f = foto;
+  const s = getState();
+
+  if (!s.settings.apiKey) {
+    return `
+      <div class="section-gap">
+        <div class="section-head"><h2>Schrankfoto</h2><button class="backlink" id="fot-schliessen">Abbrechen</button></div>
+        <div class="card hint-card warn" style="flex-direction:column">
+          <div style="display:flex;gap:11px">
+            ${icon("lokal", 21)}
+            <div class="hint-body">
+              <b>Das Schrankfoto braucht deinen Claude-Key</b>
+              Ein Bild kann vorratio nicht selbst lesen – das übernimmt Claude. Der Key bleibt auf dem Gerät und geht nur an Anthropic. Ohne Key: Vorräte aufzählen, das läuft ganz ohne Netz.
+            </div>
+          </div>
+          <button class="btn danger-solid" id="fot-key" style="margin-top:2px">Key im Profil hinterlegen</button>
+        </div>
+      </div>`;
+  }
+
+  if (f.status === "lesen") return `
+    <div class="section-gap">
+      ${fotoStreifen(f.bilder)}
+      <div class="card"><p class="subtle small">Claude schaut ins Fach …</p></div>
+    </div>`;
+
+  if (f.status === "fehler") return `
+    <div class="section-gap">
+      <div class="card hint-card warn">${icon("achtung", 20)}<span class="hint-body">${esc(f.msg)}</span></div>
+      <button class="btn secondary" id="fot-zurueck">Zurück</button>
+    </div>`;
+
+  if (f.status === "ergebnis") return fotoErgebnisUi(f);
+
+  // Start: fotografieren oder aus der Mediathek wählen, bis zu MAX_FOTOS Fächer.
+  const bilder = f.bilder || [];
+  return `
+    <div class="section-gap">
+      <div class="section-head"><h2>Schrankfoto</h2><button class="backlink" id="fot-schliessen">Abbrechen</button></div>
+      ${bilder.length ? `
+        ${fotoStreifen(bilder, true)}
+        <button class="btn" id="fot-auswerten">${bilder.length === 1 ? "Foto auswerten" : `${bilder.length} Fotos auswerten`}</button>
+        ${bilder.length < MAX_FOTOS
+          ? `<button class="btn secondary" id="fot-kamera-btn">${icon("regal", 21)}Noch ein Fach</button>`
+          : `<p class="centered-note">Mehr als ${MAX_FOTOS} Fächer auf einmal werden nicht genauer. Nach dem Übernehmen geht die nächste Runde.</p>`}
+        <input type="file" id="fot-kamera" accept="image/*" capture="environment" multiple hidden>` : `
+        <button class="scan-view" id="fot-kamera-btn" style="width:100%">
+          <span style="width:190px;height:120px;border-radius:14px;border:2px solid rgba(255,253,248,.85)"></span>
+          <span>Schubfach fotografieren</span>
+        </button>
+        <input type="file" id="fot-kamera" accept="image/*" capture="environment" multiple hidden>
+        <div class="or-line"><span>oder aus der Mediathek</span></div>
+        <button class="btn secondary" id="fot-waehlen-btn">${icon("kamera", 21)}Fotos auswählen</button>
+        <input type="file" id="fot-waehlen" accept="image/*" multiple hidden>
+        <div class="card hint-card" style="margin-top:12px">${icon("tipp", 20)}
+          <span class="hint-body"><b>So wird das Foto brauchbar</b>Tür oder Schublade ganz auf, Licht an, Etiketten nach vorn drehen. Ein Fach je Foto, bis zu ${MAX_FOTOS} Stück – lieber zweimal nah als einmal die ganze Küche.</span>
+        </div>`}
+      <p class="centered-note">Das Foto zeigt, <b>was</b> dasteht. <b>Wie viel</b> drin ist, trägst du gleich mit einem Tap nach – vorratio schätzt nichts, was es nicht sehen kann.</p>
+    </div>`;
+}
+
+/* Mengen-Bedienelement je Führungsart – dieselbe Logik wie im Mengen-Screen,
+   nur kompakt in der Zeile (Design 19–21). */
+function fotoMengeUi(e, i) {
+  if (e.art === "pauschal") {
+    const leer = e.menge === 0;
+    return `
+      <div class="quick-row">
+        <button class="chip ${leer || e.nachfragen ? "" : "selected"}" data-fot-pausch="${i}" data-wert="da">vorrätig</button>
+        <button class="chip ${leer ? "selected" : ""}" data-fot-pausch="${i}" data-wert="leer">leer</button>
+      </div>`;
+  }
+  if (e.art === "zaehlbar") {
+    return `
+      <div class="mini-stepper">
+        <button data-fot-schritt="${i}" data-wert="-1" aria-label="Weniger">${icon("minus", 18)}</button>
+        <span class="count">${e.menge ?? 0}<span class="einheit">${esc(e.einheit)}</span></span>
+        <button class="primary" data-fot-schritt="${i}" data-wert="1" aria-label="Mehr">${icon("plus", 18)}</button>
+      </div>`;
+  }
+  const voll = e.packung || 500;
+  const pct = Math.round(Math.min(1, (e.menge || 0) / voll) * 100);
+  const stufen = [["leer", 0], ["¼", 25], ["½", 50], ["¾", 75], ["voll", 100]];
+  const nahe = stufen.reduce((a, b) => (Math.abs(b[1] - pct) < Math.abs(a[1] - pct) ? b : a))[1];
+  return `
+    <div class="quick-row">
+      ${stufen.map(([label, v]) => `
+        <button class="chip ${!e.nachfragen && nahe === v ? "selected" : ""}" data-fot-stufe="${i}" data-wert="${v}">${label}</button>`).join("")}
+    </div>`;
+}
+
+function fotoErgebnisUi(f) {
+  const s = getState();
+  const zuBuchen = f.eintraege.filter((e) => e.buchen);
+  const offen = zuBuchen.filter((e) => e.nachfragen).length;
+  return `
+    <div class="section-gap">
+      <div class="section-head">
+        <h2>Im Fach gesehen</h2>
+        ${f.ort ? `<span class="badge">${esc(f.ort)}</span>` : ""}
+      </div>
+      ${fotoStreifen(f.bilder)}
+      <p class="subtle small" style="margin:10px 0">${f.eintraege.length} ${f.eintraege.length === 1 ? "Artikel" : "Artikel"} erkannt. Stimmt das – und wie viel ist jeweils da? Bestätigtes ersetzt den bisherigen Stand.</p>
+      <div class="card">
+        ${f.eintraege.map((e, i) => {
+          const vorhanden = e.zutat_id ? s.bestand.find((b) => b.zutat_id === e.zutat_id) : null;
+          return `
+          <div class="foto-zeile">
+            <div class="list-item" style="align-items:flex-start;border-bottom:none;padding-bottom:0">
+              <button class="check" data-fot-check="${i}" aria-label="Übernehmen" style="margin-top:0">${icon(e.buchen ? "check" : "checkLeer", 24)}</button>
+              <div class="grow">
+                <span class="name">${esc(e.name)}</span>
+                <span class="small mute" style="display:block">„${esc(e.rohtext)}“${vorhanden ? ` · bisher ${esc(mengeAnzeige(vorhanden))}` : ""}</span>
+                ${e.zutat_id ? "" : '<span class="small warn-text" style="display:block">Nicht im Katalog – wird als eigener Artikel angelegt</span>'}
+                ${e.nachfragen ? '<span class="small warn-text" style="display:block">Menge nicht zu sehen – bitte antippen</span>' : ""}
+                ${e.offen ? `
+                  <select data-fot-zutat="${i}" style="margin-top:8px">
+                    <option value="">Als eigenen Artikel anlegen</option>
+                    ${ZUTATEN.map((z) => `<option value="${z.id}" ${e.zutat_id === z.id ? "selected" : ""}>${esc(z.name)}</option>`).join("")}
+                  </select>`
+                  : `<button class="mini-link" data-fot-oeffnen="${i}">Zutat ändern</button>`}
+              </div>
+              <span class="value">${e.nachfragen ? "?" : esc(mengeAnzeige(e))}</span>
+            </div>
+            ${e.buchen ? `<div class="foto-menge">${fotoMengeUi(e, i)}</div>` : ""}
+          </div>`;
+        }).join("")}
+      </div>
+      ${offen ? `
+        <div class="card hint-card warn" style="margin-top:12px">${icon("achtung", 20)}
+          <span class="hint-body">Bei ${offen} ${offen === 1 ? "Artikel" : "Artikeln"} ist die Menge noch offen. Ohne Tap wird der Vorgabewert gebucht – eine grobe Schätzung, die du später am Artikel korrigieren kannst.</span>
+        </div>` : ""}
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn secondary" id="fot-verwerfen">Verwerfen</button>
+        <button class="btn" id="fot-buchen" ${zuBuchen.length ? "" : "disabled"}>${zuBuchen.length} übernehmen</button>
+      </div>
+      <p class="centered-note">Mengen sind Schätzwerte – vorratio rechnet mit ±10–15 % Spielraum.</p>
+    </div>`;
+}
+
+/* Ausgewählte Bilder aufnehmen: verkleinert (schneller, und Claude rechnet
+   große Fotos ohnehin herunter) und der Sammlung angehängt. */
+async function nimmFotos(dateiListe) {
+  const dateien = Array.from(dateiListe || []).filter((d) => d.type.startsWith("image/"));
+  if (!dateien.length) return;
+  const bilder = [...(foto?.bilder || [])];
+  const platz = MAX_FOTOS - bilder.length;
+  if (platz <= 0) return;
+  for (const datei of dateien.slice(0, platz)) {
+    try {
+      bilder.push(await verkleinereBild(datei));
+    } catch {
+      toast("Ein Foto ließ sich nicht lesen.", "warn");
+    }
+  }
+  if (dateien.length > platz) toast(`Es gehen ${MAX_FOTOS} Fotos auf einmal – der Rest kommt in die nächste Runde.`, "warn");
+  foto = { status: "start", bilder };
+  renderVorrat();
+}
+
+async function werteFotosAus() {
+  const s = getState();
+  const bilder = foto?.bilder || [];
+  if (!bilder.length) return;
+  foto = { status: "lesen", bilder };
+  renderVorrat();
+  try {
+    const { ort, artikel } = await leseSchrankfoto(s.settings.apiKey, bilder);
+    /* Zutat-IDs prüft fotoEintraege gegen den Katalog – eine erfundene ID
+       würde sonst als Geisterzutat im Bestand landen, die kein Rezept je
+       findet. Alles ohne Treffer bekommt seine Führungsart aus dem Namen. */
+    const eintraege = fotoEintraege(artikel, freieZutatDaten);
+    foto = eintraege.length
+      ? { status: "ergebnis", bilder, ort, eintraege }
+      : { status: "fehler", bilder, msg: "Auf dem Foto war nichts sicher zu erkennen. Näher ran, Licht an, Etiketten nach vorn – oder die Sachen kurz aufzählen." };
+  } catch (err) {
+    foto = { status: "fehler", bilder, msg: err.message };
+  }
+  renderVorrat();
+}
+
+function bindSchrankfoto() {
+  app.querySelector("#fot-key")?.addEventListener("click", () => { view = "profil"; render(); });
+  app.querySelector("#fot-schliessen")?.addEventListener("click", () => { foto = null; renderVorrat(); });
+  app.querySelector("#fot-verwerfen")?.addEventListener("click", () => { foto = null; renderVorrat(); });
+  app.querySelector("#fot-zurueck")?.addEventListener("click", () => { foto = { status: "start", bilder: foto.bilder || [] }; renderVorrat(); });
+  app.querySelector("#fot-kamera-btn")?.addEventListener("click", () => app.querySelector("#fot-kamera")?.click());
+  app.querySelector("#fot-waehlen-btn")?.addEventListener("click", () => app.querySelector("#fot-waehlen")?.click());
+  app.querySelectorAll("#fot-kamera, #fot-waehlen").forEach((f) => f.addEventListener("change", (e) => nimmFotos(e.target.files)));
+  app.querySelector("#fot-auswerten")?.addEventListener("click", () => werteFotosAus());
+  app.querySelectorAll("[data-fot-weg]").forEach((b) => b.addEventListener("click", () => {
+    const bilder = (foto.bilder || []).filter((_, i) => i !== Number(b.dataset.fotWeg));
+    foto = { status: "start", bilder };
+    renderVorrat();
+  }));
+
+  app.querySelectorAll("[data-fot-check]").forEach((b) => b.addEventListener("click", () => {
+    const e = foto.eintraege[Number(b.dataset.fotCheck)];
+    e.buchen = !e.buchen;
+    renderVorrat();
+  }));
+  app.querySelectorAll("[data-fot-oeffnen]").forEach((b) => b.addEventListener("click", () => {
+    foto.eintraege[Number(b.dataset.fotOeffnen)].offen = true;
+    renderVorrat();
+  }));
+  app.querySelectorAll("[data-fot-zutat]").forEach((sel) => sel.addEventListener("change", () => {
+    const e = foto.eintraege[Number(sel.dataset.fotZutat)];
+    const kat = ZUTAT_INDEX[sel.value];
+    e.zutat_id = kat?.id || null;
+    if (kat) e.name = kat.name;
+    // Andere Zutat, andere Führungsart: aus „3 Dosen" darf kein „3 g" werden.
+    passeEintragAn(e, kat || freieZutatDaten(e.name));
+    e.nachfragen = true;
+    renderVorrat();
+  }));
+
+  /* Jeder Tap auf die Menge beantwortet zugleich die offene Frage – die Zeile
+     ist danach bestätigt, nicht mehr geraten. */
+  const getippt = (e) => { e.nachfragen = false; e.buchen = true; };
+  app.querySelectorAll("[data-fot-schritt]").forEach((b) => b.addEventListener("click", () => {
+    const e = foto.eintraege[Number(b.dataset.fotSchritt)];
+    e.menge = Math.max(0, (e.menge ?? 0) + Number(b.dataset.wert));
+    getippt(e);
+    renderVorrat();
+  }));
+  app.querySelectorAll("[data-fot-stufe]").forEach((b) => b.addEventListener("click", () => {
+    const e = foto.eintraege[Number(b.dataset.fotStufe)];
+    setzeFuellstand(e, Number(b.dataset.wert), e.packung);
+    getippt(e);
+    renderVorrat();
+  }));
+  app.querySelectorAll("[data-fot-pausch]").forEach((b) => b.addEventListener("click", () => {
+    const e = foto.eintraege[Number(b.dataset.fotPausch)];
+    e.menge = b.dataset.wert === "leer" ? 0 : null;
+    getippt(e);
+    renderVorrat();
+  }));
+
+  app.querySelector("#fot-buchen")?.addEventListener("click", () => uebernehmeSchrankfoto());
+}
+
+/* Übernahme wie beim Diktat: Bestätigtes **setzt** den Stand (Kap. 7.5).
+   Die Führungsart kommt aus dem Katalog – nur die Menge stammt aus der Liste. */
+function uebernehmeSchrankfoto() {
+  const s = getState();
+  let gebucht = 0;
+  for (const e of foto.eintraege) {
+    if (!e.buchen) continue;
+    const item = e.zutat_id ? bestandFuer(s, e.zutat_id) : freierBestand(s, e.name);
+    if (!item) continue;
+    item.menge = item.art === "pauschal" ? (e.menge === 0 ? 0 : null) : e.menge;
+    item.updated = new Date().toISOString();
+    gebucht++;
+  }
+  save();
+  foto = null;
+  toast(gebucht === 1 ? "1 Artikel übernommen" : `${gebucht} Artikel übernommen`);
+  renderVorrat();
 }
 
 /* Zutatensuche: erst wörtliche Treffer, dann klanglich nahe Einträge
@@ -3024,7 +3331,7 @@ function sucheUpdate() {
 /* Neu laden, sobald es niemanden mitten im Satz unterbricht. Sonst wartet das
    Update auf den nächsten ruhigen Moment – es läuft ja nicht weg. */
 function darfNeuLaden() {
-  return !kochtGerade() && !editor && !diktat && !bon && !scanPanel
+  return !kochtGerade() && !editor && !diktat && !bon && !scanPanel && !foto
     && !detailRezept && !document.querySelector("dialog[open]");
 }
 
