@@ -1,3 +1,8 @@
+import { REZEPTE_KOMPLEX } from "./rezepte-komplex.js";
+import { REZEPTE_TOFU } from "./rezepte-tofu.js";
+import { REZEPTE_WELT } from "./rezepte-welt.js";
+import { REZEPTE_ALLTAG } from "./rezepte-alltag.js";
+
 /* Vorratio Kern-Datenbank – Schema kruggel-recipe-db/v1
    Quelle: Recherche 2 (Zubereitungs- & Rezeptdatenbank), Stand 08/2026.
    Kerntemperaturen: USDA/FSIS-Sicherheitsminima (Geflügel 74 °C, Hack 71 °C,
@@ -171,13 +176,115 @@ const ZUTATEN = [
   { id: "ing_rosmarin",             name: "Rosmarin",                kategorie: "gewuerz",  art: "pauschal",   einheit: "g",  basis: true },
   { id: "ing_kurkuma",              name: "Kurkuma",                 kategorie: "gewuerz",  art: "pauschal",   einheit: "g",  basis: true },
   { id: "ing_ras_el_hanout",        name: "Ras el-Hanout",           kategorie: "gewuerz",  art: "pauschal",   einheit: "g",  basis: true },
+
+  // -------------------------------------------------------------------------
+  // Erweiterung 08/2026 für den Aufbaublock (komplexe Küche, Tofu-Schiene,
+  // Weltküche). Reihenfolge: pflanzliches Protein → Fleisch/Fisch → Milch →
+  // Getreide/Teig → Gemüse → Würzen. IDs sind stabil, nie umbenennen.
+  // -------------------------------------------------------------------------
+  { id: "ing_tofu_fest",            name: "Tofu fest/extra fest",    kategorie: "kuehl",    art: "zaehlbar",   einheit: "Pck", inhalt_g: 400 },
+  { id: "ing_tofu_seiden",          name: "Seidentofu",              kategorie: "kuehl",    art: "zaehlbar",   einheit: "Pck", inhalt_g: 300 },
+  { id: "ing_tempeh",               name: "Tempeh",                  kategorie: "kuehl",    art: "zaehlbar",   einheit: "Pck", inhalt_g: 200 },
+  { id: "ing_seitan",               name: "Seitan (fertig)",         kategorie: "kuehl",    art: "zaehlbar",   einheit: "Pck", inhalt_g: 200 },
+  { id: "ing_seitan_gluten",        name: "Weizengluten (Seitanbasis)", kategorie: "trocken", art: "schuettgut", einheit: "g", packung: 500 },
+  { id: "ing_sojagranulat",         name: "Sojagranulat/-schnetzel", kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 250 },
+  { id: "ing_edamame",              name: "Edamame (TK)",            kategorie: "tk",       art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_sojadrink",            name: "Sojadrink",               kategorie: "trocken",  art: "schuettgut", einheit: "ml", packung: 1000 },
+  { id: "ing_cashewkerne",          name: "Cashewkerne",             kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 200 },
+  { id: "ing_mandelmus",            name: "Mandelmus",               kategorie: "konserve", art: "pauschal",   einheit: "g" },
+  { id: "ing_linsen_braun",         name: "Tellerlinsen (braun/grün)", kategorie: "trocken", art: "schuettgut", einheit: "g", packung: 500 },
+  { id: "ing_belugalinsen",         name: "Belugalinsen",            kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_bohnen_weiss_trocken", name: "Weiße Bohnen getrocknet", kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_erbsen_getrocknet",    name: "Schälerbsen getrocknet",  kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 500 },
+
+  { id: "ing_rindergulasch",        name: "Rindfleisch zum Schmoren", kategorie: "kuehl",   art: "schuettgut", einheit: "g",  packung: 800 },
+  { id: "ing_rindersteak",          name: "Rindersteak",             kategorie: "kuehl",    art: "zaehlbar",   einheit: "Stk", inhalt_g: 250 },
+  { id: "ing_schweineschulter",     name: "Schweineschulter/-nacken", kategorie: "kuehl",   art: "schuettgut", einheit: "g",  packung: 1000 },
+  { id: "ing_haehnchenkeule",       name: "Hähnchenkeulen",          kategorie: "kuehl",    art: "zaehlbar",   einheit: "Stk", inhalt_g: 220 },
+  { id: "ing_haehnchen_ganz",       name: "Hähnchen (ganz)",         kategorie: "kuehl",    art: "zaehlbar",   einheit: "Stk", inhalt_g: 1300 },
+  { id: "ing_entenbrust",           name: "Entenbrust",              kategorie: "kuehl",    art: "zaehlbar",   einheit: "Stk", inhalt_g: 300 },
+  { id: "ing_lamm",                 name: "Lammfleisch (Keule/Schulter)", kategorie: "kuehl", art: "schuettgut", einheit: "g", packung: 800 },
+  { id: "ing_hackfleisch_gemischt", name: "Hackfleisch gemischt",    kategorie: "kuehl",    art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_kabeljau",             name: "Kabeljau-/Seelachsfilet", kategorie: "tk",       art: "zaehlbar",   einheit: "Stk", inhalt_g: 150 },
+  { id: "ing_garnelen",             name: "Garnelen (TK)",           kategorie: "tk",       art: "schuettgut", einheit: "g",  packung: 400 },
+  { id: "ing_miesmuscheln",         name: "Miesmuscheln",            kategorie: "kuehl",    art: "schuettgut", einheit: "g",  packung: 1000 },
+  { id: "ing_forelle",              name: "Forelle (ganz)",          kategorie: "kuehl",    art: "zaehlbar",   einheit: "Stk", inhalt_g: 300 },
+  { id: "ing_sardellen",            name: "Sardellenfilets",         kategorie: "konserve", art: "pauschal",   einheit: "g" },
+  { id: "ing_rinderbruehe",         name: "Rinderbrühe/Fond",        kategorie: "trocken",  art: "pauschal",   einheit: "ml" },
+
+  { id: "ing_mascarpone",           name: "Mascarpone",              kategorie: "kuehl",    art: "schuettgut", einheit: "g",  packung: 250 },
+  { id: "ing_ricotta",              name: "Ricotta",                 kategorie: "kuehl",    art: "schuettgut", einheit: "g",  packung: 250 },
+  { id: "ing_halloumi",             name: "Halloumi",                kategorie: "kuehl",    art: "zaehlbar",   einheit: "Pck", inhalt_g: 225 },
+  { id: "ing_ziegenkaese",          name: "Ziegenkäse",              kategorie: "kuehl",    art: "zaehlbar",   einheit: "Pck", inhalt_g: 100 },
+  { id: "ing_butterschmalz",        name: "Butterschmalz/Ghee",      kategorie: "kuehl",    art: "pauschal",   einheit: "g" },
+
+  { id: "ing_risottoreis",          name: "Risottoreis (Arborio)",   kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_sushireis",            name: "Sushireis (Rundkorn)",    kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 1000 },
+  { id: "ing_lasagneplatten",       name: "Lasagneplatten",          kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 250 },
+  { id: "ing_hartweizengriess",     name: "Hartweizengrieß",         kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_semmelbroesel",        name: "Semmelbrösel/Panko",      kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 200 },
+  { id: "ing_roggenmehl",           name: "Roggenmehl Type 1150",    kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 1000 },
+  { id: "ing_kichererbsenmehl",     name: "Kichererbsenmehl",        kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_glasnudeln",           name: "Glasnudeln",              kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 200 },
+  { id: "ing_ramen_nudeln",         name: "Ramen-/Weizennudeln",     kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 250 },
+  { id: "ing_udon",                 name: "Udon-Nudeln",             kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 250 },
+  { id: "ing_reispapier",           name: "Reispapier",              kategorie: "trocken",  art: "pauschal",   einheit: "Stk" },
+  { id: "ing_filoteig",             name: "Filo-/Yufkateig",         kategorie: "kuehl",    art: "zaehlbar",   einheit: "Pck", inhalt_g: 400 },
+  { id: "ing_sauerteig",            name: "Sauerteig-Anstellgut",    kategorie: "kuehl",    art: "pauschal",   einheit: "g" },
+  { id: "ing_hefe_frisch",          name: "Frischhefe",              kategorie: "kuehl",    art: "zaehlbar",   einheit: "Pck", inhalt_g: 42 },
+
+  { id: "ing_spargel",              name: "Spargel",                 kategorie: "frisch",   art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_fenchel",              name: "Fenchel",                 kategorie: "frisch",   art: "zaehlbar",   einheit: "Stk" },
+  { id: "ing_mangold",              name: "Mangold",                 kategorie: "frisch",   art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_pak_choi",             name: "Pak Choi",                kategorie: "frisch",   art: "zaehlbar",   einheit: "Stk" },
+  { id: "ing_chinakohl",            name: "Chinakohl",               kategorie: "frisch",   art: "zaehlbar",   einheit: "Stk" },
+  { id: "ing_kohlrabi",             name: "Kohlrabi",                kategorie: "frisch",   art: "zaehlbar",   einheit: "Stk" },
+  { id: "ing_radieschen",           name: "Radieschen",              kategorie: "frisch",   art: "zaehlbar",   einheit: "Bund" },
+  { id: "ing_bohnen_gruen",         name: "Grüne Bohnen",            kategorie: "frisch",   art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_schalotte",            name: "Schalotten",              kategorie: "frisch",   art: "zaehlbar",   einheit: "Stk" },
+  { id: "ing_shiitake",             name: "Shiitake/Waldpilze",      kategorie: "frisch",   art: "schuettgut", einheit: "g",  packung: 200 },
+  { id: "ing_sprossen",             name: "Sojasprossen",            kategorie: "frisch",   art: "schuettgut", einheit: "g",  packung: 200 },
+  { id: "ing_getrocknete_tomaten",  name: "Getrocknete Tomaten",     kategorie: "konserve", art: "pauschal",   einheit: "g" },
+  { id: "ing_kapern",               name: "Kapern",                  kategorie: "konserve", art: "pauschal",   einheit: "g" },
+  { id: "ing_chili_frisch",         name: "Chilischoten (frisch)",   kategorie: "frisch",   art: "zaehlbar",   einheit: "Stk" },
+  { id: "ing_zitronengras",         name: "Zitronengras",            kategorie: "frisch",   art: "zaehlbar",   einheit: "Stange" },
+  { id: "ing_meerrettich",          name: "Meerrettich",             kategorie: "kuehl",    art: "pauschal",   einheit: "g" },
+  { id: "ing_sauerkraut",           name: "Sauerkraut",              kategorie: "konserve", art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_mango",                name: "Mango",                   kategorie: "frisch",   art: "zaehlbar",   einheit: "Stk" },
+  { id: "ing_ananas",               name: "Ananas",                  kategorie: "frisch",   art: "zaehlbar",   einheit: "Stk" },
+
+  { id: "ing_rotwein",              name: "Rotwein (zum Kochen)",    kategorie: "trocken",  art: "schuettgut", einheit: "ml", packung: 750 },
+  { id: "ing_weisswein",            name: "Weißwein (zum Kochen)",   kategorie: "trocken",  art: "schuettgut", einheit: "ml", packung: 750 },
+  { id: "ing_balsamico",            name: "Balsamico",               kategorie: "trocken",  art: "pauschal",   einheit: "ml" },
+  { id: "ing_reisessig",            name: "Reisessig",               kategorie: "trocken",  art: "pauschal",   einheit: "ml" },
+  { id: "ing_mirin",                name: "Mirin",                   kategorie: "trocken",  art: "pauschal",   einheit: "ml" },
+  { id: "ing_fischsauce",           name: "Fischsauce",              kategorie: "trocken",  art: "pauschal",   einheit: "ml" },
+  { id: "ing_austernsauce",         name: "Austernsauce",            kategorie: "trocken",  art: "pauschal",   einheit: "ml" },
+  { id: "ing_sriracha",             name: "Sriracha/Chilisauce",     kategorie: "konserve", art: "pauschal",   einheit: "ml" },
+  { id: "ing_harissa",              name: "Harissa",                 kategorie: "konserve", art: "pauschal",   einheit: "g" },
+  { id: "ing_ahornsirup",           name: "Ahornsirup",              kategorie: "trocken",  art: "pauschal",   einheit: "ml" },
+  { id: "ing_nori",                 name: "Nori-Blätter",            kategorie: "trocken",  art: "pauschal",   einheit: "Stk" },
+  { id: "ing_kombu",                name: "Kombu (Alge)",            kategorie: "trocken",  art: "pauschal",   einheit: "g" },
+  { id: "ing_sesamsamen",           name: "Sesamsamen",              kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 200 },
+  { id: "ing_safran",               name: "Safran",                  kategorie: "gewuerz",  art: "pauschal",   einheit: "g" },
+  { id: "ing_garam_masala",         name: "Garam Masala",            kategorie: "gewuerz",  art: "pauschal",   einheit: "g",  basis: true },
+  { id: "ing_pimenton",             name: "Geräuchertes Paprikapulver", kategorie: "gewuerz", art: "pauschal", einheit: "g",  basis: true },
+  { id: "ing_senfkoerner",          name: "Senfkörner",              kategorie: "gewuerz",  art: "pauschal",   einheit: "g",  basis: true },
+  { id: "ing_sternanis",            name: "Sternanis",               kategorie: "gewuerz",  art: "pauschal",   einheit: "g",  basis: true },
+  { id: "ing_kardamom",             name: "Kardamom",                kategorie: "gewuerz",  art: "pauschal",   einheit: "g",  basis: true },
+  { id: "ing_nelken",               name: "Nelken",                  kategorie: "gewuerz",  art: "pauschal",   einheit: "g",  basis: true },
+  { id: "ing_dill",                 name: "Dill",                    kategorie: "frisch",   art: "pauschal",   einheit: "Bund" },
+  { id: "ing_schnittlauch",         name: "Schnittlauch",            kategorie: "frisch",   art: "pauschal",   einheit: "Bund" },
+  { id: "ing_salbei",               name: "Salbei",                  kategorie: "frisch",   art: "pauschal",   einheit: "Bund" },
+  { id: "ing_backpflaumen",         name: "Backpflaumen",            kategorie: "trocken",  art: "schuettgut", einheit: "g",  packung: 200 },
+  { id: "ing_mayonnaise_vegan",     name: "Vegane Mayonnaise",       kategorie: "kuehl",    art: "pauschal",   einheit: "g" },
 ];
 
 // ---------------------------------------------------------------------------
 // Vollständige Rezepte (RCP) – aus Recherche 2, Teil 3.4
 // ernaehrungsform: vegan | vegetarisch | pescetarisch | mit_fisch | mit_fleisch | mit_gefluegel
 // ---------------------------------------------------------------------------
-const REZEPTE = [
+const REZEPTE_KERN = [
   {
     id: "RCP-001", name: "Spaghetti Aglio e Olio", typ: "rezept", kategorie: "Pfannengericht",
     cuisine: "italienisch", mahlzeitentyp: ["mittag", "abend"], portionen: 2, schwierigkeit: "einfach",
@@ -1113,4 +1220,17 @@ const TECHNIKEN = [
   { id: "TECH-018", name: "Sous-vide", text: "Vakuumgaren im präzise temperierten Wasserbad, danach kurz scharf anbraten. Bei Geflügel nur sichere Temperatur/Zeit-Kombinationen." },
 ];
 
-export { ZUTATEN, REZEPTE, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN };
+// ---------------------------------------------------------------------------
+// Gesamtbestand: Kernblock (Weeknight) + die drei Aufbaublöcke. Die Engine
+// bekommt eine flache Liste – die Herkunft steckt im ID-Präfix
+// (RCP-/SNK- Kern · KMX- komplex · TOF- Tofu & Co. · WLT-/ALL- Alltag & Welt).
+// ---------------------------------------------------------------------------
+const REZEPTE = [
+  ...REZEPTE_KERN,
+  ...REZEPTE_KOMPLEX,
+  ...REZEPTE_TOFU,
+  ...REZEPTE_WELT,
+  ...REZEPTE_ALLTAG,
+];
+
+export { ZUTATEN, REZEPTE, REZEPTE_KERN, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN };
