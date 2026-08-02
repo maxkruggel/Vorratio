@@ -31,6 +31,8 @@ const PFADE = {
     <circle cx="12" cy="13" r="3.8" stroke="currentColor" stroke-width="1.6"/>
     <path d="M8.6 6.4l1.3-2.2h4.2l1.3 2.2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`,
   barcode: `<path d="M3.6 5.6v12.8M7 5.6v12.8M10.8 5.6v12.8M14.2 5.6v12.8M17.4 5.6v12.8M20.4 5.6v12.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`,
+  mikro: `<rect class="duo" x="8.6" y="2.6" width="6.8" height="12.2" rx="3.4" stroke="currentColor" stroke-width="1.6"/>
+    <path d="M5.6 11.6a6.4 6.4 0 0 0 12.8 0M12 18v3.2M9.4 21.4h5.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`,
   erfassen: `<circle class="duo" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/>
     <path d="M12 7.6v8.8M7.6 12h8.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`,
   plus: `<path d="M12 6.5v11M6.5 12h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`,
