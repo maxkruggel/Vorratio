@@ -122,8 +122,9 @@ App (Variante 2A „Papier & Tanne"; Auftrag und Ist-Zustand davor:
 
 - **Farbwelt:** Papier `#f3efe5`, Fläche `#fffdf8`, Tanne `#2c5b43`,
   Tanne soft `#dfe9e0`, Terrakotta `#b4552d`, Tinte `#1c231e` – alle als
-  Custom Properties in `css/style.css` → `:root`, inklusive **Dark Mode**
-  über `@media (prefers-color-scheme: dark)`.
+  Custom Properties in `css/style.css` → `:root`. Diese sechs Werte sind die
+  ganze Farbwelt: **kein Dark Mode**, die App bleibt in jeder Systemeinstellung
+  auf dem Sheet (`color-scheme: light`).
 - **Typografie:** Bricolage Grotesque 600/700 für Display (Tracking −0,03 em,
   Überschriften klein gesetzt), Figtree 400–600 für Text. Beide als variable
   WOFF2 in `fonts/` – kein CDN, damit die PWA offlinefähig bleibt (SIL OFL 1.1,
