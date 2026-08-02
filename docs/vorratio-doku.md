@@ -32,6 +32,7 @@ Vorratio verspricht: Überblick ohne Buchhaltung, täglich passende Rezeptideen 
 ### 4.1 Onboarding
 1. App öffnen → Start-Animation.
 2. Geführte Einrichtung: **Name** anlegen, **Nutzerprofil**, **Ernährungsprofil** – Ernährungsform, Vorlieben und Spezifikationen, Allergien und Unverträglichkeiten (Datenmodell siehe 6.1).
+   - **Pflicht sind nur Name und Ernährungsform** – ohne sie bleibt „Weiter" gesperrt, mit Hinweis, woran es hängt. Ausschlüsse, Stile und Ziele sind ausdrücklich optional und lassen sich überspringen.
 3. Kurzer Hinweis auf das Toleranzprinzip (±10–15 % beim Verbrauch).
 
 ### 4.2 Ersteinrichtung Bestand (~15 Minuten)
@@ -80,13 +81,15 @@ Vier gleichwertige Erfassungswege, frei kombinierbar:
 ### 4.10 Kochbuch: Rezepte speichern
 
 Der tägliche Rhythmus (4.3) ist bewusst flüchtig: Jeder Tag würfelt neu, generierte
-Claude-Rezepte rotieren im AI-Pool (jüngste 24). Genau darum braucht es einen Ort,
-an dem Rezepte **bleiben** – das Kochbuch als eigener Tab.
+Claude-Rezepte und die aus dem Bestand gebauten (`vorrat_generiert`) rotieren in ihrem
+Pool (jüngste 24). Genau darum braucht es einen Ort, an dem Rezepte **bleiben** –
+das Kochbuch als eigener Tab.
 
 - **Merken:** Jedes Rezept-Detail hat oben rechts den Lesezeichen-Schalter
   („merken" / „gemerkt"). Gespeichert wird eine **vollständige Kopie** im Schema
-  `kruggel-recipe-db/v1`, nicht ein Verweis. Ein gemerktes Claude-Rezept überlebt
-  damit sowohl die Rotation des AI-Pools als auch „AI-Rezepte löschen" im Profil.
+  `kruggel-recipe-db/v1`, nicht ein Verweis. Ein gemerktes Claude- oder
+  Vorrats-Rezept überlebt damit sowohl die Rotation seines Pools als auch das
+  Löschen im Profil.
 - **Eigene Rezepte:** Editor für alles, was nicht aus der App kommt (Omas Zettel,
   Lieblingsessen). Pflicht sind nur Name, Zutaten und Schritte.
   - Zutaten kommen über eine Vorschlagsliste aus dem Zutaten-Katalog **plus** den
@@ -102,8 +105,8 @@ an dem Rezepte **bleiben** – das Kochbuch als eigener Tab.
   Abbuchung. Eigene und gemerkte Rezepte tauchen deshalb auch **in den täglichen
   Vorschlägen** auf (gleiche `id` gewinnt einmal, keine Doppel).
 - **Wiederfinden:** Suche über Name, Küche, Kategorie und Zutaten, Filter nach
-  Herkunft (Eigene · Von Claude · Aus Vorratio), „N× gekocht" aus der Historie,
-  Bestands-Pill („alles da" / „2 fehlen") direkt auf der Karte.
+  Herkunft (Eigene · Von Claude · Aus dem Vorrat · Aus Vorratio), „N× gekocht"
+  aus der Historie, Bestands-Pill („alles da" / „2 fehlen") direkt auf der Karte.
 - **Notiz:** Zu jedem gespeicherten Rezept ein Freitextfeld („mit doppelt
   Knoblauch") – gesichert beim Verlassen des Feldes.
 
@@ -154,7 +157,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 
 **Entscheidungen:** Output direkt für die App weiterverarbeitbar (strukturierte Datensätze); Fisch und Fleisch von Anfang an abgedeckt (Ernährungsform filtert); Küche international breit (17 Cuisines).
 
-**Herkunft über `quelle_typ`:** `etablierte_kochseite` u. Ä. (Kern-DB) · `ai_generiert` (Claude, `AI-…`) · `eigen` (selbst eingetragen, `EIG-…`, Kap. 4.10). Alle drei liegen im selben Schema und im selben Rezept-Pool – die Herkunft steuert nur Badges und den Kochbuch-Filter, nicht die Verarbeitung.
+**Herkunft über `quelle_typ`:** `etablierte_kochseite` u. Ä. (Kern-DB) · `ai_generiert` (Claude, `AI-…`) · `vorrat_generiert` (offline aus dem Bestand gebaut, `js/generator.js`) · `eigen` (selbst eingetragen, `EIG-…`, Kap. 4.10). Alle vier liegen im selben Schema und im selben Rezept-Pool – die Herkunft steuert nur Badges und den Kochbuch-Filter, nicht die Verarbeitung.
 
 **Governance:** Kerntemperaturen sind Pflichtfelder bei Fleisch/Fisch/Geflügel und dürfen USDA/FSIS-Minima nie unterschreiten (Geflügel 74 °C, Hack 71 °C, ganze Stücke 63 °C + 3 Min Ruhe, Fisch 63 °C); jeder Datensatz trägt `quelle_typ`, erfundene Zeiten sind unzulässig; OFF-abgeleitete Daten physisch getrennt halten (Share-Alike-Isolierung).
 
@@ -175,7 +178,7 @@ Bon/Barcode → Produkt-DB (GTIN, Packungsgröße, Nährwerte) → Mapping auf `
 - **Auto-Save als Grundprinzip: eine Aktion = ein Save.** Jede Buchung, Profil- oder Bestandsänderung wird sofort persistiert – nie ein expliziter Speichern-Button, nie Datenverlust beim Schließen.
 - **Strukturierte lokale Speicherung**, sodass alle eingegebenen und sich aktualisierenden Informationen dauerhaft aktuell und erhalten bleiben (Bestand, Profil, Rezepthistorie, Listen).
 - **JSON-Export und JSON-Import**: vollständiger Datenbestand als Datei sicherbar und wieder einspielbar – zugleich Backup gegen iOS-Storage-Eviction und späterer Migrationspfad Richtung Server-Variante.
-- **Kochbuch (`state.kochbuch`)**: gemerkte und eigene Rezepte als vollständige Kopien im Rezeptschema, nicht als Verweise (Kap. 4.10). Ein gemerktes Rezept bleibt damit auch dann lesbar und kochbar, wenn seine Quelle verschwindet – Export und Import nehmen es unverändert mit.
+- **Kochbuch (`state.kochbuch`)**: gemerkte und eigene Rezepte als vollständige Kopien im Rezeptschema, nicht als Verweise (Kap. 4.10). Ein gemerktes Rezept bleibt damit auch dann lesbar und kochbar, wenn seine Quelle verschwindet (AI- und Vorrats-Pool halten nur die jüngsten 24 Einträge) – Export und Import nehmen es unverändert mit.
 
 ### 6.5 DB Substitutionen (Recherche Substitutionen, 08/2026 – umgesetzt)
 

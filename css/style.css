@@ -613,9 +613,13 @@ input[type="range"]::-moz-range-thumb {
 .progress-bar span { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
 .progress-bar span.done { background: var(--accent); }
 
-/* Kochschritt füllt den Screen, Weiter sitzt unten (Design 12). */
-.cook-screen { min-height: calc(100dvh - 60px - var(--safe-bottom)); display: flex; flex-direction: column; }
-.cook-screen > .btn-row { margin-top: auto; }
+/* Kochschritt füllt den Screen, Weiter sitzt unten (Design 12).
+   Höhe = Viewport minus #app-Polster oben (20px) und unten (104px + Safe-Area,
+   der Platz der Tabbar) – sonst schiebt margin-top:auto den Button darunter.
+   Das padding hält den Mindestabstand zum Schritttext, wenn der Schritt den
+   Screen füllt und margin-top:auto nichts mehr zu verteilen hat. */
+.cook-screen { min-height: calc(100dvh - 124px - var(--safe-bottom)); display: flex; flex-direction: column; }
+.cook-screen > .btn-row { margin-top: auto; padding-top: 24px; }
 
 .cook-step {
   font-family: "Bricolage Grotesque", sans-serif;
@@ -768,15 +772,16 @@ button.check { width: 44px; height: 44px; margin: -10px; }
 button.scan-view { border: none; padding: 0; }
 
 /* ---------------------------------------------------------- Onboarding
-   Wie in der Übergabe füllt jeder Schritt den Screen: Inhalt oben,
-   Weiter-Button am unteren Rand; der Willkommens-Screen ist zentriert. */
-.onboard-step {
-  min-height: calc(100dvh - 60px - var(--safe-bottom));
-  display: flex;
-  flex-direction: column;
-}
-.onboard-step > .btn:last-child { margin-top: auto; }
-.onboard-welcome { min-height: calc(100dvh - 60px - var(--safe-bottom)); display: flex; flex-direction: column; text-align: center; }
+   Der Weiter-Button folgt dem Inhalt – mit festem, spürbarem Abstand, statt
+   an der letzten Karte zu kleben. Kein Strecken auf volle Höhe mehr: das zog
+   auf kurzen Schritten (Name, Toleranz) einen leeren Bauch dazwischen.
+   Der Willkommens-Screen bleibt bewusst über die volle Höhe zentriert. */
+.onboard-step { display: flex; flex-direction: column; }
+.onboard-step > .btn:last-child { margin-top: 28px; }
+/* Im Onboarding liegt keine Tabbar unter dem Screen – der für sie reservierte
+   Platz käme sonst als toter Rand unter dem Button heraus. */
+body.onboarding #app { padding-bottom: calc(24px + var(--safe-bottom)); }
+.onboard-welcome { min-height: calc(100dvh - 44px - var(--safe-bottom)); display: flex; flex-direction: column; text-align: center; }
 .onboard-welcome .spacer { flex: 1; }
 
 .onboard-hero { text-align: center; padding: 40px 0 24px; }
@@ -800,6 +805,11 @@ button.scan-view { border: none; padding: 0; }
 .foot-note .ic { color: var(--accent); margin-top: 1px; }
 
 .centered-note { font-size: 12px; line-height: 1.5; color: var(--ink-mute); text-align: center; margin-top: 14px; }
+
+/* Sagt an den beiden Pflichtschritten, warum der Weiter-Button noch gesperrt
+   ist – ein grauer Button ohne Begründung ist eine Sackgasse. */
+.pflicht-note { margin-top: 14px; font-size: 13px; line-height: 1.5; color: var(--ink-mute); }
+.pflicht-note[hidden] { display: none; }
 
 /* Nur echte Bildschirmwechsel blenden ein – und dann ruhig statt ruppig.
    Ein Neuzeichnen desselben Screens läuft ohne Animation (siehe zeigeApp). */

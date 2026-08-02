@@ -1,29 +1,40 @@
 /* Vorratio Kochbuch (Kap. 4.10): Rezepte aufheben, statt sie zu verlieren.
 
-   Zwei Wege hinein: einen Vorschlag merken – aus der Kern-DB oder von Claude
-   generiert – oder ein eigenes Rezept eintragen (Omas Zettel, Lieblingsessen).
+   Zwei Wege hinein: einen Vorschlag merken – aus der Kern-DB, von Claude oder
+   aus dem Bestand gebaut – oder ein eigenes Rezept eintragen (Omas Zettel,
+   Lieblingsessen).
    Gespeichert wird immer eine vollständige Kopie im Schema kruggel-recipe-db/v1.
-   Das ist Absicht: Claude-Rezepte rotieren im AI-Pool (jüngste 24) und lassen
-   sich im Profil löschen – eine Kopie im Kochbuch überlebt beides.
+   Das ist Absicht: Claude-Rezepte und die aus dem Bestand gebauten rotieren in
+   ihrem Pool (jüngste 24) und lassen sich im Profil löschen – eine Kopie im
+   Kochbuch überlebt beides.
 
    Alles im Kochbuch ist ein vollwertiges Rezept: Profilfilter, Bestandsabgleich,
    Vorschläge, Kochmodus mit Timern und Abbuchung greifen unverändert. */
 
 import { ZUTATEN } from "./data/kerndb.js";
 
-/* --------------------------------------------------------------- Quellen */
-const QUELLE_LABEL = { eigen: "eigenes Rezept", ai: "von claude", kern: "aus vorratio" };
+/* --------------------------------------------------------------- Quellen
+   Drei der vier Quellen sind vergänglich: Claude-Rezepte und die aus dem
+   Bestand gebauten rotieren im jeweiligen Pool (jüngste 24) und lassen sich im
+   Profil löschen, eigene Rezepte existieren ohnehin nur hier. Genau deshalb
+   speichert das Kochbuch Kopien. */
+const QUELLE_LABEL = {
+  eigen: "eigenes Rezept", ai: "von claude",
+  vorrat: "aus deinem Vorrat", kern: "aus vorratio",
+};
 
 const KOCHBUCH_FILTER = [
   { id: "alle", name: "Alle" },
   { id: "eigen", name: "Eigene" },
   { id: "ai", name: "Von Claude" },
+  { id: "vorrat", name: "Aus dem Vorrat" },
   { id: "kern", name: "Aus Vorratio" },
 ];
 
 function quelleVon(rezept) {
   if (rezept?.quelle_typ === "eigen") return "eigen";
   if (rezept?.quelle_typ === "ai_generiert") return "ai";
+  if (rezept?.quelle_typ === "vorrat_generiert") return "vorrat";
   return "kern";
 }
 
