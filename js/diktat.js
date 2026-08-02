@@ -100,6 +100,9 @@ const ZAHLWORT = {
   anderthalb: 1.5, eineinhalb: 1.5, zweieinhalb: 2.5, dreieinhalb: 3.5,
 };
 
+/* Halbe Sachen sind zweideutig – siehe gruppenAusZeile(). */
+const HALB_WORT = new Set(["halb", "halbe", "halben", "halber", "halbes"]);
+
 /* Einheiten, wie sie gesprochen werden. Reihenfolge zählt: längere Wörter
    zuerst, sonst schluckt "g" das "gramm". */
 const EINHEIT_WORT = [
@@ -153,6 +156,8 @@ const FUELLWORT = new Set([
   "ca", "vielleicht", "glaube", "glaub", "denke", "denk", "mal", "schon", "ja", "nein",
   "von", "vom", "aber", "sehr", "ganz", "ziemlich", "richtig", "echt", "halt", "eben",
   "schrank", "kuehlschrank", "regal", "vorrat", "vorratio", "zuhause", "hause", "haus",
+  // Was beim freien Sprechen mitkommt und in keiner Liste steht
+  "also", "aehm", "aeh", "hm", "hmm", "oehm", "genau", "moment", "warte", "sekunde",
   "nen", "ne", "nem", "bisschen", "wenig", "viel", "paar", "ungefaehre", "grosse",
   "grosser", "grosses", "kleine", "kleiner", "kleines", "angebrochen", "angebrochene",
   "angebrochenes", "offene", "offenes", "neue", "neues", "neuer",
@@ -272,34 +277,146 @@ function segmente(text) {
   return roh.map((s) => s.replace(/·/g, ",").trim()).filter((s) => s.length > 1);
 }
 
-/* Zahl + Einheit aus einer Zeile lösen; übrig bleibt der Artikelname. */
-function mengeAusZeile(zeile) {
+/* Wortpaare: normalisiert für die Logik, im Original für die Anzeige. Beides
+   muss Wort für Wort zusammenpassen – der Nutzer soll unter dem erkannten
+   Artikel das lesen, was er gesagt hat, nicht "kaese". */
+function wortPaare(zeile) {
   // "500g" → "500 g", damit die Einheit ein eigenes Wort ist
-  const norm = normText(zeile).replace(/(\d)\s*(kg|g|ml|l|stk)\b/g, "$1 $2");
-  const worte = norm.split(/[^a-z0-9,.-]+/).filter(Boolean);
+  const vorbereitet = String(zeile ?? "").replace(/(\d)\s*(kg|g|ml|l|stk)\b/gi, "$1 $2 ");
+  return vorbereitet.split(/\s+/)
+    .map((roh) => ({
+      roh: roh.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""),
+      norm: normText(roh).replace(/^[.,;:!?-]+|[.,;:!?-]+$/g, ""),
+    }))
+    .filter((p) => p.roh && p.norm);
+}
 
-  let menge = null;
-  let einheit = null;
-  const rest = [];
+/* Ein Abschnitt kann mehrere Artikel enthalten – gesprochene Aufzählungen
+   kommen oft ohne Satzzeichen an ("zwei Kilo Mehl eine Dose Mais"). Jede
+   genannte Menge beginnt darum einen neuen Artikel. Der `kopf` merkt sich die
+   dabei verbrauchten Wörter, damit unter dem Eintrag später wieder steht, was
+   gesagt wurde. */
+function gruppenAusZeile(zeile) {
+  const worte = wortPaare(zeile);
+  const gruppen = [];
+  let akt = { menge: null, einheit: null, kopf: [], worte: [] };
+
+  const abschliessen = () => {
+    if (akt.menge != null || akt.einheit || akt.worte.length) gruppen.push(akt);
+    akt = { menge: null, einheit: null, kopf: [], worte: [] };
+  };
 
   for (let i = 0; i < worte.length; i++) {
-    const w = worte[i];
-    const alsZahl = /^\d+(?:[,.]\d+)?$/.test(w) ? Number(w.replace(",", ".")) : ZAHLWORT[w];
-    if (alsZahl != null && menge == null) {
-      menge = alsZahl;
-      const naechstes = worte[i + 1];
-      if (naechstes && EINHEIT_INDEX[naechstes]) { einheit = EINHEIT_INDEX[naechstes]; i++; }
+    const w = worte[i].norm;
+    /* "halb" ist beides: Menge in "ein halbes Kilo Mehl", Füllstand in
+       "Mehl ist halb voll". Die Einheit dahinter entscheidet. */
+    if (HALB_WORT.has(w)) {
+      const folgt = worte[i + 1];
+      if (folgt && EINHEIT_INDEX[folgt.norm]) {
+        akt.menge = 0.5;
+        akt.einheit = EINHEIT_INDEX[folgt.norm];
+        akt.kopf.push(worte[i].roh, folgt.roh);
+        i++;
+      } else {
+        akt.worte.push(worte[i]);
+      }
       continue;
+    }
+    const alsZahl = /^\d+(?:[,.]\d+)?$/.test(w) ? Number(w.replace(",", ".")) : ZAHLWORT[w];
+    if (alsZahl != null) {
+      if (akt.worte.length) abschliessen();     // der vorige Artikel ist fertig
+      if (akt.menge == null) {
+        akt.menge = alsZahl;
+        akt.kopf.push(worte[i].roh);
+        const naechstes = worte[i + 1];
+        if (naechstes && EINHEIT_INDEX[naechstes.norm]) {
+          akt.einheit = EINHEIT_INDEX[naechstes.norm];
+          akt.kopf.push(naechstes.roh);
+          i++;
+        }
+        continue;
+      }
     }
     // Einheit ohne davorstehende Zahl ("Dose Mais") zählt als eine Einheit
-    if (EINHEIT_INDEX[w] && !einheit) {
-      einheit = EINHEIT_INDEX[w];
-      if (menge == null) menge = 1;
+    if (EINHEIT_INDEX[w]) {
+      if (akt.einheit && akt.worte.length) abschliessen();
+      if (!akt.einheit) {
+        akt.einheit = EINHEIT_INDEX[w];
+        if (akt.menge == null) akt.menge = 1;
+        akt.kopf.push(worte[i].roh);
+        continue;
+      }
+    }
+    akt.worte.push(worte[i]);
+  }
+  abschliessen();
+  return gruppen.filter((g) => g.worte.length);
+}
+
+/* Mehrere Artikel in einer Gruppe.
+
+   Die iOS-Erkennung liefert "Salz Chiliflocken Sonnenblumenkerne" als einen
+   Block. Ohne diese Zerlegung bliebe davon genau ein Artikel übrig: Der beste
+   Gesamttreffer schluckt den Rest.
+
+   Darum wird Wort für Wort das längste Fenster (bis drei Wörter) gesucht, das
+   einen Katalognamen trifft. Bei Gleichstand gewinnt das kürzere – so bleibt
+   "passierte Tomaten" zusammen, während "Salz Chiliflocken" auseinanderfällt:
+   Für das Zweiwort-Fenster punktet nur eines der beiden Wörter, für das
+   Einzelwort-Fenster ebenfalls.
+
+   Zwei Regeln halten das ehrlich:
+   - Ein Fenster darf nur starten, wo das erste Wort selbst im Katalog
+     vorkommt. Sonst verschluckte "Haribo Schokoriegel Sonnenblumenkerne"
+     die ersten beiden Wörter im Treffer des dritten.
+   - Füll- und Zustandswörter ("ist", "fast leer") gehören zum zuletzt
+     erkannten Artikel. Nur so lässt sich "Milch ist fast leer, Reis halb voll"
+     ohne Komma noch richtig zuordnen. */
+const MAX_FENSTER = 3;
+
+const istBeiwerk = (w) => FUELLWORT.has(w) || ZUSTAND_WORT.has(w) || !!EINHEIT_INDEX[w] || ZAHLWORT[w] != null;
+
+function teileArtikel(worte, einheit, bekannt) {
+  const artikel = [];
+  let rest = [];
+
+  const restAbschliessen = () => {
+    if (!rest.length) return;
+    const { zutat, basis } = findeZutat(rest.map((p) => p.norm).join(" "), einheit, bekannt);
+    artikel.push({ zutat: basis >= 3 ? zutat : null, worte: rest, anhang: [], sicher: false });
+    rest = [];
+  };
+  const anhaengen = (paar) => {
+    if (rest.length) { rest.push(paar); return; }
+    if (artikel.length) artikel[artikel.length - 1].anhang.push(paar);
+  };
+
+  let i = 0;
+  while (i < worte.length) {
+    const wort = worte[i];
+    // Am Wortanfang zählt nur, was ein Artikelname sein kann.
+    if (istBeiwerk(wort.norm) || findeZutat(wort.norm, einheit, bekannt).basis < 5) {
+      if (istBeiwerk(wort.norm)) anhaengen(wort);
+      else rest.push(wort);
+      i += 1;
       continue;
     }
-    rest.push(w);
+    let bester = null;
+    for (let len = Math.min(MAX_FENSTER, worte.length - i); len >= 1; len--) {
+      const fenster = worte.slice(i, i + len);
+      const { zutat, basis } = findeZutat(fenster.map((p) => p.norm).join(" "), einheit, bekannt);
+      // ">=" statt ">": die Schleife läuft von lang nach kurz, bei Gleichstand
+      // soll das kürzere Fenster gewinnen.
+      if (zutat && basis >= 5 && (!bester || basis >= bester.basis)) {
+        bester = { zutat, basis, len, worte: fenster };
+      }
+    }
+    restAbschliessen();
+    artikel.push({ zutat: bester.zutat, worte: bester.worte, anhang: [], sicher: true });
+    i += bester.len;
   }
-  return { menge, einheit, namensWorte: rest };
+  restAbschliessen();
+  return artikel;
 }
 
 /* Diktattext → Vorschlagsliste. Rein lokal, kein Netz, kein Key.
@@ -310,37 +427,44 @@ function parseDiktat(text, bestand = []) {
   const eintraege = [];
 
   for (const zeile of segmente(text)) {
-    const norm = normText(zeile);
-    const leer = LEER_MUSTER.test(norm);
-    const anteilTreffer = ANTEIL_MUSTER.find(([muster]) => muster.test(norm));
-    const { menge, einheit, namensWorte } = mengeAusZeile(zeile);
+    for (const gruppe of gruppenAusZeile(zeile)) {
+      const artikel = teileArtikel(gruppe.worte, gruppe.einheit, bekannt);
 
-    const name = namensWorte
-      .filter((w) => !FUELLWORT.has(w) && !ZUSTAND_WORT.has(w) && !EINHEIT_INDEX[w] && ZAHLWORT[w] == null)
-      .join(" ");
-    if (!name || name.length < 2) continue;
+      artikel.forEach((a, i) => {
+        const eigene = [...a.worte, ...a.anhang];
+        /* Zustand wird je Artikel gelesen, nicht je Abschnitt: In
+           "Milch ist fast leer, Reis halb voll" gehört jede Angabe zu ihrem
+           eigenen Artikel. Reihenfolge mit Bedacht – "fast leer" ist ein
+           Anteil, kein leeres Fach, und "halb voll" darf nicht als Menge 0,5
+           durchrutschen. Eine echte Stückzahl (ab 2) sticht den Anteil aus. */
+        const gesagt = eigene.map((p) => p.norm).join(" ");
+        const leer = LEER_MUSTER.test(gesagt);
+        const anteilTreffer = ANTEIL_MUSTER.find(([muster]) => muster.test(gesagt));
+        // Menge und Einheit gelten dem zuerst genannten Artikel der Gruppe –
+        // "zwei Dosen Tomaten, Mais" sagt nichts über die Menge Mais.
+        const menge = i === 0 ? gruppe.menge : null;
+        const einheit = i === 0 ? gruppe.einheit : null;
 
-    const { zutat, basis } = findeZutat(name, einheit, bekannt);
-    /* Reihenfolge mit Bedacht: "fast leer" ist ein Anteil, kein leeres Fach,
-       und "halb voll" darf nicht als Menge 0,5 durchrutschen. Eine echte
-       Stückzahl (ab 2) sticht die Anteilsformel dagegen aus. */
-    let aktion = "vorraetig";
-    if (anteilTreffer && (menge == null || menge <= 1)) aktion = "anteil";
-    else if (leer) aktion = "leer";
-    else if (menge != null) aktion = "menge";
+        let aktion = "vorraetig";
+        if (anteilTreffer && (menge == null || menge <= 1)) aktion = "anteil";
+        else if (leer) aktion = "leer";
+        else if (menge != null) aktion = "menge";
 
-    eintraege.push({
-      rohtext: zeile.trim(),
-      name: zutat ? zutat.name : hoch(name),
-      zutat_id: zutat?.id || null,
-      menge: aktion === "menge" ? menge : null,
-      einheit: aktion === "menge" ? einheit : null,
-      anteil: aktion === "anteil" ? anteilTreffer[1] : null,
-      aktion,
-      /* "sicher" heißt: der Name saß, nicht nur die Einheit passte. Alles
-         andere klappt in der Bestätigungsliste die Zutatenwahl auf. */
-      sicher: !!zutat && basis >= 5,
-    });
+        const rohtext = [...(i === 0 ? gruppe.kopf : []), ...eigene.map((p) => p.roh)].join(" ");
+        eintraege.push({
+          rohtext,
+          name: a.zutat ? a.zutat.name : hoch(a.worte.map((p) => p.roh).join(" ")),
+          zutat_id: a.zutat?.id || null,
+          menge: aktion === "menge" ? menge : null,
+          einheit: aktion === "menge" ? einheit : null,
+          anteil: aktion === "anteil" ? anteilTreffer[1] : null,
+          aktion,
+          /* "sicher" heißt: der Name saß, nicht nur die Einheit passte. Alles
+             andere klappt in der Bestätigungsliste die Zutatenwahl auf. */
+          sicher: a.sicher,
+        });
+      });
+    }
   }
   return eintraege;
 }
