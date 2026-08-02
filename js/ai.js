@@ -5,7 +5,7 @@
    generierte Rezepte sind direkt kochbar (Timer, Abbuchung, Filter). */
 
 import { ZUTATEN } from "./data/kerndb.js";
-import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, ZIELE } from "./data/profil.js";
+import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, ZIELE, gewaehlteVorlieben } from "./data/profil.js";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-opus-5";
@@ -125,6 +125,8 @@ function systemPrompt(profil) {
     .map((id) => AUSSCHLUESSE.find((a) => a.id === id)?.name || id);
   const stile = (profil.stile || []).map((id) => STILE.find((s) => s.id === id)?.name || id);
   const ziele = (profil.ziele || []).map((id) => ZIELE.find((z) => z.id === id)).filter(Boolean);
+  // Achse 3: Lieblingszutaten der gewählten Ernährungsform (weiche Präferenz)
+  const vorlieben = gewaehlteVorlieben(profil.ernaehrungsform, profil.vorlieben || []);
   const katalog = ZUTATEN.map((z) => `${z.id} = ${z.name}`).join("\n");
 
   return `Du bist der Rezeptgenerator der Vorrats-App Vorratio. Du erstellst alltagstaugliche,
@@ -133,7 +135,8 @@ anfängertaugliche Rezepte, die sich strikt am Vorratsbestand des Nutzers orient
 ## Nutzerprofil (hart einhalten)
 - Ernährungsform: ${form?.name || "Mischkost"} (${form?.kurz || ""})
 - Harte Ausschlüsse (NIE verwenden, auch nicht in Spuren-relevanten Zutaten): ${ausschluesse.join(", ") || "keine"}
-- Stil-Präferenzen (bevorzugen, nicht erzwingen): ${stile.join(", ") || "keine"}
+- Stil-Präferenzen (bevorzugen, nicht erzwingen): ${stile.join(", ") || "keine"}${vorlieben.length ? `
+- Lieblingszutaten (mag der Nutzer besonders – möglichst in mindestens einem der Rezepte einsetzen, aber nicht in jedes hineinzwingen und nie auf Kosten der Bestandsdeckung): ${vorlieben.map((v) => v.name).join(", ")}` : ""}
 ${ziele.length ? `
 ## Ziele des Nutzers (weich einfließen lassen, wissenschaftlich fundiert – keine Heilsversprechen)
 ${ziele.map((z) => `- ${z.name}: ${z.ai}`).join("\n")}` : ""}
