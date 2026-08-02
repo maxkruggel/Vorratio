@@ -155,15 +155,20 @@ function render(zielView = null) {
   tabbar.hidden = false;
   document.body.classList.remove("onboarding");
   tabbar.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
-  if (kochtGerade()) { renderKochmodus(); return; }
-  if (editor) { renderRezeptEditor(); return; }
-  if (detailRezept) { renderRezeptDetail(detailRezept); return; }
-  ({
-    heute: renderHeute, kochbuch: renderKochbuch, vorrat: renderVorrat,
-    einkauf: renderEinkauf, wissen: renderWissen, profil: renderProfil,
-  }[view] || renderHeute)();
+  if (kochtGerade()) renderKochmodus();
+  else if (editor) renderRezeptEditor();
+  else if (detailRezept) renderRezeptDetail(detailRezept);
+  else {
+    ({
+      heute: renderHeute, kochbuch: renderKochbuch, vorrat: renderVorrat,
+      einkauf: renderEinkauf, wissen: renderWissen, profil: renderProfil,
+    }[view] || renderHeute)();
+  }
   // Nur beim echten Wechsel nach oben springen – sonst reißt es einen beim
-  // Antippen mitten in der Liste an den Seitenanfang.
+  // Antippen mitten in der Liste an den Seitenanfang. Gilt für JEDEN Screen:
+  // Kochmodus, Editor und Rezept-Detail liegen über der Tab-Ansicht, und wer
+  // ein Rezept weit unten in der Liste antippt, landete sonst im Footer –
+  // der Browser behält die alte Scrollposition und klemmt sie ans Seitenende.
   if (aktuellerScreen() !== vorher) window.scrollTo(0, 0);
 }
 
@@ -654,10 +659,15 @@ function renderHeute() {
         <h2 class="section-gap">Solange zeigen wir dir Klassiker</h2>` : ""}
       ${vs.map((v) => rezeptKarte(v, esc(rezeptMeta(v.rezept)), { gedimmt: leererBestand })).join("")}
       <div class="btn-row">
+        <button class="btn" id="vorrat-generieren" ${leererBestand ? "disabled" : ""}>${icon("vorrat", 19)}Aus Vorrat bauen</button>
         <button class="btn secondary" id="wuerfeln">${icon("wuerfeln", 19)}Neu würfeln</button>
-        <button class="btn secondary" id="vorrat-generieren" ${leererBestand ? "disabled" : ""}>${icon("vorrat", 19)}Aus Vorrat bauen</button>
-        <button class="btn" id="ai-generieren" ${aiLaeuft ? "disabled" : ""}>${icon("claude", 19)}${aiLaeuft ? "Claude kocht …" : "Claude fragen"}</button>
+        <button class="btn secondary" id="ai-generieren" ${aiLaeuft ? "disabled" : ""}>${icon("claude", 19)}${aiLaeuft ? "Claude kocht …" : "Claude fragen"}</button>
       </div>
+      <p class="small subtle" style="text-align:center;margin-top:8px">
+        <strong>Aus Vorrat bauen</strong> setzt neue Gerichte aus dem zusammen, was gerade dasteht – offline, ohne Key.
+        <strong>Neu würfeln</strong> zieht stattdessen drei andere Rezepte aus dem vorhandenen Bestandsranking.
+        <strong>Claude fragen</strong> holt freie Ideen, braucht aber den API-Key aus dem Profil.
+      </p>
       ${genHinweis ? `<p class="small subtle" style="text-align:center;margin-top:8px">${esc(genHinweis)}</p>` : ""}
       ${aiFehler ? `<p class="small warn-text" style="text-align:center;margin-top:8px">${esc(aiFehler)}</p>` : ""}
 

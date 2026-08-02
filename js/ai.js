@@ -104,7 +104,10 @@ const REZEPT_SCHEMA = {
                 text: { type: "string" },
                 dauer_sekunden: { type: ["number", "null"] },
                 temperatur_c: { type: ["number", "null"] },
-                timer_typ: { type: ["string", "null"], enum: ["aktiv", "passiv", "ofen", "ruhen", null] },
+                // Nullable + enum geht nur über anyOf: ein Typ-Array ["string","null"]
+                // lässt die Schema-Prüfung der API die Enum-Werte verwerfen
+                // („Enum value 'aktiv' does not match declared type").
+                timer_typ: { anyOf: [{ type: "string", enum: ["aktiv", "passiv", "ofen", "ruhen"] }, { type: "null" }] },
                 timer_name: { type: ["string", "null"] },
               },
             },
@@ -301,7 +304,7 @@ const DIKTAT_SCHEMA = {
           zutat_id: { type: ["string", "null"] },
           zustand: { type: "string", enum: ["menge", "anteil", "vorraetig", "leer"] },
           menge: { type: ["number", "null"] },
-          einheit: { type: ["string", "null"], enum: ["g", "kg", "ml", "l", "Stk", "Dose", "Pck", "Glas", "Becher", "Flasche", "Bund", "Zehe", "Stange", "Scheibe", "Rolle", null] },
+          einheit: { anyOf: [{ type: "string", enum: ["g", "kg", "ml", "l", "Stk", "Dose", "Pck", "Glas", "Becher", "Flasche", "Bund", "Zehe", "Stange", "Scheibe", "Rolle"] }, { type: "null" }] },
           anteil: { type: ["number", "null"] },
         },
       },
@@ -372,7 +375,7 @@ const SCHRANK_SCHEMA = {
           anzahl: { type: ["number", "null"] },
           fuellstand: { type: ["number", "null"] },
           packung_menge: { type: ["number", "null"] },
-          packung_einheit: { type: ["string", "null"], enum: ["g", "kg", "ml", "l", null] },
+          packung_einheit: { anyOf: [{ type: "string", enum: ["g", "kg", "ml", "l"] }, { type: "null" }] },
           sicher: { type: "boolean" },
         },
       },
