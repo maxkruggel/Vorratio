@@ -12,6 +12,7 @@ const SHELL = [
   "./js/icons.js",
   "./js/storage.js",
   "./js/engine.js",
+  "./js/kochbuch.js",
   "./js/angebote.js",
   "./js/ai.js",
   "./js/generator.js",

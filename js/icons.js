@@ -15,6 +15,10 @@ const PFADE = {
     <path d="M8.8 8.6l2.2-5.2M15.2 8.6L13 3.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`,
   wissen: `<path class="duo" d="M4 4.6h6.2a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
     <path d="M20 4.6h-6.2a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2H20z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`,
+  /* Kochbuch: geschlossenes Buch mit Lesezeichen – abgesetzt vom aufgeschlagenen
+     Buch des Wissen-Tabs, damit beide Tabs auf einen Blick auseinandergehen. */
+  kochbuch: `<path class="duo" d="M6 4.4a1.8 1.8 0 0 1 1.8-1.8h10.6v18.8H7.8A1.8 1.8 0 0 1 6 19.6z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M6 17.4h12.4M10.4 2.6v6.4l2.3-1.6 2.3 1.6V2.6" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`,
   profil: `<circle class="duo" cx="12" cy="8.4" r="3.8" stroke="currentColor" stroke-width="1.6"/>
     <path d="M4.8 20.4c.7-3.9 3.7-5.9 7.2-5.9s6.5 2 7.2 5.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`,
 
@@ -43,6 +47,11 @@ const PFADE = {
   runter: `<path d="M6 9.5l6 6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
   suche: `<circle cx="11" cy="11" r="6.6" stroke="currentColor" stroke-width="1.7"/>
     <path d="M15.8 15.8l4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>`,
+  /* Lesezeichen offen/gefüllt – der Schalter „ins Kochbuch / wieder raus". */
+  merken: `<path d="M6.6 4.6a2 2 0 0 1 2-2h6.8a2 2 0 0 1 2 2v16.2L12 16.6l-5.4 4.2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`,
+  gemerkt: `<path class="ink" d="M6.6 4.6a2 2 0 0 1 2-2h6.8a2 2 0 0 1 2 2v16.2L12 16.6l-5.4 4.2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`,
+  stift: `<path class="duo" d="M4.6 15.1l9.8-9.8 4.3 4.3-9.8 9.8H4.6z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M14.4 5.3l1.7-1.7a1.7 1.7 0 0 1 2.4 0l1.9 1.9a1.7 1.7 0 0 1 0 2.4l-1.7 1.7" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`,
 
   /* --- Inhalt ------------------------------------------------------- */
   tipp: `<path d="M9.4 18.6h5.2M10 21.2h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
