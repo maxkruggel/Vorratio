@@ -187,10 +187,10 @@ tabbar.addEventListener("click", async (e) => {
 });
 
 /* ------------------------------------------------------------ Onboarding */
-const leeresOb = () => ({ step: 0, name: "", form: null, ausschluesse: [], eigene: [], vorlieben: [], stile: [], ziele: [] });
+const leeresOb = () => ({ step: 0, name: "", personen: 2, form: null, ausschluesse: [], eigene: [], vorlieben: [], stile: [], ziele: [] });
 let ob = leeresOb();
 
-const OB_STEPS = [obWelcome, obName, obForm, obAusschluesse, obVorlieben, obStile, obZiele, obToleranz];
+const OB_STEPS = [obWelcome, obName, obPersonen, obForm, obAusschluesse, obVorlieben, obStile, obZiele, obToleranz];
 
 
 function renderOnboarding() {
@@ -214,7 +214,7 @@ function obWelcome() {
       <p>Kennt deinen Vorrat. Schlägt vor, was du daraus kochst. Bucht ab, was du verbrauchst.</p>
     </div>
     <button class="btn" data-ob="next">Los geht's</button>
-    <p class="centered-note">Sieben kurze Schritte · ca. 3 Minuten</p>
+    <p class="centered-note">Acht kurze Schritte · ca. 3 Minuten</p>
     <div class="spacer"></div>
     <div class="foot-note">${icon("lokal", 18)}<span>Alles bleibt lokal auf deinem iPhone.<br>Kein Konto, kein Server.</span></div>`;
 }
@@ -230,6 +230,26 @@ function obName() {
     <label class="field"><input type="text" id="ob-name" placeholder="Dein Name" value="${esc(ob.name)}" autocomplete="given-name" enterkeyhint="next"></label>
     <p class="pflicht-note" id="ob-name-hinweis"${bereit ? " hidden" : ""}>Ohne Namen geht es nicht weiter – ein Spitzname reicht.</p>
     <button class="btn" data-ob="name"${bereit ? "" : " disabled"}>Weiter</button>`;
+}
+
+/* Standard-Personenzahl (profil.personen): Startwert der Portionswahl im
+   Kochmodus. Default 2 – auch wer allein isst, hat so Nachschlag oder das
+   Essen für morgen gleich mitgekocht. */
+function obPersonen() {
+  return `
+    <div class="screen-header"><h1>für wie viele kochst du?</h1><p class="subtle">Damit startet später jede Portionswahl – pro Gericht lässt es sich beim Kochen noch ändern.</p></div>
+    <div class="card" style="padding:26px 20px;border-radius:20px">
+      <div class="stepper">
+        <button id="ob-personen-minus" aria-label="Weniger Personen">${icon("minus", 22)}</button>
+        <span class="count">${ob.personen}</span>
+        <button id="ob-personen-plus" class="primary" aria-label="Mehr Personen">${icon("plus", 22)}</button>
+      </div>
+      <p class="subtle small" style="text-align:center;margin-top:16px">Personen · dein Standard fürs Kochen</p>
+    </div>
+    <div class="inline-hint">${icon("tipp", 20)}
+      <div class="hint-body"><b>Auch allein lohnen 2 Portionen</b>Der Rest ist Nachschlag oder das Essen für morgen – abgebucht wird nur, was du wirklich kochst.</div>
+    </div>
+    <button class="btn" data-ob="next">Weiter</button>`;
 }
 
 function obForm() {
@@ -408,6 +428,8 @@ function bindOnboarding() {
   app.querySelectorAll("[data-vorliebe]").forEach((b) => b.addEventListener("click", () => { toggle(ob.vorlieben, b.dataset.vorliebe); renderOnboarding(); }));
   app.querySelectorAll("[data-stil]").forEach((b) => b.addEventListener("click", () => { toggle(ob.stile, b.dataset.stil); renderOnboarding(); }));
   app.querySelectorAll("[data-ziel]").forEach((b) => b.addEventListener("click", () => { toggle(ob.ziele, b.dataset.ziel); renderOnboarding(); }));
+  app.querySelector("#ob-personen-minus")?.addEventListener("click", () => { ob.personen = Math.max(1, ob.personen - 1); renderOnboarding(); });
+  app.querySelector("#ob-personen-plus")?.addEventListener("click", () => { ob.personen++; renderOnboarding(); });
   bindEigeneAusschluesse(ob.eigene, () => { bereinigeVorlieben(ob); renderOnboarding(); });
   app.querySelector('[data-ob="back"]')?.addEventListener("click", () => {
     // Name-Eingabe beim Zurückgehen nicht verlieren
@@ -463,7 +485,7 @@ function bindOnboarding() {
     s.profil = {
       name: ob.name, ernaehrungsform: ob.form, ausschluesse: ob.ausschluesse,
       eigeneAusschluesse: ob.eigene, vorlieben: ob.vorlieben, stile: ob.stile,
-      ziele: ob.ziele, onboarded: true,
+      ziele: ob.ziele, personen: ob.personen || 2, onboarded: true,
     };
     save();
     view = "vorrat";
