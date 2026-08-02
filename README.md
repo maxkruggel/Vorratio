@@ -89,7 +89,7 @@ Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
   1 Empfehlung + 2 Alternativen). Quelle Marktguru (PLZ + Keys in den Einstellungen),
   ohne Keys Demo-Modus; Details in [docs/angebots-crawl.md](docs/angebots-crawl.md).
 - **Wissen**: 18 Grundtechniken, 15 Produktzubereitungen, 9 Grundrezepte, Tipps & Ideen aus
-  der Kern-Rezept-DB (Schema `kruggel-recipe-db/v1`, 25 Vollrezepte strukturiert).
+  der Kern-Rezept-DB (Schema `kruggel-recipe-db/v1`, 28 Vollrezepte + 11 Snacks strukturiert).
 - **Persistenz** (Kap. 6.4): Auto-Save je Aktion (localStorage), JSON-Export/-Import als
   Backup; offlinefähig per Service Worker.
 

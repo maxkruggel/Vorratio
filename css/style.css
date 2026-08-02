@@ -146,7 +146,6 @@ p + p { margin-top: 8px; }
 .subtle.small { color: var(--ink-mute); }
 .mute { color: var(--ink-mute); }
 .warn-text { color: var(--warn); }
-.tabular { font-variant-numeric: tabular-nums; }
 
 .screen-header { margin-bottom: 18px; }
 .screen-header .subtle { margin-top: 4px; }
@@ -168,7 +167,6 @@ p + p { margin-top: 8px; }
    Flächen laufen über Klassen statt fester Farben, damit jeder Kontext sie
    über --duo / --on-accent umschalten kann (Tabbar, Akzentkarte, Dark). */
 .ic { flex: none; display: block; }
-.ic-inline { display: inline-block; vertical-align: -0.18em; }
 .ic .duo { fill: var(--duo); }
 .ic .ink { fill: currentColor; }
 .ic .ring { fill: none; stroke: var(--line-strong); }

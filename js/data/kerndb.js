@@ -199,7 +199,7 @@ const REZEPTE = [
     gesamtzeit_min: { vorbereitung: 5, garzeit: 10, gesamt: 15 },
     ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["gluten"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "kohlenhydratreich", makro_hinweis: "Schneller Carb-Klassiker; mit Hülsenfrucht-Beilage runder." },
-    substitutionen: [], tags: ["schnell", "budget"], quelle_typ: "etablierte_kochseite",
+    substitutionen: [], tags: ["schnell", "budget", "mediterran"], quelle_typ: "etablierte_kochseite",
   },
   {
     id: "RCP-002", name: "Linsen-Dal mit roten Linsen", typ: "rezept", kategorie: "Suppe/Eintopf",
@@ -291,7 +291,7 @@ const REZEPTE = [
     gesamtzeit_min: { vorbereitung: 10, garzeit: 25, gesamt: 35 },
     ernaehrungsform: ["pescetarisch", "mit_fisch"], allergene: ["fisch"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Fettreicher Seefisch – deckt EPA/DHA (DGE: 1–2 Portionen Fisch/Woche)." },
-    substitutionen: [], tags: [], quelle_typ: "behoerde",
+    substitutionen: [], tags: ["mediterran", "low-carb"], quelle_typ: "behoerde",
   },
   {
     id: "RCP-006", name: "Klassische Bolognese", typ: "rezept", kategorie: "Sauce",
@@ -321,7 +321,6 @@ const REZEPTE = [
     id: "RCP-007", name: "Chili sin/con Carne", typ: "rezept", kategorie: "Suppe/Eintopf",
     cuisine: "mexikanisch", mahlzeitentyp: ["mittag", "abend"], portionen: 4, schwierigkeit: "einfach",
     zutaten: [
-      { menge: 400, einheit: "g", zutat_id: "ing_hackfleisch_rind", zutat_name: "Rinderhack (con) – oder Sojagranulat (sin)", optional: true },
       { menge: 1, einheit: "Dose", zutat_id: "ing_kidneybohnen_dose", zutat_name: "Kidneybohnen" },
       { menge: 1, einheit: "Dose", zutat_id: "ing_tomate_dose", zutat_name: "Tomaten (Dose)" },
       { menge: 1, einheit: "Stk", zutat_id: "ing_paprika", zutat_name: "Paprika" },
@@ -330,15 +329,19 @@ const REZEPTE = [
       { menge: null, einheit: "nach_Bedarf", zutat_id: "ing_chiliflocken", zutat_name: "Chili" },
     ],
     schritte: [
-      { nr: 1, text: "Zwiebel (und ggf. Hack) anbraten.", dauer_sekunden: 300, timer_typ: "aktiv", timer_name: "Anbraten" },
+      { nr: 1, text: "Zwiebel anbraten. Con Carne? Dann 400 g Rinderhack mit anbraten, bis es krümelig durch ist (Hackfleisch braucht 71 °C Kerntemperatur).", dauer_sekunden: 300, timer_typ: "aktiv", timer_name: "Anbraten" },
       { nr: 2, text: "Kreuzkümmel und Chili kurz anrösten.", dauer_sekunden: 60, timer_typ: "aktiv", timer_name: "Gewürze rösten" },
       { nr: 3, text: "Tomaten, Paprika und abgespülte Bohnen zugeben.", dauer_sekunden: null, timer_typ: null },
       { nr: 4, text: "Köcheln lassen, bis es sämig ist.", dauer_sekunden: 1500, timer_typ: "passiv", timer_name: "Chili köcheln" },
     ],
     gesamtzeit_min: { vorbereitung: 10, garzeit: 30, gesamt: 40 },
-    ernaehrungsform: ["vegan", "vegetarisch", "mit_fleisch"], allergene: [],
+    /* Grundrezept ist das vegane „sin Carne"; Hack steht nur als Variante im
+       Schritt. Zuvor lag es als optionale Zutat in der Liste – zusammen mit dem
+       Tag "mit_fleisch" hat das die harte Achse-1-Filterung ausgehebelt: Veganer
+       bekamen ein Rezept vorgeschlagen, dessen erste Zeile Rinderhack war. */
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: [],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Bohnen + Mais/Reis = komplette Aminosäure-Kombination." },
-    substitutionen: [{ fehlt: "Hackfleisch", ersatz: "Sojagranulat + 1 EL Sojasauce", hinweis: "Sin Carne – vegan; Granulat einweichen." }],
+    substitutionen: [{ fehlt: "Sojagranulat", ersatz: "mehr Bohnen oder rote Linsen", hinweis: "Bindet ebenfalls und macht das Chili sämig." }],
     tags: ["one-pot", "budget"], quelle_typ: "etablierte_kochseite",
   },
   {
@@ -361,7 +364,7 @@ const REZEPTE = [
     gesamtzeit_min: { vorbereitung: 10, garzeit: 20, gesamt: 30 },
     ernaehrungsform: ["vegetarisch"], allergene: ["ei"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Ei-Protein + Paprika (Vitamin C); mit Brot servieren." },
-    substitutionen: [], tags: ["one-pot"], quelle_typ: "etablierte_kochseite",
+    substitutionen: [], tags: ["one-pot", "mediterran"], quelle_typ: "etablierte_kochseite",
   },
   {
     id: "RCP-009", name: "Miso-Suppe mit Tofu", typ: "rezept", kategorie: "Suppe/Eintopf",
@@ -469,7 +472,7 @@ const REZEPTE = [
     gesamtzeit_min: { vorbereitung: 10, garzeit: 0, gesamt: 10 },
     ernaehrungsform: ["vegetarisch"], allergene: ["laktose"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "kalorienarm", makro_hinweis: "Mediterraner Klassiker – gut belegtes Ernährungsmuster." },
-    substitutionen: [], tags: ["schnell", "low-carb"], quelle_typ: "etablierte_kochseite",
+    substitutionen: [], tags: ["schnell", "low-carb", "mediterran"], quelle_typ: "etablierte_kochseite",
   },
   {
     id: "RCP-014", name: "Ratatouille", typ: "rezept", kategorie: "Pfannengericht",
@@ -492,7 +495,7 @@ const REZEPTE = [
     gesamtzeit_min: { vorbereitung: 15, garzeit: 35, gesamt: 50 },
     ernaehrungsform: ["vegan", "vegetarisch"], allergene: [],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "kalorienarm", makro_hinweis: "Gemüselastig, mediterran; mit Hülsenfrüchten/Reis kombinieren." },
-    substitutionen: [], tags: ["saisonal", "mealprep"], quelle_typ: "etablierte_kochseite",
+    substitutionen: [], tags: ["saisonal", "mealprep", "mediterran"], quelle_typ: "etablierte_kochseite",
   },
   {
     id: "RCP-015", name: "Overnight Oats", typ: "rezept", kategorie: "Frühstück",
@@ -555,7 +558,7 @@ const REZEPTE = [
     gesamtzeit_min: { vorbereitung: 10, garzeit: 25, gesamt: 35 },
     ernaehrungsform: ["vegan", "vegetarisch"], allergene: [],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Linsen-Protein + Vitamin C (Zitrone) für die Eisenaufnahme." },
-    substitutionen: [], tags: ["budget", "one-pot"], quelle_typ: "etablierte_kochseite",
+    substitutionen: [], tags: ["budget", "one-pot", "mediterran"], quelle_typ: "etablierte_kochseite",
   },
   {
     id: "RCP-018", name: "Falafel aus dem Ofen", typ: "rezept", kategorie: "Backwaren",
@@ -578,7 +581,7 @@ const REZEPTE = [
     gesamtzeit_min: { vorbereitung: 45, garzeit: 25, gesamt: 70 },
     ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["gluten"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "proteinreich", makro_hinweis: "Mit Hummus + Wrap = komplette Mahlzeit." },
-    substitutionen: [], tags: ["mealprep"], quelle_typ: "etablierte_kochseite",
+    substitutionen: [], tags: ["mealprep", "mediterran"], quelle_typ: "etablierte_kochseite",
   },
   {
     id: "RCP-019", name: "Gebratener Reis mit Ei", typ: "rezept", kategorie: "Pfannengericht",
@@ -621,7 +624,7 @@ const REZEPTE = [
     gesamtzeit_min: { vorbereitung: 8, garzeit: 3, gesamt: 11 },
     ernaehrungsform: ["vegetarisch"], allergene: ["gluten", "laktose"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Ohne Mozzarella vegan." },
-    substitutionen: [], tags: ["schnell"], quelle_typ: "etablierte_kochseite",
+    substitutionen: [], tags: ["schnell", "mediterran"], quelle_typ: "etablierte_kochseite",
   },
   {
     id: "RCP-021", name: "Kartoffelgratin", typ: "rezept", kategorie: "Auflauf/Gratin",
@@ -728,6 +731,76 @@ const REZEPTE = [
     ernaehrungsform: ["vegetarisch"], allergene: ["ei"],
     naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Warm und kalt gut – Mealprep-Klassiker." },
     substitutionen: [], tags: ["budget", "mealprep"], quelle_typ: "etablierte_kochseite",
+  },
+
+  // -------------------------------------------------------------------------
+  // Vegane Frühstücke. Vorher endete jedes Frühstück bei Ei oder Milch – für
+  // ein veganes Profil hatte der Slot damit null Treffer, und der Heute-Screen
+  // füllte morgens mit Mittag- und Abendrezepten auf. Zählt zugleich für die
+  // dünnen Slots lacto und ovo (der Tag "vegan" ist in jeder Form erlaubt).
+  // -------------------------------------------------------------------------
+  {
+    id: "RCP-026", name: "Porridge mit Banane & Zimt", typ: "rezept", kategorie: "Frühstück",
+    cuisine: "britisch", mahlzeitentyp: ["fruehstueck"], portionen: 1, schwierigkeit: "einfach",
+    zutaten: [
+      { menge: 60, einheit: "g", zutat_id: "ing_haferflocken", zutat_name: "Haferflocken" },
+      { menge: 250, einheit: "ml", zutat_id: "ing_haferdrink", zutat_name: "Haferdrink" },
+      { menge: 1, einheit: "Stk", zutat_id: "ing_banane", zutat_name: "Banane" },
+      { menge: null, einheit: "Prise", zutat_id: "ing_zimt", zutat_name: "Zimt" },
+      { menge: 1, einheit: "EL", zutat_id: "ing_erdnussmus", zutat_name: "Erdnussmus", optional: true },
+    ],
+    schritte: [
+      { nr: 1, text: "Haferflocken mit Haferdrink und einer Prise Salz aufkochen.", dauer_sekunden: 180, timer_typ: "aktiv", timer_name: "Aufkochen" },
+      { nr: 2, text: "Bei kleiner Hitze unter Rühren cremig köcheln lassen. Tipp: Je länger du rührst, desto mehr Stärke löst sich – das macht den Brei sämig, nicht die Menge Flüssigkeit.", dauer_sekunden: 300, timer_typ: "aktiv", timer_name: "Porridge köcheln" },
+      { nr: 3, text: "Mit Bananenscheiben, Zimt und nach Wunsch Erdnussmus toppen.", dauer_sekunden: null, timer_typ: null },
+    ],
+    gesamtzeit_min: { vorbereitung: 2, garzeit: 8, gesamt: 10 },
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["gluten", "erdnuss"],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "ballaststoffreich", makro_hinweis: "Beta-Glucane aus Hafer sättigen lang; angereicherter Haferdrink liefert Calcium." },
+    substitutionen: [{ fehlt: "Haferdrink", ersatz: "Sojadrink", hinweis: "Sojadrink bringt spürbar mehr Protein mit." }],
+    tags: ["schnell", "budget"], quelle_typ: "etablierte_kochseite",
+  },
+  {
+    id: "RCP-027", name: "Avocado-Brot mit Tomate", typ: "rezept", kategorie: "Frühstück",
+    cuisine: "universell", mahlzeitentyp: ["fruehstueck"], portionen: 1, schwierigkeit: "einfach",
+    zutaten: [
+      { menge: 2, einheit: "Stk", zutat_id: "ing_brot", zutat_name: "Scheiben Brot" },
+      { menge: 1, einheit: "Stk", zutat_id: "ing_avocado", zutat_name: "Reife Avocado" },
+      { menge: 1, einheit: "Stk", zutat_id: "ing_tomate_frisch", zutat_name: "Tomate" },
+      { menge: null, einheit: "nach_Bedarf", zutat_id: "ing_zitrone", zutat_name: "Zitronensaft" },
+      { menge: null, einheit: "Prise", zutat_id: "ing_salz", zutat_name: "Salz" },
+      { menge: null, einheit: "Prise", zutat_id: "ing_pfeffer", zutat_name: "Pfeffer" },
+    ],
+    schritte: [
+      { nr: 1, text: "Brot toasten oder in der Pfanne ohne Fett rösten.", dauer_sekunden: 180, timer_typ: "aktiv", timer_name: "Brot rösten" },
+      { nr: 2, text: "Avocado mit der Gabel grob zerdrücken, mit Zitronensaft, Salz und Pfeffer abschmecken. Tipp: Die Säure hält das Grün frisch – ohne sie wird das Mus binnen Minuten braun.", dauer_sekunden: null, timer_typ: null },
+      { nr: 3, text: "Auf das Brot streichen und mit Tomatenscheiben belegen.", dauer_sekunden: null, timer_typ: null },
+    ],
+    gesamtzeit_min: { vorbereitung: 5, garzeit: 3, gesamt: 8 },
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: ["gluten"],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "ausgewogen", makro_hinweis: "Ungesättigte Fette aus der Avocado; mit Vollkornbrot deutlich ballaststoffreicher." },
+    substitutionen: [{ fehlt: "Avocado", ersatz: "Hummus", hinweis: "Cremig und proteinreicher, dafür weniger Fett." }],
+    tags: ["schnell"], quelle_typ: "etablierte_kochseite",
+  },
+  {
+    id: "RCP-028", name: "Chiapudding mit Beeren", typ: "rezept", kategorie: "Frühstück",
+    cuisine: "universell", mahlzeitentyp: ["fruehstueck"], portionen: 1, schwierigkeit: "einfach",
+    zutaten: [
+      { menge: 3, einheit: "EL", zutat_id: "ing_chiasamen", zutat_name: "Chiasamen" },
+      { menge: 200, einheit: "ml", zutat_id: "ing_haferdrink", zutat_name: "Haferdrink" },
+      { menge: 100, einheit: "g", zutat_id: "ing_beeren_tk", zutat_name: "Beeren" },
+      { menge: 2, einheit: "Stk", zutat_id: "ing_datteln", zutat_name: "Datteln", optional: true },
+    ],
+    schritte: [
+      { nr: 1, text: "Chiasamen mit dem Haferdrink verrühren, kurz warten und noch einmal durchrühren. Tipp: Das zweite Rühren nach fünf Minuten verhindert die Klumpen, die sonst am Boden festkleben.", dauer_sekunden: 300, timer_typ: "passiv", timer_name: "Erstes Quellen" },
+      { nr: 2, text: "Abgedeckt im Kühlschrank quellen lassen, am besten über Nacht.", dauer_sekunden: 14400, timer_typ: "ruhen", timer_name: "Chiapudding quellen" },
+      { nr: 3, text: "Mit aufgetauten Beeren und klein geschnittenen Datteln servieren.", dauer_sekunden: null, timer_typ: null },
+    ],
+    gesamtzeit_min: { vorbereitung: 5, garzeit: 0, gesamt: 5 },
+    ernaehrungsform: ["vegan", "vegetarisch"], allergene: [],
+    naehrwert_einordnung: { kcal_pro_portion: null, profil: "ballaststoffreich", makro_hinweis: "Chiasamen liefern Ballaststoffe und die Omega-3-Vorstufe ALA – EPA/DHA ersetzen sie nicht." },
+    substitutionen: [{ fehlt: "Chiasamen", ersatz: "geschrotete Leinsamen", hinweis: "Quellen ähnlich, Geschmack ist nussiger." }],
+    tags: ["mealprep", "budget"], quelle_typ: "etablierte_kochseite",
   },
 
   // -------------------------------------------------------------------------

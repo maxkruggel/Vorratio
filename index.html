@@ -20,7 +20,10 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <div id="app" aria-live="polite">
+  <!-- Kein aria-live auf dem Container: jede Interaktion zeichnet den Screen
+       komplett neu, VoiceOver hätte danach jedes Mal die ganze Seite vorgelesen.
+       Kurzmeldungen (Toast, Tipp-Pop-up) tragen ihr eigenes role="status". -->
+  <div id="app">
     <noscript>Vorratio braucht JavaScript.</noscript>
   </div>
   <!-- Tabbar-Icons: Duotone-Set aus der Design-Übergabe, identisch zu js/icons.js.

@@ -40,12 +40,33 @@ const DEFAULT_STATE = {
   settings: { erstellt: null, apiKey: null },
 };
 
-/* Felder, die in älteren Sicherungen fehlen können. */
+/* Felder, die in älteren Sicherungen fehlen können.
+
+   Wichtig: Das Zusammenführen mit DEFAULT_STATE ist eine flache Kopie – ein
+   mitgebrachtes `profil` ersetzt das Default-Profil komplett, statt sich mit
+   ihm zu mischen. Eine ältere oder von Hand bearbeitete Sicherung kann darum
+   verschachtelte Felder mitbringen, die halb leer sind; ohne die Auffüllung
+   hier stürzt die App beim ersten Zugriff ab (z. B. s.einkauf.rezept.length).
+   Darum werden alle Objekt- und Listenfelder einzeln nachgezogen. */
 function migriere(s) {
-  s.profil.ziele ||= [];
-  s.profil.eigeneAusschluesse ||= [];
-  s.tipps ||= { klicks: 0, gesehen: [] };
-  s.tipps.gesehen ||= [];
+  const vorgabe = structuredClone(DEFAULT_STATE);
+
+  // Objektfelder: fehlende Unterschlüssel aus der Vorgabe ergänzen.
+  for (const feld of ["profil", "einkauf", "angebote", "tipps", "settings"]) {
+    s[feld] = { ...vorgabe[feld], ...(typeof s[feld] === "object" && s[feld] ? s[feld] : {}) };
+  }
+  // Listenfelder: alles, was keine Liste ist, gilt als leer.
+  const liste = (v) => (Array.isArray(v) ? v : []);
+  s.bestand = liste(s.bestand);
+  s.historie = liste(s.historie);
+  s.aiRezepte = liste(s.aiRezepte);
+  s.profil.ausschluesse = liste(s.profil.ausschluesse);
+  s.profil.eigeneAusschluesse = liste(s.profil.eigeneAusschluesse);
+  s.profil.stile = liste(s.profil.stile);
+  s.profil.ziele = liste(s.profil.ziele);
+  s.einkauf.rezept = liste(s.einkauf.rezept);
+  s.einkauf.woche = liste(s.einkauf.woche);
+  s.tipps.gesehen = liste(s.tipps.gesehen);
   return s;
 }
 
@@ -90,8 +111,13 @@ function exportJson() {
   const datum = new Date().toISOString().slice(0, 10);
   a.href = url;
   a.download = `vorratio-backup-${datum}.json`;
+  // Der Link muss im Dokument hängen (Firefox) und die Blob-URL darf erst nach
+  // dem Klick sterben – wird sie sofort widerrufen, bricht Safari den Download
+  // ab und das Backup landet nie auf dem Gerät.
+  a.style.display = "none";
+  document.body.append(a);
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 0);
 }
 
 /* JSON-Import: Datei einspielen, ersetzt den kompletten Bestand. */
