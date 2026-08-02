@@ -5,10 +5,13 @@
 
 import { load, save, getState, exportJson, importJson, resetAll } from "./storage.js";
 import { ZUTATEN, REZEPTE, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN } from "./data/kerndb.js";
-import { ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, ZIELE, hinweiseFuerForm, FORM_HINWEISE } from "./data/profil.js";
+import {
+  ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, ZIELE, hinweiseFuerForm, FORM_HINWEISE,
+  vorliebenFuerForm, gewaehlteVorlieben,
+} from "./data/profil.js";
 import {
   ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, vorschlaege, snackVorschlaege,
-  zielTreffer, tagesSeed, bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
+  zielTreffer, vorliebenTreffer, tagesSeed, bestandsAbgleich, abbuchen, mengeAnzeige, wochenKandidaten,
 } from "./engine.js";
 import { angebotsCrawl, isoWoche, liveKonfiguriert } from "./angebote.js";
 import { generiereRezepte, scanBon, leseBarcodeVomFoto } from "./ai.js";
@@ -210,10 +213,10 @@ tabbar.addEventListener("click", async (e) => {
 });
 
 /* ------------------------------------------------------------ Onboarding */
-const leeresOb = () => ({ step: 0, name: "", form: null, ausschluesse: [], eigene: [], stile: [], ziele: [] });
+const leeresOb = () => ({ step: 0, name: "", form: null, ausschluesse: [], eigene: [], vorlieben: [], stile: [], ziele: [] });
 let ob = leeresOb();
 
-const OB_STEPS = [obWelcome, obName, obForm, obAusschluesse, obStile, obZiele, obToleranz];
+const OB_STEPS = [obWelcome, obName, obForm, obAusschluesse, obVorlieben, obStile, obZiele, obToleranz];
 
 /* Fortschrittsbalken der Übergabe: Willkommen zählt als Schritt 1 mit. */
 function progressBar(done, total) {
@@ -241,7 +244,7 @@ function obWelcome() {
       <p>Kennt deinen Vorrat. Schlägt vor, was du daraus kochst. Bucht ab, was du verbrauchst.</p>
     </div>
     <button class="btn" data-ob="next">Los geht's</button>
-    <p class="centered-note">Sechs kurze Schritte · ca. 3 Minuten</p>
+    <p class="centered-note">Sieben kurze Schritte · ca. 3 Minuten</p>
     <div class="spacer"></div>
     <div class="foot-note">${icon("lokal", 18)}<span>Alles bleibt lokal auf deinem iPhone.<br>Kein Konto, kein Server.</span></div>`;
 }
@@ -309,6 +312,44 @@ function obAusschluesse() {
     <button class="btn" data-ob="next">Weiter</button>`;
 }
 
+/* Achse 3: Vorlieben – Frage, Auswahl und Abschluss-Hinweis kommen je
+   Ernährungsform aus profil.js, damit ein Veganer nach der Proteinquelle und
+   ein Pescetarier nach dem Fisch gefragt wird statt beide nach demselben.
+   Der Schritt steht bewusst NACH den Ausschlüssen: Was ausgeschlossen ist,
+   wird gar nicht erst als Vorliebe angeboten. */
+function vorliebenListeHtml(konfig, gewaehlt, attr = "data-vorliebe") {
+  return `
+    <div class="choice-list">
+      ${konfig.optionen.map((v) => `
+        <button class="choice ${gewaehlt.includes(v.id) ? "selected" : ""}" ${attr}="${v.id}">
+          <b>${esc(v.name)}</b><span class="subtle">${esc(v.kurz)}</span>
+        </button>`).join("")}
+    </div>`;
+}
+
+/* Auswahl bereinigen, wenn sich Form oder Ausschlüsse ändern – eine Vorliebe,
+   die es in der neuen Liste nicht mehr gibt, darf nicht im Profil hängen
+   bleiben (Tofu überlebt den Wechsel, Käse beim Wechsel auf vegan nicht). */
+function bereinigeVorlieben(profilAehnlich) {
+  const erlaubt = vorliebenFuerForm(profilAehnlich.form ?? profilAehnlich.ernaehrungsform,
+    profilAehnlich.ausschluesse || [], profilAehnlich.eigene || profilAehnlich.eigeneAusschluesse || [])
+    .optionen.map((v) => v.id);
+  const liste = profilAehnlich.vorlieben || [];
+  profilAehnlich.vorlieben = liste.filter((id) => erlaubt.includes(id));
+}
+
+function obVorlieben() {
+  const konfig = vorliebenFuerForm(ob.form, ob.ausschluesse, ob.eigene);
+  return `
+    <div class="screen-header"><h1>${esc(konfig.frage)}</h1><p class="subtle">${esc(konfig.intro)}</p></div>
+    ${vorliebenListeHtml(konfig, ob.vorlieben)}
+    ${konfig.hinweis ? `
+      <div class="inline-hint">${icon("tipp", 20)}
+        <div class="hint-body"><b>Gut zu wissen</b>${esc(konfig.hinweis)}</div>
+      </div>` : ""}
+    <button class="btn" data-ob="next">${ob.vorlieben.length ? "Weiter" : "Ohne Vorlieben weiter"}</button>`;
+}
+
 function obStile() {
   return `
     <div class="screen-header"><h1>worauf hast du lust?</h1><p class="subtle">Deine Lieblingsrichtungen. Was dazu passt, rutscht in den Vorschlägen nach oben – der Rest bleibt trotzdem sichtbar.</p></div>
@@ -326,7 +367,7 @@ function obStile() {
     <button class="btn" data-ob="next">Weiter</button>`;
 }
 
-/* Achse 4: Ziele – nur über Ernährung beeinflussbare Ziele; jede Auswahl klappt
+/* Achse 5: Ziele – nur über Ernährung beeinflussbare Ziele; jede Auswahl klappt
    direkt darunter auf, was dazu wirklich belegt ist (inkl. dem, was NICHT
    belegt ist). Rückkopplung: Vorschlags-Score + AI-Rezeptgenerierung. */
 const belegBadge = (z) => z.evidenz === "hoch"
@@ -384,11 +425,20 @@ function obToleranz() {
 }
 
 function bindOnboarding() {
-  app.querySelectorAll("[data-form]").forEach((b) => b.addEventListener("click", () => { ob.form = b.dataset.form; renderOnboarding(); }));
-  app.querySelectorAll("[data-aus]").forEach((b) => b.addEventListener("click", () => { toggle(ob.ausschluesse, b.dataset.aus); renderOnboarding(); }));
+  app.querySelectorAll("[data-form]").forEach((b) => b.addEventListener("click", () => {
+    ob.form = b.dataset.form;
+    bereinigeVorlieben(ob);          // andere Form → andere Vorlieben-Liste
+    renderOnboarding();
+  }));
+  app.querySelectorAll("[data-aus]").forEach((b) => b.addEventListener("click", () => {
+    toggle(ob.ausschluesse, b.dataset.aus);
+    bereinigeVorlieben(ob);          // ausgeschlossen heißt auch: keine Vorliebe
+    renderOnboarding();
+  }));
+  app.querySelectorAll("[data-vorliebe]").forEach((b) => b.addEventListener("click", () => { toggle(ob.vorlieben, b.dataset.vorliebe); renderOnboarding(); }));
   app.querySelectorAll("[data-stil]").forEach((b) => b.addEventListener("click", () => { toggle(ob.stile, b.dataset.stil); renderOnboarding(); }));
   app.querySelectorAll("[data-ziel]").forEach((b) => b.addEventListener("click", () => { toggle(ob.ziele, b.dataset.ziel); renderOnboarding(); }));
-  bindEigeneAusschluesse(ob.eigene, renderOnboarding);
+  bindEigeneAusschluesse(ob.eigene, () => { bereinigeVorlieben(ob); renderOnboarding(); });
   app.querySelector('[data-ob="back"]')?.addEventListener("click", () => {
     // Name-Eingabe beim Zurückgehen nicht verlieren
     const feld = app.querySelector("#ob-name");
@@ -442,7 +492,8 @@ function bindOnboarding() {
     const s = getState();
     s.profil = {
       name: ob.name, ernaehrungsform: ob.form, ausschluesse: ob.ausschluesse,
-      eigeneAusschluesse: ob.eigene, stile: ob.stile, ziele: ob.ziele, onboarded: true,
+      eigeneAusschluesse: ob.eigene, vorlieben: ob.vorlieben, stile: ob.stile,
+      ziele: ob.ziele, onboarded: true,
     };
     save();
     view = "vorrat";
@@ -695,8 +746,10 @@ function renderRezeptDetail(rezept) {
   const s = getState();
   const ab = bestandsAbgleich(rezept, s.bestand);
   const tip = TIPPS[Math.abs(hashCode(rezept.id)) % TIPPS.length];
-  // Sichtbare Rückkopplung Achse 4: auf welche gewählten Ziele zahlt das Rezept ein?
+  // Sichtbare Rückkopplung Achse 5: auf welche gewählten Ziele zahlt das Rezept ein?
   const zielePassend = zielTreffer(rezept, s.profil.ziele || []).filter((t) => t.fit > 0).map((t) => t.ziel.name);
+  // … und Achse 3: welche deiner Lieblingszutaten stecken drin?
+  const vorliebenPassend = vorliebenTreffer(rezept, s.profil).map((v) => v.name);
 
   zeigeApp(`
     <div class="fade-in">
@@ -715,6 +768,10 @@ function renderRezeptDetail(rezept) {
           </div>`;
         }).join("")}
       </div>
+      ${vorliebenPassend.length ? `
+        <div class="card hint-card">${icon("idee", 20)}
+          <div class="hint-body"><b>Trifft deine Vorlieben</b>${esc(vorliebenPassend.join(" · "))}</div>
+        </div>` : ""}
       ${zielePassend.length ? `
         <div class="card hint-card">${icon("ziel", 20)}
           <div class="hint-body"><b>Zahlt auf deine Ziele ein</b>${esc(zielePassend.join(" · "))}</div>
@@ -1337,7 +1394,7 @@ const FREI_REGELN = [
   { kat: "tk",      art: "schuettgut", packung: 450, muster: /tk|tiefkühl|gefroren|rahmspinat|eis\b/ },
   { kat: "gewuerz", art: "pauschal",   muster: /gewürz|pulver|pfeffer|salz|paprika|curry|zimt|kümmel|muskat|chili/ },
   { kat: "konserve", art: "zaehlbar",  einheit: "Dose", muster: /dose|konserve|glas\b/ },
-  { kat: "kuehl",   art: "schuettgut", packung: 250, muster: /käse|quark|joghurt|sahne|milch|butter|wurst|schinken|tofu|fleisch|hack|fisch|filet|creme|dip/ },
+  { kat: "kuehl",   art: "schuettgut", packung: 250, muster: /käse|quark|joghurt|sahne|milch|butter|wurst|schinken|tofu|tempeh|seitan|fleisch|hack|fisch|filet|creme|dip/ },
   { kat: "frisch",  art: "zaehlbar",   muster: /salat|kohl|obst|gemüse|frisch|kraut|beere|apfel|birne|zwiebel|kürbis|paprika|gurke/ },
   { kat: "trocken", art: "schuettgut", packung: 500, muster: /mehl|reis|nudel|pasta|müsli|flocken|zucker|linsen|bohnen|kerne|nüsse|nuss/ },
 ];
@@ -2124,7 +2181,7 @@ function renderWissen() {
    Die Übersicht zeigt nur, was dein Profil tatsächlich ausmacht – nicht den
    ganzen Katalog. Hinzufügen läuft über „+", Entfernen über das × am Eintrag;
    die volle Auswahlliste klappt nur auf, solange man sie braucht. */
-let profilOffen = { form: false, aus: false, stile: false, ziele: false };
+let profilOffen = { form: false, aus: false, vorlieben: false, stile: false, ziele: false };
 
 /* Kopfzeile eines Profil-Abschnitts. Der Schalter rechts erscheint nur, wenn er
    etwas zu sagen hat: „Fertig" beim offenen Abschnitt, „Ändern" bei der
@@ -2174,6 +2231,24 @@ function profilAusschluesseHtml(s) {
         ${gewaehlt.map((a) => `<button class="chip selected" data-paus="${a.id}">${esc(a.name)}<span class="chip-x">×</span></button>`).join("")}
         ${eigene.map((t, i) => `<button class="chip selected" data-eigen-weg="${i}">${esc(t)}<span class="chip-x">×</span></button>`).join("")}
         <button class="chip chip-plus" data-popen="aus">${icon("plus", 16)}${leer ? "Ausschluss hinzufügen" : "Hinzufügen"}</button>
+      </div>`}`;
+}
+
+/* Vorlieben im Profil: Frage und Liste hängen an der Ernährungsform – wechselt
+   die Form, wechselt hier auch die Auswahl. Der formspezifische Hinweis bleibt
+   dem Onboarding vorbehalten; im Profil stehen die Hinweise zur Ernährungsform
+   ohnehin weiter unten. */
+function profilVorliebenHtml(s) {
+  const konfig = vorliebenFuerForm(s.profil.ernaehrungsform, s.profil.ausschluesse, s.profil.eigeneAusschluesse || []);
+  const gewaehlt = gewaehlteVorlieben(s.profil.ernaehrungsform, s.profil.vorlieben || []);
+  return `
+    ${profilKopf("Vorlieben", "vorlieben")}
+    ${profilOffen.vorlieben ? `
+      <p class="subtle small" style="margin-bottom:10px">${esc(konfig.intro)}</p>
+      ${vorliebenListeHtml(konfig, s.profil.vorlieben || [], "data-pvorliebe")}` : `
+      <div class="chip-wrap">
+        ${gewaehlt.map((v) => `<button class="chip selected" data-pvorliebe="${v.id}">${esc(v.name)}<span class="chip-x">×</span></button>`).join("")}
+        <button class="chip chip-plus" data-popen="vorlieben">${icon("plus", 16)}${gewaehlt.length ? "Hinzufügen" : "Vorliebe hinzufügen"}</button>
       </div>`}`;
 }
 
@@ -2232,6 +2307,7 @@ function renderProfil() {
 
       ${profilFormHtml(s, form)}
       ${profilAusschluesseHtml(s)}
+      ${profilVorliebenHtml(s)}
       ${profilStileHtml(s)}
       ${profilZieleHtml(s)}
 
@@ -2290,14 +2366,30 @@ function renderProfil() {
   app.querySelectorAll("[data-pform]").forEach((b) => b.addEventListener("click", () => {
     s.profil.ernaehrungsform = b.dataset.pform;
     profilOffen.form = false;      // eine Form, eine Entscheidung – Liste schließt sich
+    bereinigeVorlieben(s.profil);  // Vorlieben folgen der Form
     save();
     renderProfil();
   }));
-  app.querySelectorAll("[data-paus]").forEach((b) => b.addEventListener("click", () => { toggle(s.profil.ausschluesse, b.dataset.paus); save(); renderProfil(); }));
+  app.querySelectorAll("[data-paus]").forEach((b) => b.addEventListener("click", () => {
+    toggle(s.profil.ausschluesse, b.dataset.paus);
+    bereinigeVorlieben(s.profil);
+    save();
+    renderProfil();
+  }));
+  app.querySelectorAll("[data-pvorliebe]").forEach((b) => b.addEventListener("click", () => {
+    s.profil.vorlieben ||= [];
+    toggle(s.profil.vorlieben, b.dataset.pvorliebe);
+    // Geänderte Vorlieben sollen sofort wirken: die gemerkten Vorschläge des
+    // laufenden Slots verfallen und werden beim nächsten "Heute" neu gescort.
+    s.vorschlaege = null;
+    s.snackVorschlaege = null;
+    save();
+    renderProfil();
+  }));
   app.querySelectorAll("[data-pstil]").forEach((b) => b.addEventListener("click", () => { toggle(s.profil.stile, b.dataset.pstil); save(); renderProfil(); }));
   app.querySelectorAll("[data-pziel]").forEach((b) => b.addEventListener("click", () => { s.profil.ziele ||= []; toggle(s.profil.ziele, b.dataset.pziel); save(); renderProfil(); }));
   s.profil.eigeneAusschluesse ||= [];
-  bindEigeneAusschluesse(s.profil.eigeneAusschluesse, () => { save(); renderProfil(); });
+  bindEigeneAusschluesse(s.profil.eigeneAusschluesse, () => { bereinigeVorlieben(s.profil); save(); renderProfil(); });
   app.querySelector("#api-key-save").addEventListener("click", () => {
     s.settings.apiKey = app.querySelector("#api-key").value.trim() || null;
     save();
@@ -2333,7 +2425,7 @@ function renderProfil() {
       titel: "Wirklich alles löschen?",
       text: "Vorrat, Profil, Historie und Einkaufslisten werden entfernt. Ohne vorherigen Export ist das endgültig.",
       bestaetigen: "Alles löschen", danger: true, symbol: "achtung",
-    })) { resetAll(); ob = leeresOb(); profilOffen = { form: false, aus: false, stile: false, ziele: false }; render(); }
+    })) { resetAll(); ob = leeresOb(); profilOffen = { form: false, aus: false, vorlieben: false, stile: false, ziele: false }; render(); }
   });
 }
 

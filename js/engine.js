@@ -2,7 +2,7 @@
    Vorschlagslogik (3 Vorschläge je Slot, neu würfeln), Abbuchung mit Toleranz. */
 
 import { REZEPTE, ZUTATEN } from "./data/kerndb.js";
-import { FORM_ERLAUBT, ZIELE } from "./data/profil.js";
+import { FORM_ERLAUBT, ZIELE, gewaehlteVorlieben } from "./data/profil.js";
 
 const ZUTAT_INDEX = Object.fromEntries(ZUTATEN.map((z) => [z.id, z]));
 
@@ -92,7 +92,32 @@ function mengeInBestandsEinheit(z, item) {
   return null;
 }
 
-/* Achse 4: Wie zahlt ein Rezept auf die gewählten Ziele ein? Koppelt an
+/* Achse 3: Vorlieben – trifft das Rezept eine der gewählten Lieblingszutaten?
+   Geprüft wird über die zutat_id (Kern-DB) und zusätzlich über Zutaten- und
+   Rezeptnamen, damit auch AI-Rezepte mit freien Zutaten ("Tempeh-Bowl")
+   erkannt werden. */
+function trifftVorliebe(rezept, vorliebe) {
+  const ids = vorliebe.zutaten || [];
+  const muster = vorliebe.muster || [];
+  if (rezept.zutaten.some((z) => ids.includes(z.zutat_id))) return true;
+  const text = `${rezept.name} ${rezept.zutaten.map((z) => z.zutat_name || "").join(" ")}`.toLowerCase();
+  return muster.some((m) => text.includes(m));
+}
+
+/* Welche gewählten Vorlieben bedient dieses Rezept? (Scoring + UI-Hinweis) */
+function vorliebenTreffer(rezept, profil) {
+  const ids = profil.vorlieben || [];
+  if (!ids.length) return [];
+  return gewaehlteVorlieben(profil.ernaehrungsform, ids).filter((v) => trifftVorliebe(rezept, v));
+}
+
+/* Vorlieben-Bonus: weiche Präferenz, gedeckelt bei +14 – bleibt damit unter
+   dem Gewicht der Bestandsdeckung. Nichts wird ausgefiltert, nur sortiert. */
+function vorliebenBonus(rezept, profil) {
+  return Math.min(14, vorliebenTreffer(rezept, profil).length * 8);
+}
+
+/* Achse 5: Wie zahlt ein Rezept auf die gewählten Ziele ein? Koppelt an
    naehrwert_einordnung.profil + Tags. fit: +1 bevorzugt · −1 gemieden · 0 neutral.
    Liefert je gewähltem Ziel einen Eintrag – fürs Scoring und für UI-Badges. */
 function zielTreffer(rezept, zielIds = []) {
@@ -126,7 +151,8 @@ function vorschlaege(profil, bestand, slot, seed = 0, anzahl = 3, rezepte = REZE
       const abgleich = bestandsAbgleich(r, bestand);
       let score = abgleich.quote * 100;
       if ((profil.stile || []).some((s) => (r.tags || []).includes(s))) score += 15;
-      score += zielBonus(r, profil);                 // Achse 4: weiche Ziel-Präferenz
+      score += vorliebenBonus(r, profil);            // Achse 3: Lieblingszutaten
+      score += zielBonus(r, profil);                 // Achse 5: weiche Ziel-Präferenz
       score += pseudoZufall(r.id, seed) * 20;        // Varianz pro Wurf
       return { rezept: r, abgleich, score };
     })
@@ -153,7 +179,8 @@ function snackVorschlaege(profil, bestand, seed = 0, anzahl = 2, rezepte = REZEP
       const abgleich = bestandsAbgleich(r, bestand);
       let score = abgleich.quote * 100;
       if ((profil.stile || []).some((s) => (r.tags || []).includes(s))) score += 15;
-      score += zielBonus(r, profil);                 // Achse 4: weiche Ziel-Präferenz
+      score += vorliebenBonus(r, profil);            // Achse 3: Lieblingszutaten
+      score += zielBonus(r, profil);                 // Achse 5: weiche Ziel-Präferenz
       score += pseudoZufall(r.id, seed) * 20;
       return { rezept: r, abgleich, score };
     })
@@ -227,6 +254,6 @@ function wochenKandidaten(bestand) {
 
 export {
   ZUTAT_INDEX, aktuellerSlot, SLOT_NAMEN, rezeptErlaubt, bestandsAbgleich,
-  vorschlaege, snackVorschlaege, zielTreffer, tagesSeed, abbuchen, mengeAnzeige,
-  wochenKandidaten, mengeInBestandsEinheit,
+  vorschlaege, snackVorschlaege, zielTreffer, vorliebenTreffer, tagesSeed, abbuchen,
+  mengeAnzeige, wochenKandidaten, mengeInBestandsEinheit,
 };

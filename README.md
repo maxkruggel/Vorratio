@@ -98,8 +98,15 @@ Neu gegenüber v1:
 
 Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
 
-- **Onboarding** mit Ernährungsprofil auf vier unabhängigen Achsen (Kap. 6.1):
+- **Onboarding** mit Ernährungsprofil auf fünf unabhängigen Achsen (Kap. 6.1):
   Ernährungsform (8 Presets, DGE-basiert) · Ausschlüsse (EU-14-Allergene, halal/koscher) ·
+  **Vorlieben** – je Ernährungsform eine eigene Frage und eine eigene Auswahl statt
+  derselben Liste für alle: vegan „was ist dein protein?" (Tofu, Tempeh, Seitan,
+  Hülsenfrüchte …), pescetarisch „was kommt bei dir aus dem wasser?", Mischkost
+  „was landet am häufigsten auf deinem teller?". Tofu steht in jeder Form zur Wahl;
+  Ausgeschlossenes (Soja → Tofu, halal/koscher → Schwein) wird gar nicht erst
+  angeboten. Rückkopplung: weicher Bonus im Vorschlags-Score, AI-Systemprompt und
+  „Trifft deine Vorlieben"-Hinweis im Rezept-Detail ·
   Stil-Präferenzen (mediterran, High-Protein, Low-Carb) ·
   **Ziele** (mehr Energie, Abnehmen, fitter werden/Muskelaufbau, flacherer Bauch, mehr
   Konzentration, gesunde Verdauung) – nur Ziele, die wissenschaftlich belegt über
@@ -139,6 +146,7 @@ Umgesetzt aus der Projektdoku ([docs/vorratio-doku.md](docs/vorratio-doku.md)):
 ## Struktur
 
 ```
+CLAUDE.md             Code-Map für Claude: Architektur, Modul-Index, Konzepte, Konventionen
 index.html            App-Shell (PWA)
 manifest.webmanifest  Web-App-Manifest
 sw.js                 Service Worker (Offline-Shell)

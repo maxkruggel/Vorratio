@@ -13,8 +13,9 @@ const DEFAULT_STATE = {
     ernaehrungsform: null,   // Achse 1 (genau eine)
     ausschluesse: [],        // Achse 2 (Allergien/Intoleranzen + halal/koscher)
     eigeneAusschluesse: [],  // Achse 2, frei eingetragen ("Rosenkohl", "Koriander")
-    stile: [],               // Achse 3 (optional)
-    ziele: [],               // Achse 4 (optional, wissenschaftlich rückgekoppelt)
+    vorlieben: [],           // Achse 3 (optional, je Ernährungsform eigene Auswahl)
+    stile: [],               // Achse 4 (optional)
+    ziele: [],               // Achse 5 (optional, wissenschaftlich rückgekoppelt)
     onboarded: false,
   },
   bestand: [],               // [{ id, zutat_id, name, kategorie, art, einheit, menge, fuellstand, updated }]
@@ -72,6 +73,7 @@ function migriere(s) {
      Systemprompt der Rezeptgenerierung, die unbekannte IDs roh durchreicht. */
   s.profil.stile = liste(s.profil.stile).filter((id) => STILE.some((st) => st.id === id));
   s.profil.ziele = liste(s.profil.ziele);
+  s.profil.vorlieben = liste(s.profil.vorlieben);
   s.einkauf.rezept = liste(s.einkauf.rezept);
   s.einkauf.woche = liste(s.einkauf.woche);
   s.tipps.gesehen = liste(s.tipps.gesehen);
