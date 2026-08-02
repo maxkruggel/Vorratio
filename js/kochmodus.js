@@ -28,6 +28,11 @@ let cook = null;
 
 const istAktiv = () => cook != null;
 
+/* Startwert der Portionswahl: die im Profil hinterlegte Personenzahl
+   (Standard 2), nicht die Basis-Portionen des Rezepts – die dienen nur als
+   Bezugsgröße für den Mengenfaktor. */
+const standardPortionen = () => getState().profil?.personen || 2;
+
 /* State → Speicher. Nach jedem Schritt- und Timerwechsel. */
 function merke() {
   const s = getState();
@@ -49,7 +54,7 @@ function stelleKochenWieder() {
   if (!rezept) { s.kochen = null; save(); return false; }
   cook = {
     rezept,
-    portionen: s.kochen.portionen || rezept.portionen || 2,
+    portionen: s.kochen.portionen || standardPortionen(),
     step: s.kochen.step ?? -1,
     timer: s.kochen.timer || null,
   };
@@ -59,7 +64,7 @@ function stelleKochenWieder() {
 }
 
 function startKochen(rezept) {
-  cook = { rezept, portionen: rezept.portionen || 2, step: -1, timer: null };
+  cook = { rezept, portionen: standardPortionen(), step: -1, timer: null };
   merke();
   hooks.render();
 }

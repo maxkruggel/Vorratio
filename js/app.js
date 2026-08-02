@@ -958,9 +958,10 @@ function renderKochbuch() {
           ${KOCHBUCH_FILTER.map((f) => `
             <button class="chip ${kochbuchFilter === f.id ? "selected" : ""}" data-kfilter="${f.id}">${esc(f.name)}</button>`).join("")}
         </div>
-        <div id="kochbuch-liste">${kochbuchTrefferHtml()}</div>
-        <p class="centered-note">Gemerkte Rezepte bleiben, auch wenn Claude neue Ideen hat.<br>Sie tauchen ganz normal in den Tagesvorschlägen auf.</p>`
+        <div id="kochbuch-liste">${kochbuchTrefferHtml()}</div>`
         : kochbuchLeerHtml()}
+      ${zuletztGekochtHtml(s)}
+      ${alle.length ? `<p class="centered-note">Gemerkte Rezepte bleiben, auch wenn Claude neue Ideen hat.<br>Sie tauchen ganz normal in den Tagesvorschlägen auf.</p>` : ""}
     </div>`, "kochbuch");
 
   bindKochbuchKarten();
@@ -977,10 +978,59 @@ function renderKochbuch() {
   const feld = app.querySelector("#kochbuch-suche");
   feld?.addEventListener("input", () => {
     kochbuchSuche = feld.value;
-    // Nur die Trefferliste tauschen, damit die Tastatur den Fokus behält
-    app.querySelector("#kochbuch-liste").innerHTML = kochbuchTrefferHtml();
-    bindKochbuchKarten();
+    // Nur die Trefferliste tauschen, damit die Tastatur den Fokus behält –
+    // und nur dort neu binden, sonst hängen an „Zuletzt gekocht" doppelte Listener
+    const liste = app.querySelector("#kochbuch-liste");
+    liste.innerHTML = kochbuchTrefferHtml();
+    bindKochbuchKarten(liste);
   });
+  // „Zuletzt gekocht": nachträglich merken, ohne erst das Detail zu öffnen
+  app.querySelectorAll("[data-merk]").forEach((b) => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const rezept = findRezept(b.dataset.merk);
+    if (!rezept) return;
+    merken(getState(), rezept);
+    save();
+    toast("Im Kochbuch gespeichert");
+    renderKochbuch();
+  }));
+}
+
+/* „Zuletzt gekocht" unter der Kochbuch-Liste: Gekochtes lässt sich hier auch
+   nachträglich merken – der Merken-Schalter im Rezept-Detail gilt zwar jederzeit,
+   aber gekochte Vorschläge sind vom Heute-Tab oft schon weggewürfelt. Die
+   Historie hält nur id + Name; die Kopie fürs Kochbuch kommt über findRezept().
+   Ein AI-/Vorrats-Rezept, das aus seinem Pool rotiert ist, ist damit nicht mehr
+   speicherbar und wird ehrlich so gezeigt statt still zu fehlen. */
+function zuletztGekochtHtml(s) {
+  const gesehen = new Set();
+  const zeilen = [];
+  for (const e of s.historie) {
+    if (gesehen.has(e.rezeptId)) continue;
+    gesehen.add(e.rezeptId);
+    if (istGemerkt(s, e.rezeptId)) continue;
+    zeilen.push(e);
+    if (zeilen.length >= 8) break;
+  }
+  if (!zeilen.length) return "";
+  return `
+    <h2 class="section-gap">Zuletzt gekocht</h2>
+    <p class="subtle small" style="margin:6px 0 12px">Schon gekocht, aber noch nicht gespeichert – „merken“ holt es dauerhaft ins Kochbuch.</p>
+    <div class="card">
+      ${zeilen.map((e) => {
+        const rezept = findRezept(e.rezeptId);
+        const datum = new Date(e.datum).toLocaleDateString("de-DE");
+        if (!rezept) {
+          return `<div class="list-item"><div class="grow mute"><span class="name">${esc(e.name)}</span>
+            <span class="subtle small" style="display:block">${datum} · Vorschlag inzwischen ersetzt – nicht mehr speicherbar</span></div></div>`;
+        }
+        return `<div class="list-item tappable" data-rezept="${esc(rezept.id)}">
+          <div class="grow"><span class="name">${esc(rezept.name)}</span>
+          <span class="subtle small" style="display:block">${datum} · ${esc(rezeptMeta(rezept))}</span></div>
+          <button class="merk-btn" data-merk="${esc(rezept.id)}">${icon("merken", 17)}merken</button>
+        </div>`;
+      }).join("")}
+    </div>`;
 }
 
 /* Trefferliste des Kochbuchs – „N× gekocht" kommt aus der Historie. */
@@ -1002,8 +1052,8 @@ function kochbuchTrefferHtml() {
   }).join("");
 }
 
-function bindKochbuchKarten() {
-  app.querySelectorAll("[data-rezept]").forEach((c) => c.addEventListener("click", () => {
+function bindKochbuchKarten(root = app) {
+  root.querySelectorAll("[data-rezept]").forEach((c) => c.addEventListener("click", () => {
     oeffneRezept(c.dataset.rezept);
   }));
 }
@@ -3250,6 +3300,16 @@ function renderProfil() {
       ${profilStileHtml(s)}
       ${profilZieleHtml(s)}
 
+      <h2 class="section-gap">Für wie viele kochst du?</h2>
+      <div class="card" style="padding:22px 20px">
+        <div class="stepper">
+          <button id="personen-minus" aria-label="Weniger Personen">${icon("minus", 22)}</button>
+          <span class="count">${s.profil.personen || 2}</span>
+          <button id="personen-plus" class="primary" aria-label="Mehr Personen">${icon("plus", 22)}</button>
+        </div>
+        <p class="subtle small" style="text-align:center;margin-top:14px">Mit so vielen Portionen startet der Kochmodus – dort lässt es sich pro Gericht noch ändern.</p>
+      </div>
+
       <h2 class="section-gap">Hinweise zu deiner Ernährungsform</h2>
       ${hinweise.map((t) => `<div class="card hint-card">${icon("tipp", 20)}<span class="hint-body">${esc(t)}</span></div>`).join("")}
       <p class="subtle small">${esc(FORM_HINWEISE.sonderfaelle)}</p>
@@ -3355,6 +3415,16 @@ function renderProfil() {
   app.querySelectorAll("[data-pziel]").forEach((b) => b.addEventListener("click", () => { s.profil.ziele ||= []; toggle(s.profil.ziele, b.dataset.pziel); save(); renderProfil(); }));
   s.profil.eigeneAusschluesse ||= [];
   bindEigeneAusschluesse(s.profil.eigeneAusschluesse, () => { bereinigeVorlieben(s.profil); save(); renderProfil(); });
+  app.querySelector("#personen-minus").addEventListener("click", () => {
+    s.profil.personen = Math.max(1, (s.profil.personen || 2) - 1);
+    save();
+    renderProfil();
+  });
+  app.querySelector("#personen-plus").addEventListener("click", () => {
+    s.profil.personen = (s.profil.personen || 2) + 1;
+    save();
+    renderProfil();
+  });
   app.querySelector("#api-key-save").addEventListener("click", () => {
     s.settings.apiKey = app.querySelector("#api-key").value.trim() || null;
     save();

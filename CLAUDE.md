@@ -104,7 +104,8 @@ docs/                      Projektdoku (vorratio-doku.md), 5 Recherchen, angebot
 ## State-Schema (storage.js → DEFAULT_STATE)
 
 ```
-profil        { name, ernaehrungsform, ausschluesse[], eigeneAusschluesse[], vorlieben[], stile[], ziele[], onboarded }
+profil        { name, ernaehrungsform, ausschluesse[], eigeneAusschluesse[], vorlieben[], stile[], ziele[], personen, onboarded }
+              (personen = Standard-Personenzahl fürs Kochen, Default 2; Startwert der Portionswahl im Kochmodus)
 bestand       [{ id, zutat_id, name, kategorie, art, einheit, menge, packung?, eigen?, updated }]
 vorschlaege   { datum, slot, rezeptIds[], gewuerfelt, bestandLeer }   (Push-Fallback, tagesstabil)
 snackVorschlaege { datum, rezeptIds[], gewuerfelt }
@@ -226,7 +227,8 @@ Tipp-Pop-up (alle 9 Taps) · `render(zielView?)` + Tabbar · Onboarding
 `stelleSnacksBereit`, `rezeptKarte`, `quellenBadge`, `slotHinweis`,
 `baueAusVorrat`, `starteAiGenerierung` inkl. Gegenprüfung der gelieferten
 Rezepte) · Rezept-Detail (`ersatzIdeenHtml` = Substitutions-Teaser,
-Merken-Schalter, Notiz) · Kochbuch (`renderKochbuch`, `kochbuchTrefferHtml`)
+Merken-Schalter, Notiz) · Kochbuch (`renderKochbuch`, `kochbuchTrefferHtml`,
+`zuletztGekochtHtml` = Gekochtes aus der Historie nachträglich merken)
 + Rezept-Editor (`editor`-Entwurf, `uebernehmeEditorFelder` liest sichtbare
 Felder vor jedem Neuzeichnen zurück) · Vorrat
 (`zutatTreffer`-Suche inkl. Freitext-Anlage `addBestandFrei` mit `FREI_REGELN`,
@@ -244,7 +246,8 @@ start→lesen→ergebnis/fehler; `nimmFotos` sammelt bis zu `MAX_FOTOS` Fächer,
 `buchZugang` = zentrale Zugangsbuchung über Packungsgrößen)
 · Bon-Scan (`bon`-Statusmaschine) · Angebots-Sektion (`starteCrawl`,
 `crawlListe`) · Wissen (Tabs: tipps/ersatz/preps/bases/techniken) · Profil
-(Achsen editieren, API-Key, App-Stand + „Prüfen", Export/Import/Reset) ·
+(Achsen editieren, Personen-Standard `profil.personen`, API-Key, App-Stand +
+„Prüfen", Export/Import/Reset) ·
 App-Aktualisierung (`starteServiceWorker`, `sucheUpdate`, `spieleUpdateEin`,
 `darfNeuLaden`, `meldeUpdateNach`) · Start (`initKochmodus`,
 `onSpeicherFehler`, `stelleKochenWieder`) + `visibilitychange`.
