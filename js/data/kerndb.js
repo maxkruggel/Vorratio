@@ -33,6 +33,8 @@ const ZUTATEN = [
   { id: "ing_knoblauch",            name: "Knoblauch",               kategorie: "frisch",   art: "zaehlbar",   einheit: "Zehe" },
   { id: "ing_tomate_dose",          name: "Tomaten (Dose, stückig)", kategorie: "konserve", art: "zaehlbar",   einheit: "Dose", inhalt_g: 400 },
   { id: "ing_passierte_tomaten",    name: "Passierte Tomaten",       kategorie: "konserve", art: "schuettgut", einheit: "g",  packung: 500 },
+  { id: "ing_erbsen_moehren_dose",  name: "Erbsen und Möhren (Dose)", kategorie: "konserve", art: "zaehlbar",  einheit: "Dose", inhalt_g: 400 },
+  { id: "ing_gewuerzgurken",        name: "Gewürzgurken (Glas)",     kategorie: "konserve", art: "zaehlbar",   einheit: "Glas", inhalt_g: 360 },
   { id: "ing_tomatenmark",          name: "Tomatenmark",             kategorie: "konserve", art: "schuettgut", einheit: "g",  packung: 200 },
   { id: "ing_broccoli",             name: "Brokkoli",                kategorie: "frisch",   art: "zaehlbar",   einheit: "Stk" },
   { id: "ing_moehre",               name: "Möhren/Karotten",         kategorie: "frisch",   art: "zaehlbar",   einheit: "Stk" },

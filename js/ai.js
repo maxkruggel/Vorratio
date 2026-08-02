@@ -364,13 +364,15 @@ const SCHRANK_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["gesehen", "name", "zutat_id", "anzahl", "fuellstand", "sicher"],
+        required: ["gesehen", "name", "zutat_id", "anzahl", "fuellstand", "packung_menge", "packung_einheit", "sicher"],
         properties: {
           gesehen: { type: "string" },
           name: { type: "string" },
           zutat_id: { type: ["string", "null"] },
           anzahl: { type: ["number", "null"] },
           fuellstand: { type: ["number", "null"] },
+          packung_menge: { type: ["number", "null"] },
+          packung_einheit: { type: ["string", "null"], enum: ["g", "kg", "ml", "l", null] },
           sicher: { type: "boolean" },
         },
       },
@@ -398,10 +400,13 @@ und trägt fehlende Mengen selbst nach – eine erfundene Angabe kostet ihn mehr
 - "name": die Zutat auf Deutsch, ohne Marke ("Passierte Tomaten", nicht "Mutti Passata").
 - "zutat_id": passende ID aus dem Katalog, sonst null. Achte auf die Führungsart:
   "Kichererbsen (Dose)" ist eine andere Zutat als getrocknete Kichererbsen.
-- "anzahl": nur bei zählbaren Dingen und nur, wenn du sie wirklich zählen kannst
-  (5 sichtbare Dosen = 5). Verdeckt gestapelt oder unklar: null.
+- "anzahl": nur, wenn du wirklich zählen kannst (5 sichtbare Dosen = 5). Auch mehrere
+  Packungen derselben Schüttgut-Zutat zählen ("drei Tuben Tomatenmark" = 3).
+  Verdeckt gestapelt oder unklar: null.
 - "fuellstand": 0 bis 1, NUR wenn der Inhalt sichtbar ist – durchsichtiges Glas, Flasche,
   offene Schale. Blickdichte Packungen (Mehltüte, Karton, Dose): immer null. Rate nie.
+- "packung_menge"/"packung_einheit": die aufgedruckte Packungsgröße (z. B. "500 g", "0,7 l"),
+  NUR wenn sie auf dem Etikett wirklich lesbar ist. Nicht lesbar oder nur üblich: beides null.
 - "sicher": true nur bei lesbarem Etikett oder eindeutiger Form. Alles Erahnte: false.
 - Steht dieselbe Sache mehrfach im Bild oder auf mehreren Fotos, nenne sie einmal.
 - "ort": drei bis fünf Worte, was da fotografiert wurde ("Schubfach mit Trockenware").

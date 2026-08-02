@@ -189,8 +189,8 @@ p + p { margin-top: 8px; }
   margin-bottom: 12px;
 }
 /* Reine Listenkarten sitzen enger am Rand (Design: 4 px 16 px). */
-.card:has(> .list-item:first-child) { padding-top: 5px; }
-.card:has(> .list-item:last-child) { padding-bottom: 5px; }
+.card:has(> .list-item:first-child), .card:has(> .swipe-zeile:first-child) { padding-top: 5px; }
+.card:has(> .list-item:last-child), .card:has(> .swipe-zeile:last-child) { padding-bottom: 5px; }
 
 .card.tappable { cursor: pointer; transition: transform 0.06s ease; }
 .card.tappable:active { transform: scale(0.985); }
@@ -348,6 +348,8 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   color: var(--accent-deep);
 }
 .choice.selected .subtle { color: var(--accent-deep); opacity: 0.78; }
+/* Auf der grünen Auswahlfläche ginge ein grüner Badge unter – Papier drunter. */
+.choice.selected .badge { background: var(--surface); }
 
 .chip-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
@@ -480,6 +482,18 @@ input[type="range"]::-moz-range-thumb {
   width: 26px; height: 26px; border-radius: 999px;
   background: var(--surface); border: 2px solid var(--accent);
 }
+
+/* Ganze, ungeöffnete Packungen neben der offenen (3 × 250 g Tomatenmark) */
+.pack-mehr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.pack-mehr .lbl { font-size: 13px; color: var(--ink-mute); }
 
 /* Schnellwahl unter dem Regler (leer · ¼ · ½ · ¾ · voll) */
 .quick-row { display: flex; gap: 8px; }
@@ -688,6 +702,31 @@ input[type="range"]::-moz-range-thumb {
 .list-item .name { font-weight: 600; }
 .list-item .value { font-size: 15px; color: var(--ink-soft); flex: none; }
 
+/* Wisch-Löschen in der Bestandsliste: Zeile nach links schieben legt den
+   Entfernen-Knopf frei. Der Trennstrich wandert auf den Wrapper, sonst wäre
+   jede Zeile ein :last-child ihres Wisch-Containers und verlöre ihn. */
+.swipe-zeile { position: relative; overflow: hidden; border-bottom: 1px solid var(--line-soft); }
+.swipe-zeile:last-child { border-bottom: none; }
+.swipe-zeile .list-item { border-bottom: none; }
+.swipe-inhalt { position: relative; background: var(--surface); transition: transform 0.18s ease; }
+.swipe-zeile.offen .swipe-inhalt { transform: translateX(-100px); }
+.swipe-entfernen {
+  --duo: rgba(255, 253, 248, 0.2);
+  position: absolute;
+  top: 6px; right: 0; bottom: 6px;
+  width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 12px;
+  background: var(--warn);
+  color: var(--on-warn);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 /* Check-Kreis: gefüllt = erledigt/vorhanden, leer = offen/fehlt */
 .check {
   width: 24px; height: 24px;
@@ -849,6 +888,20 @@ button.mic-panel:active { transform: scale(0.985); }
 .foto-zeile:last-child { border-bottom: none; }
 .foto-menge { padding: 10px 0 14px 44px; }
 .foto-menge .quick-row .chip { padding: 8px 0; font-size: 14px; }
+
+/* Füllstand direkt in der Zeile: kleine Gebinde-Silhouette + Regler, dieselbe
+   Bedienung wie im Mengen-Screen (Design 19), nur kompakt. */
+.foto-fuellstand { display: flex; gap: 14px; align-items: center; }
+.foto-fuellstand .grow { min-width: 0; }
+.foto-fuellstand input[type="range"] { margin: 0 0 8px; }
+.pack-silhouette.mini { width: 42px; height: 64px; border-radius: 9px; border-width: 1.5px; padding: 3px; }
+.pack-silhouette.mini > div { border-radius: 5px; }
+
+/* Zeile unter dem Bedienelement: Packungsgröße korrigieren, Führungsart wechseln */
+.foto-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.foto-meta .mini-link { margin-top: 0; }
+.packung-edit { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-mute); }
+.packung-edit input { width: 76px; padding: 7px 9px; font-size: 14px; text-align: right; }
 
 /* Stepper im Zeilenformat – gleiche Bedienung wie im Mengen-Screen, nur klein. */
 .mini-stepper { display: flex; align-items: center; gap: 16px; }
@@ -1016,31 +1069,38 @@ dialog.sheet[open]::backdrop { animation: sheetFade 0.22s ease; }
 }
 
 /* ------------------------------------------------- Aufgeklappter Hinweis
-   Hängt direkt unter der Option, die ihn ausgelöst hat, und ist farblich
-   abgesetzt – man muss nicht ans Seitenende scrollen, um ihn zu finden. */
+   Hängt unter der Option, die ihn ausgelöst hat, aber als eigenes Blatt:
+   Papierfläche mit farbiger Kante statt einer zweiten Grünfläche – neben den
+   grün gefüllten Auswahlkarten blieb der Hinweis sonst unsichtbar und die
+   Screens wirkten grün in grün. Luft nach unten trennt ihn von der nächsten
+   Karte. */
 .inline-hint {
-  --duo: var(--surface);
+  --duo: var(--accent-soft);
   display: flex;
   gap: 11px;
-  margin: -3px 0 3px;
+  margin: 0 0 7px;
   padding: 14px 16px;
   border-radius: var(--radius-input);
+  border: 1px solid var(--line);
   border-left: 3px solid var(--accent);
-  background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface));
-  color: var(--accent-deep);
+  background: var(--surface);
+  color: var(--ink-soft);
   font-size: 14px;
   line-height: 1.55;
   animation: hintOpen 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
-.inline-hint > .ic { color: var(--accent-deep); margin-top: 1px; flex: none; }
+.inline-hint > .ic { color: var(--accent); margin-top: 1px; flex: none; }
 .inline-hint .hint-body { flex: 1; min-width: 0; }
-.inline-hint b { display: block; margin-bottom: 4px; font-weight: 700; }
+.inline-hint b { display: block; margin-bottom: 4px; font-weight: 700; color: var(--accent-deep); }
 .inline-hint.warn {
+  --duo: var(--warn-soft);
   border-left-color: var(--warn);
-  background: color-mix(in srgb, var(--warn-soft) 70%, var(--surface));
-  color: var(--warn-ink);
 }
-.inline-hint.warn > .ic { color: var(--warn-ink); }
+.inline-hint.warn > .ic { color: var(--warn); }
+.inline-hint.warn b { color: var(--warn-ink); }
+/* Steht der Hinweis nach der Liste (Onboarding-Vorlieben), braucht er die
+   Luft selbst – in der Liste übernimmt das der Flex-Gap. */
+.choice-list + .inline-hint { margin-top: 12px; }
 @keyframes hintOpen { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
 /* Chips mit Entfernen-Kreuz bzw. Zusatzhinweis */
@@ -1101,6 +1161,7 @@ dialog.sheet[open]::backdrop { animation: sheetFade 0.22s ease; }
 
 @media (prefers-reduced-motion: reduce) {
   .inline-hint, .tipp-pop { animation: none; }
+  .swipe-inhalt { transition: none; }
 }
 
 /* Profil-Kopf */
