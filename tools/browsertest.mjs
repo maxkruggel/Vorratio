@@ -53,7 +53,7 @@ await schritt("Startbildschirm da", async () => {
 });
 
 // Onboarding durchklicken: immer den letzten aktiven Weiter-Button nehmen
-await schritt("7 Schritte durchklicken", async () => {
+await schritt("8 Schritte durchklicken", async () => {
   for (let i = 0; i < 20; i++) {
     if (await page.locator("#tabbar:not([hidden])").count()) return;
     // Name eintragen, falls der Namensschritt dran ist

@@ -240,7 +240,7 @@ wird gegen die Wanduhr nachgezogen und der Tick neu gestartet.
 
 **app.js** – Sektionen in Dateireihenfolge (Kommentar-Trennlinien im Code):
 Tipp-Pop-up (alle 9 Taps) · `render(zielView?)` + Tabbar · Onboarding
-(7 Schritte `OB_STEPS`, Zustand `ob`) · Heute (`stelleVorschlaegeBereit`,
+(8 Schritte `OB_STEPS` inkl. Personen-Standard, Zustand `ob`) · Heute (`stelleVorschlaegeBereit`,
 `stelleSnacksBereit`, `rezeptKarte`, `quellenBadge`, `slotHinweis`,
 `baueAusVorrat`, `starteAiGenerierung` inkl. Gegenprüfung der gelieferten
 Rezepte) · Rezept-Detail (`ersatzIdeenHtml` = Substitutions-Teaser,
