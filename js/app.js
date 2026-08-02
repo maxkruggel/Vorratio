@@ -3181,6 +3181,16 @@ function renderProfil() {
       ${profilStileHtml(s)}
       ${profilZieleHtml(s)}
 
+      <h2 class="section-gap">Für wie viele kochst du?</h2>
+      <div class="card" style="padding:22px 20px">
+        <div class="stepper">
+          <button id="personen-minus" aria-label="Weniger Personen">${icon("minus", 22)}</button>
+          <span class="count">${s.profil.personen || 2}</span>
+          <button id="personen-plus" class="primary" aria-label="Mehr Personen">${icon("plus", 22)}</button>
+        </div>
+        <p class="subtle small" style="text-align:center;margin-top:14px">Mit so vielen Portionen startet der Kochmodus – dort lässt es sich pro Gericht noch ändern.</p>
+      </div>
+
       <h2 class="section-gap">Hinweise zu deiner Ernährungsform</h2>
       ${hinweise.map((t) => `<div class="card hint-card">${icon("tipp", 20)}<span class="hint-body">${esc(t)}</span></div>`).join("")}
       <p class="subtle small">${esc(FORM_HINWEISE.sonderfaelle)}</p>
@@ -3286,6 +3296,16 @@ function renderProfil() {
   app.querySelectorAll("[data-pziel]").forEach((b) => b.addEventListener("click", () => { s.profil.ziele ||= []; toggle(s.profil.ziele, b.dataset.pziel); save(); renderProfil(); }));
   s.profil.eigeneAusschluesse ||= [];
   bindEigeneAusschluesse(s.profil.eigeneAusschluesse, () => { bereinigeVorlieben(s.profil); save(); renderProfil(); });
+  app.querySelector("#personen-minus").addEventListener("click", () => {
+    s.profil.personen = Math.max(1, (s.profil.personen || 2) - 1);
+    save();
+    renderProfil();
+  });
+  app.querySelector("#personen-plus").addEventListener("click", () => {
+    s.profil.personen = (s.profil.personen || 2) + 1;
+    save();
+    renderProfil();
+  });
   app.querySelector("#api-key-save").addEventListener("click", () => {
     s.settings.apiKey = app.querySelector("#api-key").value.trim() || null;
     save();
