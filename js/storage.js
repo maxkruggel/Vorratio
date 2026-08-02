@@ -41,6 +41,13 @@ const DEFAULT_STATE = {
      im Rezeptschema. Bewusst Kopien statt Verweisen – ein gemerktes Rezept
      überlebt so die Rotation des AI- und des Generator-Pools. */
   kochbuch: [],
+  /* Laufender Kochmodus. Liegt im State, weil iOS PWA-Seiten im Hintergrund
+     verwirft: Wer beim 25-Minuten-Köcheln kurz die App wechselt, stand sonst
+     wieder auf Schritt 1. Der Timer merkt sich `ende` als Zeitstempel, läuft
+     also über Schließen und Neuladen hinweg weiter.
+     { rezeptId, portionen, step, timer: { name, typ, total, rest, ende,
+       laeuft, gestartet, fertig } } */
+  kochen: null,
   /* Tipp-Dosierung: Tipps kommen nach und nach statt alle auf einmal.
      `klicks` zählt die Interaktionen bis zum nächsten Pop-up, `gesehen`
      merkt sich die schon gezeigten Tipps, damit sie rotieren. */
@@ -82,11 +89,14 @@ function migriere(s) {
   s.einkauf.woche = liste(s.einkauf.woche);
   s.tipps.gesehen = liste(s.tipps.gesehen);
   s.kochbuch = liste(s.kochbuch);
+  // Kochmodus: Objekt oder null, nie eine Liste – deshalb außerhalb von liste().
+  if (typeof s.kochen !== "object" || Array.isArray(s.kochen)) s.kochen = null;
   return s;
 }
 
 let state = null;
 const listeners = [];
+const fehlerListeners = [];
 
 function load() {
   try {
@@ -104,26 +114,44 @@ function load() {
   return state;
 }
 
-/* Eine Aktion = ein Save. Jede Mutation läuft über save(). */
+/* Eine Aktion = ein Save. Jede Mutation läuft über save().
+
+   Scheitert das Schreiben (voller localStorage, iOS-Storage-Eviction, privater
+   Modus), darf das nicht still passieren: Der Nutzer arbeitet sonst weiter und
+   verliert alles beim nächsten Öffnen. Deshalb melden wir es nach oben – die
+   App zeigt daraufhin einen Hinweis mit dem Weg zum Export.
+   Rückgabe: true = gespeichert, false = nicht gespeichert. */
 function save() {
+  let ok = true;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
+    ok = false;
     console.error("Vorratio: Speichern fehlgeschlagen.", e);
+    fehlerListeners.forEach((fn) => fn(e));
   }
   listeners.forEach((fn) => fn(state));
+  return ok;
 }
 
 function onChange(fn) { listeners.push(fn); }
 
+/* Wird gerufen, wenn ein save() fehlgeschlagen ist. */
+function onSpeicherFehler(fn) { fehlerListeners.push(fn); }
+
 function getState() { return state; }
 
-/* JSON-Export: vollständiger Datenbestand als Datei. */
+/* JSON-Export: vollständiger Datenbestand als Datei.
+
+   Ohne den API-Key. Die Sicherung landet in Downloads, iCloud oder im Chat mit
+   einem zweiten Gerät – ein Schlüssel im Klartext hat dort nichts verloren.
+   Beim Import bleibt deshalb der Key erhalten, der auf dem Gerät liegt. */
 function exportJson() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const daten = { ...state, settings: { ...state.settings, apiKey: null } };
+  const blob = new Blob([JSON.stringify(daten, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  const datum = new Date().toISOString().slice(0, 10);
+  const datum = lokalesDatum();
   a.href = url;
   a.download = `vorratio-backup-${datum}.json`;
   // Der Link muss im Dokument hängen (Firefox) und die Blob-URL darf erst nach
@@ -133,6 +161,14 @@ function exportJson() {
   document.body.append(a);
   a.click();
   setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 0);
+}
+
+/* Datum als YYYY-MM-DD in Ortszeit. toISOString() rechnet nach UTC um – in der
+   Sommerzeit wäre zwischen 0 und 2 Uhr noch der Vortag dran, und die
+   tagesstabilen Vorschläge würden erst um 2 Uhr wechseln statt um Mitternacht. */
+function lokalesDatum(d = new Date()) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 /* JSON-Import: Datei einspielen, ersetzt den kompletten Bestand. */
@@ -145,8 +181,11 @@ function importJson(file) {
         if (!data || typeof data !== "object" || !("profil" in data)) {
           throw new Error("Keine gültige Vorratio-Sicherung.");
         }
+        // Der Key steht nicht in der Sicherung (s. exportJson) – den vom Gerät behalten.
+        const bisherigerKey = state?.settings?.apiKey || null;
         state = migriere({ ...structuredClone(DEFAULT_STATE), ...data });
-        save();
+        state.settings.apiKey ||= bisherigerKey;
+        if (!save()) throw new Error("Import konnte nicht gespeichert werden – der Gerätespeicher ist voll.");
         resolve(state);
       } catch (e) { reject(e); }
     };
@@ -161,4 +200,6 @@ function resetAll() {
   save();
 }
 
-export { load, save, getState, onChange, exportJson, importJson, resetAll };
+export {
+  load, save, getState, onChange, onSpeicherFehler, exportJson, importJson, resetAll, lokalesDatum,
+};

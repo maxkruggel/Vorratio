@@ -1,0 +1,24 @@
+name: CI
+
+# Vorratio hat keinen Build-Schritt und keine Abhängigkeiten – hier laufen
+# deshalb nur die beiden Prüfungen, die das Projekt selbst mitbringt:
+# der Datenbank-Validator und die Engine-Tests.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  pruefen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Rezeptdatenbank validieren
+        run: node tools/validate-db.mjs
+
+      - name: Engine-Tests
+        run: node tools/test-engine.mjs

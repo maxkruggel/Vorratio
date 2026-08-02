@@ -3,7 +3,9 @@
    Vorschläge (3 je Slot, neu würfeln) → fokussierter Einkauf → Kochmodus mit
    Timern → Abhaken & Abbuchung → Wocheneinkauf. */
 
-import { load, save, getState, exportJson, importJson, resetAll } from "./storage.js";
+import {
+  load, save, getState, onSpeicherFehler, exportJson, importJson, resetAll, lokalesDatum,
+} from "./storage.js";
 import { ZUTATEN, REZEPTE, PREPS, BASES, TIPPS, IDEEN, TECHNIKEN } from "./data/kerndb.js";
 import {
   ERNAEHRUNGSFORMEN, AUSSCHLUESSE, STILE, ZIELE, hinweiseFuerForm, FORM_HINWEISE,
@@ -28,6 +30,11 @@ import {
   leereZutat, leererSchritt,
 } from "./kochbuch.js";
 import { icon, logoMark } from "./icons.js";
+import { app, esc, h, zeigeApp, aktuellerScreen, dialog, bestaetige, toast, progressBar } from "./ui.js";
+import {
+  initKochmodus, startKochen, beendeKochen, darfVerlassen, istAktiv as kochtGerade,
+  stelleKochenWieder, renderKochmodus, pruefeTimerNachPause,
+} from "./kochmodus.js";
 
 /* Kern-DB + AI-generierte + aus dem Vorrat kombinierte + gespeicherte Rezepte
    als ein Pool. Das Kochbuch enthält Kopien – gleiche id gewinnt einmal, damit
@@ -53,10 +60,8 @@ function quellenBadge(rezept) {
   return `<span class="badge">${icon(QUELLE_ICON[q], 14)}${esc(QUELLE_LABEL[q])}</span>`;
 }
 
-const app = document.getElementById("app");
 const tabbar = document.getElementById("tabbar");
 let view = "heute";
-let cook = null;            // { rezept, portionen, step, timer }
 let detailRezept = null;
 
 const KATEGORIE_NAMEN = {
@@ -69,76 +74,10 @@ const SLOT_ZEIT = { fruehstueck: "8:00", mittag: "11:30", abend: "17:30" };
 
 const portionenText = (n) => `${n} ${n === 1 ? "Portion" : "Portionen"}`;
 
-/* ------------------------------------------------------------------ Helpers */
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const heuteStr = () => new Date().toISOString().slice(0, 10);
-
-function h(html) {
-  const t = document.createElement("template");
-  t.innerHTML = html.trim();
-  return t.content;
-}
-
-/* -------------------------------------------------------- Bildschirmwechsel
-   Jede Interaktion zeichnet ihren Screen komplett neu. Würde dabei jedes Mal
-   die Einblendung neu starten, flackert die Oberfläche bei jedem Tap – genau
-   das wirkte ruppig. Darum bekommt nur der echte Wechsel eine (ruhige)
-   Einblendung; ein Neuzeichnen desselben Screens tauscht still den Inhalt und
-   behält die Scrollposition. */
-let letzterScreen = null;
-
-function zeigeApp(html, key) {
-  const gleicherScreen = key === letzterScreen;
-  letzterScreen = key;
-  const frag = h(html);
-  if (gleicherScreen) frag.firstElementChild?.classList.remove("fade-in");
-  app.replaceChildren(frag);
-}
-
-/* -------------------------------------------------- Dialoge & Bestätigungen
-   Ersetzt die nativen confirm()/alert() durch gestaltete Sheets bzw. Toasts
-   (Design-Übergabe Kap. 5, „dürfen gern durch gestaltete Dialoge ersetzt
-   werden"). Beide hängen an <body>, nicht an #app – ein render() dazwischen
-   räumt sie also nicht weg. */
-function dialog({ titel, text = "", bestaetigen = "OK", abbrechen = null, danger = false, symbol = null }) {
-  return new Promise((resolve) => {
-    const d = document.createElement("dialog");
-    d.className = "sheet";
-    d.innerHTML = `
-      <form method="dialog" class="sheet-inner">
-        ${symbol ? icon(symbol, 28, danger ? "ic-warn" : "ic-accent") : ""}
-        <h3>${esc(titel)}</h3>
-        ${text ? `<p>${esc(text)}</p>` : ""}
-        <div class="btn-row">
-          ${abbrechen ? `<button class="btn secondary" value="nein" autofocus>${esc(abbrechen)}</button>` : ""}
-          <button class="btn${danger ? " danger-solid" : ""}" value="ja"${abbrechen ? "" : " autofocus"}>${esc(bestaetigen)}</button>
-        </div>
-      </form>`;
-    // Tap auf den Scrim = abbrechen, genau wie ESC
-    d.addEventListener("click", (e) => { if (e.target === d) { d.returnValue = "nein"; d.close(); } });
-    d.addEventListener("close", () => { d.remove(); resolve(d.returnValue === "ja"); }, { once: true });
-    document.body.append(d);
-    d.showModal();
-  });
-}
-
-const bestaetige = (opts) => dialog({ abbrechen: "Abbrechen", ...opts });
-
-/* Kurze Rückmeldung ohne Gegenfrage – ersetzt die reinen alert()-Bestätigungen. */
-let toastTimer = null;
-function toast(text, art = "ok") {
-  document.querySelector(".toast")?.remove();
-  const t = document.createElement("div");
-  t.className = `toast ${art}`;
-  t.setAttribute("role", "status");
-  t.innerHTML = `${icon(art === "warn" ? "achtung" : "check", 20)}<span>${esc(text)}</span>`;
-  document.body.append(t);
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    t.classList.add("weg");
-    setTimeout(() => t.remove(), 300);
-  }, 2600);
-}
+/* ------------------------------------------------------------------ Helpers
+   esc/h/zeigeApp/dialog/bestaetige/toast/progressBar liegen in js/ui.js –
+   sie werden auch vom Kochmodus gebraucht. */
+const heuteStr = () => lokalesDatum();
 
 /* ------------------------------------------------------------ Tipp-Pop-up
    Alle Tipps auf einmal liest niemand. Darum meldet sich alle paar Taps einer
@@ -195,13 +134,16 @@ document.addEventListener("click", (e) => {
   s.tipps.klicks = 0;
   save();
   // Nicht mitten in einen Kochschritt, ein Rezept in Arbeit oder einen offenen Dialog platzen
-  if (cook || editor || tippPopOffen || document.querySelector("dialog[open]")) return;
+  if (kochtGerade() || editor || tippPopOffen || document.querySelector("dialog[open]")) return;
   zeigeTippPop();
 });
 
-function render() {
+/* Zentrale Neuzeichnung. `zielView` schaltet dabei optional die Ansicht um –
+   der Kochmodus nutzt das, um nach dem Abbuchen in den Vorrat zu springen. */
+function render(zielView = null) {
+  if (zielView) { view = zielView; detailRezept = null; }
   const s = getState();
-  const vorher = letzterScreen;
+  const vorher = aktuellerScreen();
   if (!s.profil.onboarded) {
     tabbar.hidden = true;
     document.body.classList.add("onboarding");   // kein Tabbar-Platz im Onboarding
@@ -211,7 +153,7 @@ function render() {
   tabbar.hidden = false;
   document.body.classList.remove("onboarding");
   tabbar.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
-  if (cook) { renderKochmodus(); return; }
+  if (kochtGerade()) { renderKochmodus(); return; }
   if (editor) { renderRezeptEditor(); return; }
   if (detailRezept) { renderRezeptDetail(detailRezept); return; }
   ({
@@ -220,28 +162,23 @@ function render() {
   }[view] || renderHeute)();
   // Nur beim echten Wechsel nach oben springen – sonst reißt es einen beim
   // Antippen mitten in der Liste an den Seitenanfang.
-  if (letzterScreen !== vorher) window.scrollTo(0, 0);
+  if (aktuellerScreen() !== vorher) window.scrollTo(0, 0);
 }
 
 tabbar.addEventListener("click", async (e) => {
   const b = e.target.closest(".tab");
   if (!b) return;
-  if (cook && !await bestaetige({
-    titel: "Kochen verlassen?",
-    text: "Der Kochmodus wird geschlossen. Es wird nichts abgebucht.",
-    bestaetigen: "Verlassen", abbrechen: "Weiterkochen", danger: true, symbol: "achtung",
-  })) return;
+  if (!await darfVerlassen()) return;
   if (editor && !await bestaetige({
     titel: "Rezept verwerfen?",
     text: "Das angefangene Rezept ist noch nicht im Kochbuch.",
     bestaetigen: "Verwerfen", abbrechen: "Weiter schreiben", danger: true, symbol: "achtung",
   })) return;
-  cook = null;
+  beendeKochen();
   editor = null;
   // Ein Mikrofon, das im nächsten Tab weiterhört, gehört in keine Vorrats-App.
   diktat = null;
   stoppeAufnahme();
-  clearTimerTick();
   view = b.dataset.view;
   detailRezept = null;
   render();
@@ -253,10 +190,6 @@ let ob = leeresOb();
 
 const OB_STEPS = [obWelcome, obName, obForm, obAusschluesse, obVorlieben, obStile, obZiele, obToleranz];
 
-/* Fortschrittsbalken der Übergabe: Willkommen zählt als Schritt 1 mit. */
-function progressBar(done, total) {
-  return `<div class="progress-bar">${Array.from({ length: total }, (_, i) => `<span class="${i < done ? "done" : ""}"></span>`).join("")}</div>`;
-}
 
 function renderOnboarding() {
   const welcome = ob.step === 0;
@@ -622,6 +555,16 @@ function stelleSnacksBereit(neuWuerfeln = false) {
   return s.snackVorschlaege;
 }
 
+/* Kommt der Vorschlag eigentlich aus einem anderen Slot? Passiert, wenn das
+   Profil den Slot-Pool leerfiltert (z. B. Frühstück bei mehreren Allergien) –
+   dann füllt die Engine mit Mittag/Abend auf. Das sagen wir dazu, statt ein
+   Abendgericht kommentarlos als Frühstück zu verkaufen. */
+function slotHinweis(rezept, slot) {
+  if (rezept.mahlzeitentyp.includes(slot)) return "";
+  const eigener = rezept.mahlzeitentyp.find((m) => SLOT_NAMEN[m]);
+  return eigener ? `<span class="badge neutral">eigentlich fürs ${SLOT_NAMEN[eigener]}</span>` : "";
+}
+
 /* Rezeptkarte (Design 07): Titel + Zeit-Pill, Meta-Zeile, darunter die
    Status-Pills – „von claude", „im Kochbuch", „alles da" bzw. „N fehlen". */
 function rezeptKarte(v, meta, { gedimmt = false, herkunft = true } = {}) {
@@ -631,6 +574,7 @@ function rezeptKarte(v, meta, { gedimmt = false, herkunft = true } = {}) {
     <div class="card-tags">
       ${herkunft ? quellenBadge(v.rezept) : ""}
       ${gemerkt ? `<span class="badge">${icon("gemerkt", 14)}im Kochbuch</span>` : ""}
+      ${v.slotHinweis || ""}
       ${fehlt.length === 0
         ? `<span class="badge">${icon("check", 18)}alles da</span>`
         : `<span class="badge warn">${fehlt.length === 1 ? "1 fehlt" : `${fehlt.length} fehlen`}</span>
@@ -654,7 +598,11 @@ function renderHeute() {
   const vs = bereit.rezeptIds
     .map((id) => findRezept(id))
     .filter(Boolean)
-    .map((rezept) => ({ rezept, abgleich: bestandsAbgleich(rezept, s.bestand) }));
+    .map((rezept) => ({
+      rezept,
+      abgleich: bestandsAbgleich(rezept, s.bestand),
+      slotHinweis: slotHinweis(rezept, slot),
+    }));
   const snacksBereit = stelleSnacksBereit();
   const snacks = (snacksBereit?.rezeptIds || [])
     .map((id) => findRezept(id))
@@ -761,14 +709,29 @@ async function starteAiGenerierung(slot) {
   }
   aiLaeuft = true;
   aiFehler = null;
+  genHinweis = null;
   render();
   try {
     const neue = await generiereRezepte(s.settings.apiKey, s.profil, s.bestand, slot);
-    s.aiRezepte = [...neue, ...(s.aiRezepte || [])].slice(0, 24);  // jüngste behalten
-    save();
-    // Neue Rezepte in die passende Vorschlagsschiene würfeln
-    if (slot === "snack") stelleSnacksBereit(true);
-    else stelleVorschlaegeBereit(true);
+    // Gegenprüfung: Rezepte, die dem Profil widersprechen, werden vom Filter
+    // ohnehin ausgeblendet. Ohne Rückmeldung sähe der Nutzer nur, dass nach
+    // dem Warten nichts passiert ist – deshalb sagen wir, was aussortiert wurde.
+    const brauchbar = neue.filter((r) => rezeptErlaubt(r, s.profil));
+    const verworfen = neue.length - brauchbar.length;
+    if (!brauchbar.length) {
+      aiFehler = neue.length
+        ? `Claude hat ${neue.length} ${neue.length === 1 ? "Rezept" : "Rezepte"} geliefert, aber ${neue.length === 1 ? "es passt" : "keins passt"} zu deinen Ausschlüssen. Versuch es noch einmal.`
+        : "Claude hat kein Rezept geliefert. Versuch es noch einmal.";
+    } else {
+      s.aiRezepte = [...brauchbar, ...(s.aiRezepte || [])].slice(0, 24);  // jüngste behalten
+      save();
+      // Neue Rezepte in die passende Vorschlagsschiene würfeln
+      if (slot === "snack") stelleSnacksBereit(true);
+      else stelleVorschlaegeBereit(true);
+      if (verworfen) {
+        genHinweis = `${verworfen} von ${neue.length} Vorschlägen passten nicht zu deinen Ausschlüssen und wurden aussortiert.`;
+      }
+    }
   } catch (e) {
     aiFehler = e.message;
   }
@@ -1281,213 +1244,10 @@ function bindEditor() {
   });
 }
 
-/* -------------------------------------------------------------- Kochmodus */
-function startKochen(rezept) {
-  cook = { rezept, portionen: rezept.portionen || 2, step: -1, timer: null };
-  render();
-}
+/* Kochmodus, Timer und Abbuchung liegen in js/kochmodus.js – der laufende
+   Durchgang gehört in den State, damit ihn ein Wegwischen der App nicht
+   zerstört. app.js reicht nur render/findRezept/syncWochenliste hinein. */
 
-function renderKochmodus() {
-  const { rezept, step } = cook;
-  clearTimerTick();
-
-  if (step === -1) {
-    const faktor = cook.portionen / (rezept.portionen || cook.portionen);
-    const vorschau = rezept.zutaten.filter((z) => z.menge != null).slice(0, 3)
-      .map((z) => `${Math.round(z.menge * faktor * 10) / 10} ${z.einheit === "Stk" ? "×" : z.einheit} ${z.zutat_name}`)
-      .join(" · ");
-    zeigeApp(`
-      <div class="fade-in">
-        <button class="backlink" id="abbrechen">${icon("zurueck", 20)}Abbrechen</button>
-        <div class="screen-header" style="margin-top:10px"><h1>${esc(rezept.name)}</h1><p class="subtle">Für wie viele kochst du?</p></div>
-        <div class="card" style="padding:26px 20px;border-radius:20px">
-          <div class="stepper">
-            <button id="p-minus" aria-label="Weniger Portionen">${icon("minus", 22)}</button>
-            <span class="count">${cook.portionen}</span>
-            <button id="p-plus" class="primary" aria-label="Mehr Portionen">${icon("plus", 22)}</button>
-          </div>
-          <p class="subtle small" style="text-align:center;margin-top:16px">Portionen · Mengen rechnen sich mit</p>
-        </div>
-        ${vorschau ? `
-          <div class="card hint-card" style="flex-direction:column">
-            <b>Für ${cook.portionen} ${cook.portionen === 1 ? "Portion" : "Portionen"} brauchst du</b>
-            <span>${esc(vorschau)}</span>
-          </div>` : ""}
-        <button class="btn" id="los">Los kochen</button>
-      </div>`, "kochen-portionen");
-    app.querySelector("#abbrechen").addEventListener("click", () => { cook = null; render(); });
-    app.querySelector("#p-minus").addEventListener("click", () => { cook.portionen = Math.max(1, cook.portionen - 1); renderKochmodus(); });
-    app.querySelector("#p-plus").addEventListener("click", () => { cook.portionen++; renderKochmodus(); });
-    app.querySelector("#los").addEventListener("click", () => { cook.step = 0; renderKochmodus(); });
-    return;
-  }
-
-  if (step >= rezept.schritte.length) { renderValidierung(); return; }
-
-  const s = rezept.schritte[step];
-  const hatTimer = s.dauer_sekunden != null && s.dauer_sekunden > 0;
-  cook.timer = hatTimer
-    ? { name: s.timer_name || "Timer", typ: s.timer_typ || "", total: s.dauer_sekunden, rest: s.dauer_sekunden, laeuft: false, gestartet: false, fertig: false, ende: null }
-    : null;
-
-  zeigeApp(`
-    <div class="fade-in cook-screen">
-      <div class="cook-head">
-        <button class="backlink" id="abbrechen">${icon("zurueck", 20)}Abbrechen</button>
-        <span class="cook-step-count">Schritt ${step + 1} von ${rezept.schritte.length}</span>
-      </div>
-      ${progressBar(step + 1, rezept.schritte.length)}
-      ${s.temperatur_c ? `<p class="cook-meta">${s.temperatur_c} °C</p>` : ""}
-      <p class="cook-step">${esc(s.text)}</p>
-      <div id="timer-slot">${timerBoxHtml()}</div>
-      ${hatTimer ? '<p class="centered-note">Der Timer läuft weiter, solange die App offen bleibt.</p>' : ""}
-      <div class="btn-row">
-        ${step > 0 ? `<button class="btn secondary icon-only" id="prev" aria-label="Zurück">${icon("zurueck", 20)}</button>` : ""}
-        <button class="btn" id="next">${step === rezept.schritte.length - 1 ? "Fertig" : "Weiter"}</button>
-      </div>
-    </div>`, `kochen:${step}`);
-
-  app.querySelector("#abbrechen").addEventListener("click", async () => {
-    if (await bestaetige({
-      titel: "Kochen abbrechen?",
-      text: "Der angefangene Durchlauf geht verloren. Es wird nichts abgebucht.",
-      bestaetigen: "Abbrechen", abbrechen: "Weiterkochen", danger: true, symbol: "achtung",
-    })) { cook = null; render(); }
-  });
-  app.querySelector("#prev")?.addEventListener("click", () => { cook.step--; renderKochmodus(); });
-  app.querySelector("#next").addEventListener("click", () => { cook.step++; renderKochmodus(); });
-  bindTimer();
-}
-
-/* --------------------------------------------------------------- Timer
-   Design 12/30: benannter Timer auf Tannenfläche, Fortschrittsbalken,
-   Pause / +1 Min; abgelaufen wechselt die Kachel auf Terrakotta. */
-function timerBoxHtml() {
-  const t = cook?.timer;
-  if (!t) return "";
-  if (t.fertig) {
-    return `
-      <div class="timer-box done">
-        <span class="timer-name">${esc(t.name)} · fertig</span>
-        <span class="timer-display">Fertig!</span>
-        <div class="timer-actions"><button id="timer-aus">Timer aus</button></div>
-      </div>`;
-  }
-  const pct = t.total ? Math.max(0, Math.min(100, ((t.total - t.rest) / t.total) * 100)) : 0;
-  const status = t.laeuft ? "läuft" : t.gestartet ? "pausiert" : (t.typ || "bereit");
-  return `
-    <div class="timer-box">
-      <span class="timer-name">${esc(t.name)} · ${esc(status)}</span>
-      <span class="timer-display" id="timer-display">${fmtZeit(t.rest)}</span>
-      <div class="timer-track"><div id="timer-track-fill" style="width:${pct}%"></div></div>
-      <div class="timer-actions">
-        <button id="timer-toggle">${t.laeuft ? "Pause" : t.gestartet ? "Weiter" : "Timer starten"}</button>
-        <button id="timer-plus">+1 Min</button>
-      </div>
-    </div>`;
-}
-
-function renderTimerBox() {
-  const slot = app.querySelector("#timer-slot");
-  if (!slot) return;
-  slot.innerHTML = timerBoxHtml();
-  bindTimer();
-}
-
-function bindTimer() {
-  app.querySelector("#timer-toggle")?.addEventListener("click", () => {
-    const t = cook.timer;
-    if (t.laeuft) { t.laeuft = false; clearTimerTick(); }
-    else {
-      if (!t.gestartet && "Notification" in window && Notification.permission === "default") Notification.requestPermission();
-      t.gestartet = true;
-      t.laeuft = true;
-      t.ende = Date.now() + t.rest * 1000;
-      startTimerTick();
-    }
-    renderTimerBox();
-  });
-  app.querySelector("#timer-plus")?.addEventListener("click", () => {
-    const t = cook.timer;
-    t.rest += 60;
-    t.total += 60;
-    if (t.laeuft) t.ende += 60000;
-    renderTimerBox();
-  });
-  app.querySelector("#timer-aus")?.addEventListener("click", () => {
-    cook.timer = { ...cook.timer, fertig: false, laeuft: false, gestartet: false, rest: cook.timer.total };
-    renderTimerBox();
-  });
-}
-
-let timerInterval = null;
-function clearTimerTick() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } }
-
-function startTimerTick() {
-  clearTimerTick();
-  timerInterval = setInterval(() => {
-    const t = cook?.timer;
-    if (!t || !t.laeuft) { clearTimerTick(); return; }
-    t.rest = Math.max(0, Math.round((t.ende - Date.now()) / 1000));
-    if (t.rest <= 0) {
-      clearTimerTick();
-      t.laeuft = false;
-      t.fertig = true;
-      if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("Vorratio", { body: `${t.name}: fertig!` });
-      }
-      renderTimerBox();
-      return;
-    }
-    const d = document.getElementById("timer-display");
-    const f = document.getElementById("timer-track-fill");
-    if (d) d.textContent = fmtZeit(t.rest);
-    if (f) f.style.width = `${((t.total - t.rest) / t.total) * 100}%`;
-  }, 250);
-}
-
-function fmtZeit(sek) {
-  if (sek >= 3600) return `${Math.floor(sek / 3600)} h ${Math.round((sek % 3600) / 60)} min`;
-  const m = Math.floor(sek / 60), s2 = sek % 60;
-  return `${m}:${String(s2).padStart(2, "0")}`;
-}
-
-/* Abschluss: Abhaken → Validierung → Abbuchung (Kap. 4.6) */
-function renderValidierung() {
-  const { rezept, portionen } = cook;
-  zeigeApp(`
-    <div class="fade-in">
-      <div style="margin-bottom:20px">
-        ${icon("geschafft", 44, "ic-accent")}
-        <h1 style="margin-top:14px">fertig gekocht</h1>
-        <p class="subtle" style="margin-top:8px">Kurz bestätigen, dann bucht vorratio den Verbrauch ab – mit Toleranzband.</p>
-      </div>
-      <div class="card">
-        <div class="card-row">
-          <h3 style="font-size:18px">${esc(rezept.name)}</h3>
-          <span class="badge neutral">${portionen} ${portionen === 1 ? "Portion" : "Portionen"}</span>
-        </div>
-        <p class="subtle small" style="margin-top:10px">Abgebucht werden die Rezeptmengen × Portionsfaktor. Kleinmengen (EL, TL, Prisen) laufen unter Toleranz.</p>
-      </div>
-      <button class="btn" id="buchen">Abhaken &amp; abbuchen</button>
-      <button class="btn secondary" id="ohne">Fertig ohne Abbuchung</button>
-    </div>`, "kochen-fertig");
-  app.querySelector("#buchen").addEventListener("click", () => {
-    const s = getState();
-    const gebucht = abbuchen(rezept, s.bestand, portionen);
-    s.historie.unshift({ rezeptId: rezept.id, name: rezept.name, portionen, datum: new Date().toISOString() });
-    if (s.einkauf.rezeptId === rezept.id) { s.einkauf.rezept = []; s.einkauf.rezeptId = null; }
-    syncWochenliste(s);
-    save();
-    cook = null;
-    detailRezept = null;      // sonst liegt das Rezept-Detail noch über dem Zielscreen
-    view = "vorrat";
-    render();
-    toast(gebucht.length ? `Verbrauch abgebucht · ${gebucht.length} ${gebucht.length === 1 ? "Position" : "Positionen"}` : "Gekocht – nichts abzubuchen");
-  });
-  app.querySelector("#ohne").addEventListener("click", () => { cook = null; detailRezept = null; view = "heute"; render(); });
-}
 
 /* ------------------------------------------------------------------ Vorrat */
 let vorratAddOffen = false;
@@ -2622,8 +2382,13 @@ function angebotsSetupHtml(a) {
             <input type="text" id="crawl-clientkey" autocomplete="off" value="${esc(a.clientkey)}"></label>
           <label class="field">Zwischenserver (nur falls nötig)
             <input type="text" id="crawl-proxy" autocomplete="off" placeholder="leer lassen" value="${esc(a.proxy)}"></label>
+          ${a.proxy ? `
+            <div class="card hint-card warn" style="margin:-4px 0 12px">
+              ${icon("achtung", 20)}
+              <span class="hint-body"><b>Der Zwischenserver sieht mit</b>Deine Postleitzahl, deine Einkaufsliste und beide Zugangsschlüssel laufen über diese fremde Adresse. Trag hier nur etwas ein, wenn du dem Betreiber vertraust – leer ist der sichere Normalfall.</span>
+            </div>` : ""}
           <button class="chip ${a.demo ? "selected" : ""}" id="crawl-demo">Immer Beispielangebote nutzen</button>
-          <p class="subtle small" style="margin-top:10px">Schritt für Schritt erklärt in docs/angebots-crawl.md.</p>
+          <p class="subtle small" style="margin-top:10px">Marktguru hat keine offizielle Schnittstelle – der Abruf kann jederzeit aufhören zu funktionieren. Dann bleiben die Beispielangebote. Schritt für Schritt erklärt in docs/angebots-crawl.md.</p>
         </div>` : ""}
       <button class="btn small-btn" id="crawl-speichern" style="margin-top:12px">Speichern</button>
     </div>`;
@@ -2738,7 +2503,7 @@ async function starteCrawl(s) {
     crawlFehler = e?.message || String(e);
   }
   crawlLaeuft = null;
-  if (view === "einkauf" && !cook && !detailRezept) renderEinkauf();
+  if (view === "einkauf" && !kochtGerade() && !detailRezept) renderEinkauf();
 }
 
 /* ------------------------------------------------------------------ Wissen */
@@ -3067,7 +2832,7 @@ function renderProfil() {
         <button class="btn secondary" id="import">Import</button>
       </div>
       <input type="file" id="import-file" accept="application/json" hidden>
-      <p class="subtle small" style="margin-top:10px">Alles liegt lokal auf diesem Gerät. Der Export ist dein Backup (auch gegen iOS-Speicherbereinigung) – regelmäßig sichern.</p>
+      <p class="subtle small" style="margin-top:10px">Alles liegt lokal auf diesem Gerät. Der Export ist dein Backup (auch gegen iOS-Speicherbereinigung) – regelmäßig sichern. Dein API-Key steht bewusst nicht in der Sicherungsdatei; beim Import bleibt der Key erhalten, der auf diesem Gerät liegt.</p>
       <button class="btn danger" id="reset">Alle Daten zurücksetzen</button>
       <p class="centered-note" style="margin-top:20px">vorratio v1 · lokal &amp; privat · ersetzt keine Ernährungs- oder ärztliche Beratung</p>
     </div>`, "profil");
@@ -3153,8 +2918,25 @@ function renderProfil() {
 
 /* ------------------------------------------------------------------- Start */
 load();
+initKochmodus({ render, findRezept, syncWochenliste });
+
+/* Scheitert das Speichern (voller Gerätespeicher, iOS räumt den Storage weg),
+   sagen wir es einmal deutlich statt es in der Konsole zu verstecken – sonst
+   arbeitet man weiter und findet beim nächsten Öffnen einen alten Stand vor. */
+let speicherFehlerGemeldet = false;
+onSpeicherFehler(() => {
+  if (speicherFehlerGemeldet) return;
+  speicherFehlerGemeldet = true;
+  dialog({
+    titel: "Konnte nicht gespeichert werden",
+    text: "Der Speicher dieses Geräts ist voll oder für vorratio gesperrt. Deine letzten Änderungen liegen nur noch im geöffneten Fenster. Sichere sie über Profil → Daten exportieren, bevor du die App schließt.",
+    bestaetigen: "Verstanden", danger: true, symbol: "achtung",
+  });
+});
+
 stelleVorschlaegeBereit();   // Push-Fallback: beim Öffnen liegen die Slot-Vorschläge bereit
 stelleSnacksBereit();        // … und die Snack-Ecke gleich mit
+stelleKochenWieder();        // unterbrochenen Kochdurchgang fortsetzen
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
@@ -3171,12 +2953,15 @@ document.addEventListener("visibilitychange", () => {
 });
 
 /* iOS-PWAs werden meist fortgesetzt statt neu geladen – beim Zurückkehren in
-   den Vordergrund zählt das als "Öffnen": Slot prüfen, Vorschläge bereitlegen. */
+   den Vordergrund zählt das als "Öffnen": Slot prüfen, Vorschläge bereitlegen.
+   Läuft ein Kochtimer, wird er hier gegen die Wanduhr nachgezogen: Im
+   Hintergrund friert das Intervall ein, der Zeitstempel nicht. */
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;
+  if (kochtGerade()) { pruefeTimerNachPause(); return; }
   const vorher = getState().vorschlaege;
   const snacksVorher = getState().snackVorschlaege;
   const nachher = stelleVorschlaegeBereit();
   const snacksNachher = stelleSnacksBereit();
-  if (view === "heute" && !cook && !editor && !detailRezept && (nachher !== vorher || snacksNachher !== snacksVorher)) render();
+  if (view === "heute" && !editor && !detailRezept && (nachher !== vorher || snacksNachher !== snacksVorher)) render();
 });

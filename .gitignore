@@ -1,0 +1,4 @@
+# Vorratio hat keine Abhängigkeiten. node_modules entsteht nur, wenn man für
+# tools/browsertest.mjs einmalig playwright-core danebenlegt – das gehört
+# nicht ins Repo.
+node_modules/
