@@ -5,6 +5,8 @@ Vorrats- und Rezept-App für iOS als Homescreen-Web-App (PWA) – rein lokal, oh
 Vorratio kennt den Haushaltsbestand, schlägt daraus dreimal täglich Rezepte vor, führt mit
 benannten Timern durchs Kochen, bucht den Verbrauch automatisch ab (Toleranzprinzip ±10–15 %)
 und hält den Bestand über den Einkauf aktuell – ein geschlossener Kreislauf.
+Was schmeckt, wandert ins Kochbuch: gemerkte und eigene Rezepte bleiben dort, auch
+wenn die Tagesvorschläge längst weitergezogen sind.
 
 ## Ausprobieren
 
@@ -22,6 +24,31 @@ Rezeptdatenbank prüfen (vor jedem Commit an den Daten):
 ```bash
 node tools/validate-db.mjs
 ```
+
+## Stand (v3.1)
+
+Neu gegenüber v3:
+
+- **Kochbuch** (Kap. 4.10): eigener Tab für Rezepte, die bleiben sollen – der
+  Gegenpol zum flüchtigen Tagesrhythmus (jeder Tag würfelt neu, Claude- und
+  Vorrats-Rezepte rotieren in ihrem Pool).
+  - **Merken:** Lesezeichen-Schalter oben rechts in jedem Rezept-Detail.
+    Gespeichert wird eine **vollständige Kopie** im Schema `kruggel-recipe-db/v1` –
+    ein gemerktes Claude- oder Vorrats-Rezept überlebt dadurch die Rotation seines
+    Pools *und* das Löschen im Profil.
+  - **Eigene Rezepte:** Editor für alles, was nicht aus der App kommt. Pflicht sind
+    nur Name, Zutaten und Schritte. Zutaten laufen über eine Vorschlagsliste aus
+    Zutaten-Katalog + eigenen Vorratsartikeln (nur ein eindeutiger Namenstreffer
+    wird mit dem Bestand verknüpft – lieber „zählt nicht" als falsch abgebucht),
+    Minutenangaben werden zu benannten Timern, **Ernährungsform und Allergene
+    leitet Vorratio aus den Zutaten ab** und legt sie korrigierbar vor.
+  - **Vollwertig:** Gemerkte und eigene Rezepte laufen durch dieselbe Maschinerie –
+    Profilfilter, Bestandsabgleich, Einkaufsliste, Kochmodus mit Timern, Abbuchung –
+    und tauchen ganz normal in den Tagesvorschlägen auf.
+  - **Wiederfinden:** Suche über Name, Küche und Zutaten, Filter nach Herkunft
+    (Eigene · Von Claude · Aus dem Vorrat · Aus Vorratio),
+    „N× gekocht" aus der Historie, Bestands-Pill auf der Karte, Freitext-Notiz je
+    Rezept („mit doppelt Knoblauch").
 
 ## Stand (v3)
 
@@ -155,6 +182,7 @@ fonts/                Bricolage Grotesque + Figtree als lokale WOFF2 (kein CDN, 
 js/app.js             Views & Steuerung
 js/icons.js           Duotone-Icon-Set (24er-Raster, Strich 1,6 px)
 js/engine.js          Rezept-Engine: Profilfilter, Bestandsabgleich, Abbuchung
+js/kochbuch.js        Kochbuch: merken/vergessen, eigene Rezepte, Tag-Ableitung aus Zutaten
 js/angebote.js        Angebots-Crawl: Marktguru-Client, Suchprofile, Matching, Markt-Ranking
 js/ai.js              Claude API: Rezeptgenerierung + Bon-Scan (strukturierte Ausgaben)
 js/generator.js       Vorrats-Generator: baut offline Rezepte aus dem Bestand

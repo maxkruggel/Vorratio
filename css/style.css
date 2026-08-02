@@ -375,7 +375,7 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 }
 
 /* ---------------------------------------------------------- Formulare */
-input[type="text"], input[type="number"], input[type="password"], select {
+input[type="text"], input[type="number"], input[type="password"], select, textarea {
   font: inherit;
   font-size: 17px;
   width: 100%;
@@ -385,8 +385,10 @@ input[type="text"], input[type="number"], input[type="password"], select {
   background: var(--surface);
   color: var(--ink);
 }
-input::placeholder { color: var(--ink-mute); opacity: 0.75; }
-input:focus, select:focus { outline: none; border-color: var(--accent); }
+/* Mehrzeilig (Rezeptschritte, Notizen): gleiche Optik, nur wachsend. */
+textarea { line-height: 1.5; resize: vertical; min-height: 66px; display: block; }
+input::placeholder, textarea::placeholder { color: var(--ink-mute); opacity: 0.75; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
 
 /* Chevron aus dem Icon-Set statt System-Pfeil (Design 18). */
 select {
@@ -537,6 +539,53 @@ input[type="range"]::-moz-range-thumb {
   min-height: 44px;
 }
 .tab.active { --duo: var(--accent-soft); color: var(--accent); font-weight: 700; }
+/* Sechs Tabs auf schmalen Geräten: die Beschriftung darf enger stehen,
+   aber nie umbrechen – ein zweizeiliges „koch/buch" sähe kaputt aus. */
+.tab span { white-space: nowrap; letter-spacing: -0.01em; }
+@media (max-width: 380px) { .tab { font-size: 10px; gap: 4px; } }
+
+/* ------------------------------------------------------------- Kochbuch */
+/* Kopfzeile im Rezept-Detail: Zurück links, Merken-Schalter rechts. */
+.detail-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+
+.merk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 40px;
+}
+.merk-btn.an { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--accent-deep); }
+.merk-btn .ic { color: var(--accent); }
+
+/* Editor-Zeilen: Menge · Einheit · Löschen, darunter die Zutat über die volle Breite. */
+.zeile-zutat {
+  display: grid;
+  grid-template-columns: 92px 1fr 40px;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.zeile-zutat:last-of-type { border-bottom: none; }
+.zeile-zutat .voll { grid-column: 1 / -1; }
+.zeile-zutat input, .zeile-zutat select { font-size: 16px; padding: 12px 13px; }
+.zeile-zutat select { padding-right: 36px; background-position: calc(100% - 11px) 50%; }
+.zeile-zutat .icon-btn { justify-self: end; color: var(--ink-mute); }
+
+.zeile-schritt { padding: 14px 0; border-bottom: 1px solid var(--line-soft); }
+.zeile-schritt:first-of-type { padding-top: 6px; }
+.zeile-schritt:last-of-type { border-bottom: none; }
+.zeile-schritt .card-row { margin-bottom: 8px; }
+.zeile-schritt .icon-btn { color: var(--ink-mute); margin: -8px -6px 0 0; }
+.zeile-timer { display: grid; grid-template-columns: 92px 1fr; gap: 8px; margin-top: 8px; }
+.zeile-timer input { font-size: 16px; padding: 12px 13px; }
 
 /* Rubrik-Zeile mit rechtsbündiger Zusatzinfo („1 von 2", „automatisch gesammelt") */
 .section-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
