@@ -483,6 +483,18 @@ input[type="range"]::-moz-range-thumb {
   background: var(--surface); border: 2px solid var(--accent);
 }
 
+/* Ganze, ungeöffnete Packungen neben der offenen (3 × 250 g Tomatenmark) */
+.pack-mehr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.pack-mehr .lbl { font-size: 13px; color: var(--ink-mute); }
+
 /* Schnellwahl unter dem Regler (leer · ¼ · ½ · ¾ · voll) */
 .quick-row { display: flex; gap: 8px; }
 .quick-row .chip { flex: 1; justify-content: center; text-align: center; padding: 9px 0; background: var(--bg); font-weight: 600; color: var(--ink-soft); }

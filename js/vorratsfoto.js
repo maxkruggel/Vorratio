@@ -132,6 +132,12 @@ function fotoEintraege(artikel, freieDaten = () => ({})) {
     } else if (art === "zaehlbar") {
       menge = anzahl ?? 1;
       nachfragen = anzahl == null;                    // verdeckt gestapelt? dann zählt der Mensch
+    } else if (anzahl != null) {
+      /* Mehrere Packungen derselben Schüttgut-Zutat ("drei Tuben Tomatenmark"):
+         gezählte ganze plus die eine offene mit Füllstand. Die Zählung stand
+         im Bild – nachgefragt wird nur, was niemand sehen konnte. */
+      menge = rund10((anzahl - 1 + (fuellstand ?? 1)) * (packung || 500));
+      nachfragen = false;
     } else {
       menge = rund10((fuellstand ?? 0.5) * (packung || 500));
       nachfragen = fuellstand == null;                // blickdichte Packung

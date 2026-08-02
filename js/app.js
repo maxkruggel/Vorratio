@@ -2428,9 +2428,14 @@ function renderVorratEdit(itemId) {
   const item = s.bestand.find((b) => b.id === itemId);
   if (!item) { renderVorrat(); return; }
   const voll = item.packung || ZUTAT_INDEX[item.zutat_id]?.packung || null;
-  const anteil = voll && item.menge != null ? Math.min(1, item.menge / voll) : 0.5;
-
-  const pct = Math.round(anteil * 100);
+  const basis = voll || 500;
+  /* Mehrere Packungen derselben Zutat (3 × 250 g Tomatenmark): die Menge ist
+     „ganze ungeöffnete Packungen + eine offene". Regler und Viertel-Raster
+     beschreiben nur die offene; die ganzen zählt ein eigener Stepper. */
+  const ganze = item.art === "schuettgut" ? Math.max(0, Math.ceil((item.menge ?? 0) / basis) - 1) : 0;
+  const ganzeBasis = ganze * basis;
+  const offen = Math.max(0, (item.menge ?? 0) - ganzeBasis);
+  const pct = item.menge != null ? Math.round(Math.min(1, offen / basis) * 100) : 50;
   const untertitel = [KATEGORIE_NAMEN[item.kategorie]];
   if (item.art === "schuettgut" && voll) untertitel.push(`Packung ${voll} ${item.einheit}`);
   else if (item.art === "zaehlbar") untertitel.push("zählbar");
@@ -2473,6 +2478,14 @@ function renderVorratEdit(itemId) {
         <input type="range" id="fuellstand" min="0" max="100" step="5" value="${pct}" style="--pct:${pct}%" aria-label="Füllstand in Prozent">
         <div class="quick-row">
           ${stufen.map(([label, v]) => `<button class="chip ${naheStufe === v ? "selected" : ""}" data-stufe="${v}">${label}</button>`).join("")}
+        </div>
+        <div class="pack-mehr">
+          <span class="lbl">Ungeöffnet dazu</span>
+          <div class="mini-stepper">
+            <button id="pack-minus" aria-label="Eine ganze Packung weniger" ${ganze ? "" : "disabled"}>${icon("minus", 18)}</button>
+            <span class="count">${ganze}<span class="einheit">× ${basis} ${esc(item.einheit)}</span></span>
+            <button id="pack-plus" class="primary" aria-label="Eine ganze Packung mehr">${icon("plus", 18)}</button>
+          </div>
         </div>
       </div>`;
     fussnote = '<p class="centered-note">Schätzen reicht – vorratio rechnet mit ±10–15 % Spielraum.</p>';
@@ -2536,15 +2549,28 @@ function renderVorratEdit(itemId) {
     stempel();
     renderVorratEdit(itemId);
   }));
+  /* Regler und Raster setzen die offene Packung – die ganzen bleiben stehen. */
   app.querySelectorAll("[data-stufe]").forEach((b) => b.addEventListener("click", () => {
     setzeFuellstand(item, Number(b.dataset.stufe), voll);
+    item.menge += ganzeBasis;
     stempel();
     renderVorratEdit(itemId);
   }));
+  app.querySelector("#pack-minus")?.addEventListener("click", () => {
+    item.menge = Math.max(0, (item.menge ?? 0) - basis);
+    stempel();
+    renderVorratEdit(itemId);
+  });
+  app.querySelector("#pack-plus")?.addEventListener("click", () => {
+    item.menge = (item.menge ?? 0) + basis;
+    stempel();
+    renderVorratEdit(itemId);
+  });
   const slider = app.querySelector("#fuellstand");
   slider?.addEventListener("input", () => {
     const v = Number(slider.value);
     setzeFuellstand(item, v, voll);
+    item.menge += ganzeBasis;
     slider.style.setProperty("--pct", `${v}%`);
     app.querySelector("#pack-fill").style.height = `${v}%`;
     app.querySelector("#menge-label").textContent = mengeAnzeige(item);
