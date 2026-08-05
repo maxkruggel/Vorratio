@@ -3336,31 +3336,53 @@ let ersatzAnw = null;   // Anwendungsfall-Filter (backen/aufschlagen/… , null 
 
 /* Substitutions-DB als browsebarer Wissens-Tab: Kategorie- und Anwendungs-
    Filter, Alternativen priorisiert (1 = neutralste Wahl), Handelsbeispiele
-   mit Eigenmarken zuerst. Profil-Ausschlüsse filtern hart (wie überall). */
+   mit Eigenmarken zuerst. Profil-Ausschlüsse filtern hart (wie überall).
+
+   Die beiden Filterreihen sind zwei unabhängige Achsen und standen früher als
+   eine einzige Chip-Wolke da – dann liest sich „Binden" wie eine Zutat neben
+   „Käse". Sie tragen deshalb je eine Überschrift, die die Frage stellt, die
+   der Filter beantwortet. Dasselbe Missverständnis erzeugt das Ei: Es steht
+   fünfmal in der Liste, weil es nach FUNKTION ersetzt wird und nicht als
+   Zutat – ohne diesen Satz wirken die fünf Karten wie Dubletten. */
 function ersatzTabHtml(s) {
   const eintraege = subsFiltern({ kategorie: ersatzKat, anwendung: ersatzAnw, profil: s.profil });
   const b12 = s.profil.ernaehrungsform === "vegan" ? `
-    <div class="card hint-card"><b>Dauerhinweis für dein veganes Profil</b>${esc(FORM_HINWEISE.vegan[0])}</div>` : "";
+    <div class="card hint-card">${icon("achtung", 20)}
+      <div class="hint-body"><b>Dauerhinweis für dein veganes Profil</b>${esc(FORM_HINWEISE.vegan[0])}</div>
+    </div>` : "";
   const ausgeblendetGesamt = eintraege.reduce((n, e) => n + e.ausgeblendet, 0);
+  const funktionDabei = eintraege.some((e) => e.sub.funktion);
   return `
-    <p class="subtle small" style="margin-bottom:10px">Pflanzliche Alternativen zu tierischen Zutaten – priorisiert, mit Mengenverhältnis und Handelsbeispielen (Stand 08/2026; Sortimente ändern sich).${ausgeblendetGesamt ? ` ${ausgeblendetGesamt} Alternativen sind wegen deiner Ausschlüsse ausgeblendet.` : ""}</p>
+    <p class="subtle small" style="margin-bottom:6px">Eine tierische Zutat fehlt oder soll wegbleiben – wodurch ersetzen? Jede Karte steht für eine Zutat und listet ihre pflanzlichen Alternativen: verlässlichste zuerst, mit Mengenverhältnis, Anwendung und Handelsbeispielen (Stand 08/2026; Sortimente ändern sich).</p>
+    <p class="subtle small" style="margin-bottom:12px">Ersetzt wird hier nur nachgeschlagen, nicht gebucht: Vorrat und Einkaufsliste bleiben, wie sie sind.${ausgeblendetGesamt ? ` ${ausgeblendetGesamt} Alternativen sind wegen deiner Ausschlüsse ausgeblendet.` : ""}</p>
     ${b12}
-    <div class="chip-wrap" style="margin-bottom:8px">
-      <button class="chip ${!ersatzKat ? "selected" : ""}" data-ekat="">Alle</button>
-      ${Object.entries(SUB_KATEGORIEN).map(([id, name]) => `
-        <button class="chip ${ersatzKat === id ? "selected" : ""}" data-ekat="${id}">${esc(name)}</button>`).join("")}
+    <div class="filter-gruppe">
+      <span class="filter-label">welche Zutat ersetzen?</span>
+      <div class="chip-wrap">
+        <button class="chip ${!ersatzKat ? "selected" : ""}" data-ekat="">Alle</button>
+        ${Object.entries(SUB_KATEGORIEN).map(([id, name]) => `
+          <button class="chip ${ersatzKat === id ? "selected" : ""}" data-ekat="${id}">${esc(name)}</button>`).join("")}
+      </div>
     </div>
-    <div class="chip-wrap" style="margin-bottom:16px">
-      <button class="chip ${!ersatzAnw ? "selected" : ""}" data-eanw="">Jede Anwendung</button>
-      ${Object.entries(SUB_ANWENDUNGEN).map(([id, name]) => `
-        <button class="chip ${ersatzAnw === id ? "selected" : ""}" data-eanw="${id}">${esc(name)}</button>`).join("")}
+    <div class="filter-gruppe" style="margin-bottom:16px">
+      <span class="filter-label">wofür im Rezept?</span>
+      <div class="chip-wrap">
+        <button class="chip ${!ersatzAnw ? "selected" : ""}" data-eanw="">Jede Anwendung</button>
+        ${Object.entries(SUB_ANWENDUNGEN).map(([id, name]) => `
+          <button class="chip ${ersatzAnw === id ? "selected" : ""}" data-eanw="${id}">${esc(name)}</button>`).join("")}
+      </div>
     </div>
+    ${funktionDabei ? `
+      <div class="card hint-card">${icon("idee", 20)}
+        <div class="hint-body"><b>Ei hat keinen 1:1-Ersatz</b>Es steht darum mehrfach in der Liste – einmal je Funktion, die es im Rezept übernimmt. Erst die Funktion bestimmen, dann den Ersatz wählen.</div>
+      </div>` : ""}
     ${eintraege.map(({ sub, alternativen }) => `
       <div class="card">
         <div class="card-row">
           <h3>${esc(sub.original_zutat)}</h3>
-          ${sub.funktion_name ? `<span class="badge neutral">${esc(sub.funktion_name)}</span>` : ""}
+          ${sub.funktion_name ? `<span class="badge neutral">Funktion: ${esc(sub.funktion_name)}</span>` : ""}
         </div>
+        ${sub.funktion_frage ? `<p class="small subtle" style="margin-top:4px">${esc(sub.funktion_frage)}</p>` : ""}
         ${alternativen.map((a, i) => {
           const produkte = produkteSortiert(a).slice(0, 3)
             .map((p) => `${esc(p.produkt)} (${p.laeden.map(esc).join(", ")})`).join(" · ");
@@ -3368,14 +3390,16 @@ function ersatzTabHtml(s) {
           <div style="margin-top:${i ? 12 : 8}px${i ? ";border-top:1px solid var(--line, #eceae4);padding-top:10px" : ""}">
             <p><b>${esc(a.alternative_name)}</b> <span class="subtle small">· ${esc(a.verhaeltnis)}</span></p>
             <p class="small subtle" style="margin-top:4px">${esc(a.hinweise || "")}</p>
-            <div class="chip-wrap" style="margin-top:6px">
-              ${(a.geeignet_fuer || []).map((g) => `<span class="badge neutral">${esc(SUB_ANWENDUNGEN[g] || g)}</span>`).join("")}
-            </div>
+            ${(a.geeignet_fuer || []).length ? `
+            <div class="chip-wrap" style="margin-top:6px;align-items:center">
+              <span class="small subtle">geeignet für:</span>
+              ${a.geeignet_fuer.map((g) => `<span class="badge neutral">${esc(SUB_ANWENDUNGEN[g] || g)}</span>`).join("")}
+            </div>` : ""}
             ${a.naehrwert_hinweis ? `<p class="small" style="margin-top:6px;color:var(--accent)">${esc(a.naehrwert_hinweis)}</p>` : ""}
             ${produkte ? `<p class="small subtle" style="margin-top:6px">Im Handel: ${produkte}</p>` : ""}
           </div>`;
         }).join("")}
-      </div>`).join("") || '<div class="empty-state"><p class="small">Keine Alternative passt zu dieser Filter-Kombination.</p></div>'}
+      </div>`).join("") || '<div class="empty-state"><p class="small">Zu dieser Kombination steht nichts in der Datenbank – die untere Reihe auf „Jede Anwendung" zurückzusetzen bringt meist wieder Treffer.</p></div>'}
     <p class="subtle small" style="text-align:center;margin-top:14px">Bei Fertigprodukten (v. a. Worcestersauce, Milchpulver, Brühe) immer Zutatenliste/V-Label prüfen – Rezepturen variieren.</p>`;
 }
 

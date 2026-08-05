@@ -6,6 +6,8 @@
    Prinzipien:
    - Ei ist FUNKTIONSBASIERT modelliert (binden / lockern / aufschlagen / Hauptzutat /
      Geschmack) – es gibt keinen 1:1-Allrounder. Alle anderen Zutaten zutatenbasiert.
+     `funktion_frage` sagt in einem Satz, WANN dieser Datensatz gilt – ohne ihn steht
+     im Wissen-Tab fünfmal „Ei" und niemand weiß, welche Karte die eigene ist.
    - prioritaet 1 = neutralste/verlässlichste Alternative (bei Milchprodukten meist Soja:
      einzige proteinstarke Basis, ~3,5 g Protein/100 ml – Kuhmilch ebenbürtig).
    - geeignet_fuer filtert nach Anwendungsfall (Rezept-Kontext), zutat_ids koppelt an die
@@ -422,6 +424,7 @@ const SUBSTITUTIONEN = [
   {
     id: "sub_ei_binden", original_zutat: "Ei", kategorie: "ei",
     funktion: "binden", funktion_name: "Binden",
+    funktion_frage: "Das Ei hält die Masse zusammen: Bratlinge, Frikadellen, Burger, Brot- und Mürbeteig.",
     zutat_ids: ["ing_ei"],
     alternativen: [
       { alternative_name: "Leinsamen-Ei", basis: "samen", verhaeltnis: "1 Ei = 1 EL geschrotete Leinsamen + 3 EL Wasser",
@@ -441,6 +444,7 @@ const SUBSTITUTIONEN = [
   {
     id: "sub_ei_lockern", original_zutat: "Ei", kategorie: "ei",
     funktion: "lockern_backen", funktion_name: "Lockern & Backen",
+    funktion_frage: "Das Ei macht den Teig locker und saftig: Rührkuchen, Muffins, Pancakes, Waffeln.",
     zutat_ids: ["ing_ei"],
     alternativen: [
       { alternative_name: "Apfelmus", basis: "frucht", verhaeltnis: "1 Ei = 80 g Apfelmus",
@@ -466,6 +470,7 @@ const SUBSTITUTIONEN = [
   {
     id: "sub_ei_hauptzutat", original_zutat: "Ei", kategorie: "ei",
     funktion: "hauptzutat_ruehrei_omelett", funktion_name: "Hauptzutat (Rührei/Omelett)",
+    funktion_frage: "Das Ei ist das Gericht, nicht die Zutat: Rührei, Omelett, Quiche, Eiersalat.",
     zutat_ids: ["ing_ei"],
     alternativen: [
       { alternative_name: "Seidentofu + Kala Namak", basis: "tofu", verhaeltnis: "60 g Seidentofu ≈ 1 Ei",
@@ -480,6 +485,7 @@ const SUBSTITUTIONEN = [
   {
     id: "sub_ei_aufschlagen", original_zutat: "Ei / Eiweiß", kategorie: "ei",
     funktion: "aufschlagen_eischnee", funktion_name: "Aufschlagen / Eischnee",
+    funktion_frage: "Es soll Schaum entstehen, der stehen bleibt: Eischnee, Baiser, Mousse, Cremes.",
     zutat_ids: ["ing_ei"],
     alternativen: [
       { alternative_name: "Aquafaba (Kichererbsenwasser)", basis: "sonstiges", verhaeltnis: "~40 g Aquafaba ≈ 1 Ei (3 EL ≈ 1 Eiweiß)",
@@ -491,6 +497,7 @@ const SUBSTITUTIONEN = [
   {
     id: "sub_ei_geschmack", original_zutat: "Ei-Geschmack", kategorie: "ei",
     funktion: "ei_geschmack", funktion_name: "Ei-Geschmack",
+    funktion_frage: "Die Funktion übernimmt schon etwas anderes – es fehlt nur der Ei-Geschmack: veganer Eiersalat, Mayo, Rührtofu.",
     zutat_ids: ["ing_ei"],
     alternativen: [
       { alternative_name: "Kala Namak (Schwarzsalz)", basis: "sonstiges", verhaeltnis: "nach Geschmack (Prise)",
