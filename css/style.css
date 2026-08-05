@@ -352,6 +352,16 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .choice.selected .badge { background: var(--surface); }
 
 .chip-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Zwei Filterreihen untereinander verschmelzen sonst zu einer Wolke, in der
+   niemand sieht, welcher Chip zu welcher Frage gehört (Wissen → Ersatz). */
+.filter-gruppe { margin-bottom: 12px; }
+.filter-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-mute);
+}
 .chip {
   padding: 9px 15px;
   border: 1px solid var(--line);

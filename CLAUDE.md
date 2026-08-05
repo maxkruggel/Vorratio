@@ -378,7 +378,9 @@ Komposita-Regeln), `marktAuswertung` (Deckung > Ø-Rabatt > Angebotszahl),
 
 **substitution.js** – `ersatzVorschlaege(zutatId, profil)` (beste Alternative je
 Datensatz, fürs Rezept-Detail), `subsFiltern` (Wissen-Tab), `produkteSortiert`
-(Eigenmarken zuerst). Ei ist funktionsbasiert modelliert (mehrere Datensätze).
+(Eigenmarken zuerst). Ei ist funktionsbasiert modelliert (mehrere Datensätze;
+`funktion_name` + `funktion_frage` sagen je Karte, wann sie gilt – sonst steht
+im Wissen-Tab fünfmal „Ei" ohne Unterschied).
 Allergie-Filter über `BASIS_ALLERGENE[alt.basis]`, hart wie überall.
 Die DB beantwortet zwei Fragen: „pflanzlich statt tierisch" (Regelfall) und
 seit den Tofu-Datensätzen auch die Gegenrichtung „Rezept verlangt Tofu, keiner
